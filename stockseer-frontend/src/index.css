@@ -1,0 +1,354 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 210 100% 50%;
+    --primary-foreground: 224 71% 4%;
+    --secondary: 222 84% 5%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 222 84% 5%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 222 84% 5%;
+    --accent-foreground: 213 31% 91%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 213 31% 91%;
+    --border: 222 84% 5%;
+    --input: 222 84% 5%;
+    --ring: 210 100% 50%;
+    
+    /* Custom modern colors */
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 210 40% 98%;
+    --info: 217 91% 60%;
+    --info-foreground: 210 40% 98%;
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --gradient-warning: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  }
+
+  * {
+    @apply border-gray-200 dark:border-dark-600;
+  }
+  
+  body {
+    @apply bg-white dark:bg-dark-900 text-gray-900 dark:text-white font-sans;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  }
+  
+  .font-display {
+    font-family: 'Martel Sans', system-ui, -apple-system, sans-serif;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-soft hover:shadow-glow;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium py-2 px-4 rounded-lg transition-all duration-200 border border-gray-300;
+  }
+  
+  .card {
+    @apply bg-white dark:bg-dark-800 rounded-xl shadow-soft border border-gray-200 dark:border-dark-700 p-6;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-dark-700 text-gray-900 dark:text-white transition-all duration-200;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-600 to-blue-600 bg-clip-text text-transparent;
+  }
+  
+  /* Font utility classes */
+  /* 
+   * Available fonts:
+   * - Poppins: Default body text (applied globally)
+   * - Manrope: Headings (h1-h6 automatically use this)
+   * - Martel Sans: Display text for special emphasis
+   * 
+   * Usage:
+   * - font-heading: Use for section titles and important headings
+   * - font-display: Use for hero text, large numbers, or special emphasis
+   * - font-body: Use for body text (already applied globally)
+   * 
+   * Tailwind classes:
+   * - font-sans: Poppins (default)
+   * - font-heading: Manrope
+   * - font-display: Martel Sans
+   */
+  .font-heading {
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  }
+  
+  .font-display {
+    font-family: 'Martel Sans', system-ui, -apple-system, sans-serif;
+  }
+  
+  .font-body {
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+    opacity: 0;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* UI Component Utilities */
+  .bg-background {
+    background-color: hsl(var(--background));
+  }
+  
+  .bg-card {
+    background-color: hsl(var(--card));
+  }
+  
+  .bg-primary {
+    background-color: hsl(var(--primary));
+  }
+  
+  .bg-secondary {
+    background-color: hsl(var(--secondary));
+  }
+  
+  .bg-muted {
+    background-color: hsl(var(--muted));
+  }
+  
+  .bg-accent {
+    background-color: hsl(var(--accent));
+  }
+  
+  .bg-destructive {
+    background-color: hsl(var(--destructive));
+  }
+  
+  .text-foreground {
+    color: hsl(var(--foreground));
+  }
+  
+  .text-card-foreground {
+    color: hsl(var(--card-foreground));
+  }
+  
+  .text-primary-foreground {
+    color: hsl(var(--primary-foreground));
+  }
+  
+  .text-secondary-foreground {
+    color: hsl(var(--secondary-foreground));
+  }
+  
+  .text-muted-foreground {
+    color: hsl(var(--muted-foreground));
+  }
+  
+  .text-accent-foreground {
+    color: hsl(var(--accent-foreground));
+  }
+  
+  .text-destructive-foreground {
+    color: hsl(var(--destructive-foreground));
+  }
+  
+  .border-border {
+    border-color: hsl(var(--border));
+  }
+  
+  .border-input {
+    border-color: hsl(var(--input));
+  }
+  
+  .ring-ring {
+    --tw-ring-color: hsl(var(--ring));
+  }
+  
+  /* Modern utility classes */
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.4s ease-out forwards;
+  }
+  
+  .animate-bounce-in {
+    animation: bounceIn 0.6s ease-out forwards;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite alternate;
+  }
+  
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .glass-effect-dark {
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .gradient-border {
+    background: var(--gradient-primary);
+    padding: 1px;
+    border-radius: var(--radius);
+  }
+  
+  .gradient-border > * {
+    background: var(--card);
+    border-radius: calc(var(--radius) - 1px);
+  }
+  
+  .hover-lift {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+  }
+  
+  .card-glow {
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.1);
+    transition: all 0.3s ease;
+  }
+  
+  .card-glow:hover {
+    box-shadow: 0 0 30px rgba(102, 126, 234, 0.2);
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes bounceIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.3);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+    70% {
+      transform: scale(0.9);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes pulseGlow {
+    from {
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+    }
+    to {
+      box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
+    }
+  }
+}
