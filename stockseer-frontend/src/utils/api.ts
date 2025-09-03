@@ -3,7 +3,7 @@ import axios from 'axios';
 // Configure axios with base URL and default headers
 const api = axios.create({
   baseURL: 'http://localhost:8000', // Direct connection to Python backend
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, BarChart3, LineChart, Activity, Target, Calendar, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, LineChart, Loader2 } from 'lucide-react';
 import type { StockData, AdvancedMetrics } from '../../types/stock';
 import { stockAPI } from '../../utils/api';
 
@@ -8,7 +8,7 @@ interface PerformanceTabProps {
   stockData: StockData | null;
 }
 
-export default function PerformanceTab({ selectedStock }: PerformanceTabProps) {
+export default function PerformanceTab({ selectedStock, stockData }: PerformanceTabProps) {
   const [selectedPeriod, setSelectedPeriod] = useState('1y');
   const [performanceData, setPerformanceData] = useState<AdvancedMetrics | null>(null);
   const [loading, setLoading] = useState(false);
@@ -120,7 +120,7 @@ export default function PerformanceTab({ selectedStock }: PerformanceTabProps) {
       </div>
 
       {/* Key Performance Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 text-center">
           <div className="flex items-center justify-center space-x-2 mb-2">
             {performanceData.total_return >= 0 ? (
@@ -151,6 +151,12 @@ export default function PerformanceTab({ selectedStock }: PerformanceTabProps) {
             {performanceData.sharpe_ratio.toFixed(2)}
           </div>
           <div className="text-slate-400 text-sm">Sharpe Ratio</div>
+        </div>
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 text-center">
+          <div className="text-blue-400 text-2xl font-bold">
+            {stockData?.dividend ? (stockData.dividend * 100).toFixed(2) + '%' : 'N/A'}
+          </div>
+          <div className="text-slate-400 text-sm">Dividend Yield</div>
         </div>
       </div>
 

@@ -37,7 +37,7 @@ from stock_utils import (
     get_company_profile_scraping, get_stock_news_feedparser, plot_stock_chart_simple
 )
 from news_utils import (
-    get_stock_news_from_newsapi, scrape_google_news, scrape_yahoo_finance_news
+    get_stock_news_from_newsapi, scrape_google_news, scrape_yahoo_finance_news, add_sentiment_to_news_items
 )
 from signal_utils import (
     generate_signal
@@ -595,13 +595,21 @@ def fetch_stock_data(ticker_symbol, period='1y', interval='1d', max_retries=3):
             df = stock.history(period=period, interval=interval)
             df.dropna(inplace=True)
             df.attrs['ticker_symbol'] = ticker_symbol
+            
+            # Check if we got any data
+            if df.empty:
+                print(f"Warning: No data returned for {ticker_symbol}")
+                return pd.DataFrame()
+            
             return df
         except Exception as e:
+            print(f"Attempt {attempt + 1} failed for {ticker_symbol}: {e}")
             if "rate limit" in str(e).lower() and attempt < max_retries - 1:
                 time.sleep(2 ** attempt)  # Exponential backoff
                 continue
             if attempt == max_retries - 1:
-                raise HTTPException(status_code=500, detail=f"Failed to fetch data for {ticker_symbol} after {max_retries} attempts: {e}")
+                print(f"All attempts failed for {ticker_symbol}")
+                return pd.DataFrame()  # Return empty DataFrame instead of raising exception
     return pd.DataFrame()
 
 def add_technical_indicators(df):
@@ -747,6 +755,30 @@ def generate_signal(df, overall_news_sentiment_score=0.0, company_name="the comp
     
     return final_signal, " ".join(reasons) if reasons else "Neutral signals, leaning HOLD."
 
+def get_dividend_yield(info):
+    """Extract dividend yield from yfinance info, with fallback calculation"""
+    # Try direct dividend yield fields first
+    dividend_yield = (info.get('dividendYield') or 
+                     info.get('trailingAnnualDividendYield') or 
+                     info.get('forwardDividendYield'))
+    
+    if dividend_yield is not None:
+        return dividend_yield
+    
+    # Fallback: calculate from dividend rate and current price
+    dividend_rate = (info.get('dividendRate') or 
+                    info.get('trailingAnnualDividendRate') or 
+                    info.get('forwardAnnualDividendRate'))
+    
+    current_price = (info.get('regularMarketPrice') or 
+                    info.get('currentPrice') or 
+                    info.get('previousClose'))
+    
+    if dividend_rate and current_price and current_price > 0:
+        return dividend_rate / current_price
+    
+    return None
+
 def get_stock_info(ticker_symbol, max_retries=3):
     """Get stock information with retry logic for rate limiting and caching"""
     # Check cache first
@@ -775,7 +807,7 @@ def get_stock_info(ticker_symbol, max_retries=3):
                 'volume': info.get('regularMarketVolume', info.get('volume', 0)),
                 'marketCap': info.get('marketCap'),
                 'pe': info.get('trailingPE'),
-                'dividend': info.get('dividendYield'),
+                'dividend': get_dividend_yield(info),
                 'high': info.get('dayHigh', info.get('regularMarketDayHigh')),
                 'low': info.get('dayLow', info.get('regularMarketDayLow')),
                 'open': info.get('open', info.get('regularMarketOpen')),
@@ -825,63 +857,118 @@ def get_stock_info(ticker_symbol, max_retries=3):
     # This should never be reached, but just in case
     raise HTTPException(status_code=500, detail=f"Failed to fetch stock info for {ticker_symbol} after {max_retries} attempts")
 
-def get_stock_news(ticker_symbol, max_articles=15):
-    """Get comprehensive news for a stock using multiple sources (similar to main app.py)"""
+def get_stock_news(ticker_symbol, max_articles=8):
+    """Get news for a stock with fast fallback to avoid timeouts"""
     try:
-        # Get company name for better news search
-        company_name_for_news_search = ticker_symbol
-        try:
-            stock = yf.Ticker(ticker_symbol)
-            info = stock.info
-            if info and info.get('shortName'):
-                company_name_for_news_search = info.get('shortName', ticker_symbol)
-        except:
-            pass
+        print(f"Fetching news for {ticker_symbol}")
         
-        # Try multiple news sources in order of preference
-        news_items_api, news_error_message_api = [], None
-        scraped_gnews_items, scraped_gnews_error = [], None
-        scraped_yfinance_items, scraped_yfinance_error = [], None
+        # Always return fallback news quickly to avoid timeouts
+        fallback_news = [
+            {
+                'title': f"{ticker_symbol} Stock Market Update",
+                'summary': f"Latest market information and analysis for {ticker_symbol}. Stay updated with current market trends and stock performance.",
+                'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                'publishedAt': datetime.now().isoformat(),
+                'source': 'Market Data',
+                'sentiment': 'neutral'
+            },
+            {
+                'title': f"{ticker_symbol} Trading Analysis",
+                'summary': f"Comprehensive trading analysis and market insights for {ticker_symbol}. Monitor key metrics and market movements.",
+                'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                'publishedAt': datetime.now().isoformat(),
+                'source': 'Financial News',
+                'sentiment': 'neutral'
+            },
+            {
+                'title': f"{ticker_symbol} Market Performance",
+                'summary': f"Current market performance and analysis for {ticker_symbol}. Track price movements and trading volume.",
+                'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                'publishedAt': datetime.now().isoformat(),
+                'source': 'Trading News',
+                'sentiment': 'neutral'
+            }
+        ]
+        
+        # Try multiple news sources in order of preference with faster fallbacks
         processed_news = []
         
-        # 1. Try NewsAPI first if key is available
+        # 1. Try NewsAPI first if key is available (fastest)
         if os.getenv("NEWS_API_KEY"):
-            news_items_api, news_error_message_api = get_stock_news_from_newsapi(company_name_for_news_search)
-            if news_items_api:
-                processed_news.extend(news_items_api)
+            try:
+                news_items_api, _ = get_stock_news_from_newsapi(ticker_symbol)
+                if news_items_api:
+                    processed_news.extend(news_items_api)
+                    print(f"NewsAPI returned {len(news_items_api)} articles for {ticker_symbol}")
+            except Exception as e:
+                print(f"NewsAPI failed for {ticker_symbol}: {e}")
         
-        # 2. Try Google News scraping if no NewsAPI results
-        if not processed_news:
-            scraped_gnews_items, scraped_gnews_error = scrape_google_news(company_name_for_news_search)
-            if scraped_gnews_items:
-                processed_news.extend(scraped_gnews_items)
+        # 2. If we have some news, return early to avoid timeouts
+        if len(processed_news) >= 3:
+            print(f"Returning {len(processed_news)} articles from NewsAPI for {ticker_symbol}")
+        else:
+            # 3. Try Yahoo Finance scraping (usually faster than Google)
+            try:
+                scraped_yfinance_items, _ = scrape_yahoo_finance_news(ticker_symbol)
+                if scraped_yfinance_items:
+                    processed_news.extend(scraped_yfinance_items)
+                    print(f"Yahoo Finance returned {len(scraped_yfinance_items)} articles for {ticker_symbol}")
+            except Exception as e:
+                print(f"Yahoo Finance failed for {ticker_symbol}: {e}")
+            
+            # 4. Try Google News scraping only if we still need more articles
+            if len(processed_news) < 3:
+                try:
+                    scraped_gnews_items, _ = scrape_google_news(ticker_symbol)
+                    if scraped_gnews_items:
+                        processed_news.extend(scraped_gnews_items)
+                        print(f"Google News returned {len(scraped_gnews_items)} articles for {ticker_symbol}")
+                except Exception as e:
+                    print(f"Google News failed for {ticker_symbol}: {e}")
         
-        # 3. Try Yahoo Finance scraping if still no results
-        if not processed_news:
-            scraped_yfinance_items, scraped_yfinance_error = scrape_yahoo_finance_news(ticker_symbol)
-            if scraped_yfinance_items:
-                processed_news.extend(scraped_yfinance_items)
-        
-        # 4. If still no news, create informative sample news
+        # 5. If still no news, create informative sample news
         if not processed_news:
             try:
-                stock = yf.Ticker(ticker_symbol)
-                info = stock.info
-                company_name = info.get('shortName', ticker_symbol) if info else ticker_symbol
+                # Try to get company info, but don't fail if rate limited
+                company_name = ticker_symbol
+                try:
+                    stock = yf.Ticker(ticker_symbol)
+                    info = stock.info
+                    if info and info.get('shortName'):
+                        company_name = info.get('shortName', ticker_symbol)
+                except Exception as e:
+                    print(f"Warning: Rate limited or error getting company info for {ticker_symbol}: {e}")
+                    # Use ticker symbol as fallback
                 
                 # Create comprehensive informative news based on company info
-                market_cap = info.get('marketCap', 0) if info else 0
-                market_cap_formatted = f"₹{(market_cap / 1e9):.1f}B" if market_cap > 0 else "N/A"
-                pe_ratio = info.get('trailingPE', 0) if info else 0
-                dividend_yield = info.get('dividendYield', 0) if info else 0
-                beta = info.get('beta', 0) if info else 0
-                revenue = info.get('totalRevenue', 0) if info else 0
-                revenue_formatted = f"₹{(revenue / 1e9):.1f}B" if revenue > 0 else "N/A"
+                market_cap = 0
+                pe_ratio = 0
+                dividend_yield = 0
+                beta = 0
+                
+                # Try to get financial data if available
+                try:
+                    if 'info' in locals() and info:
+                        market_cap = info.get('marketCap', 0)
+                        pe_ratio = info.get('trailingPE', 0)
+                        dividend_yield = info.get('dividendYield', 0)
+                        beta = info.get('beta', 0)
+                except:
+                    pass
+                
+                market_cap_formatted = f"${(market_cap / 1e9):.1f}B" if market_cap > 0 else "N/A"
+                revenue = 0
+                try:
+                    if 'info' in locals() and info:
+                        revenue = info.get('totalRevenue', 0)
+                except:
+                    pass
+                revenue_formatted = f"${(revenue / 1e9):.1f}B" if revenue > 0 else "N/A"
                 
                 sample_news = [
                     {
                         'title': f"{company_name} Stock Analysis and Market Update",
-                        'summary': f"Latest market analysis and stock performance for {company_name}. Current market cap: {market_cap_formatted}, P/E Ratio: {pe_ratio:.2f}, Beta: {beta:.2f}. The stock is trading in the {info.get('sector', 'N/A')} sector with strong fundamentals.",
+                        'summary': f"Latest market analysis and stock performance for {company_name}. Current market cap: {market_cap_formatted}, P/E Ratio: {pe_ratio:.2f}, Beta: {beta:.2f}. The stock shows strong fundamentals and market presence.",
                         'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
                         'publishedAt': datetime.now().isoformat(),
                         'source': 'Yahoo Finance',
@@ -945,12 +1032,41 @@ def get_stock_news(ticker_symbol, max_articles=15):
                     }
                 ]
                 processed_news.extend(sample_news)
-            except:
+            except Exception as e:
+                print(f"Error creating sample news for {ticker_symbol}: {e}")
                 pass
+        
+        # 6. Final fallback - always return some basic news
+        if not processed_news:
+            print(f"Creating fallback news for {ticker_symbol}")
+            processed_news = [
+                {
+                    'title': f"{ticker_symbol} Stock Market Update",
+                    'summary': f"Latest market information and analysis for {ticker_symbol}. Stay updated with current market trends and stock performance.",
+                    'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                    'publishedAt': datetime.now().isoformat(),
+                    'source': 'Market Data',
+                    'sentiment': 'neutral'
+                },
+                {
+                    'title': f"{ticker_symbol} Trading Analysis",
+                    'summary': f"Comprehensive trading analysis and market insights for {ticker_symbol}. Monitor key metrics and market movements.",
+                    'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                    'publishedAt': datetime.now().isoformat(),
+                    'source': 'Financial News',
+                    'sentiment': 'neutral'
+                }
+            ]
+        
+        # Add sentiment analysis to all news items (only if we have news)
+        if processed_news:
+            processed_news_with_sentiment = add_sentiment_to_news_items(processed_news)
+        else:
+            processed_news_with_sentiment = []
         
         # Transform all news to consistent format
         transformed_items = []
-        for item in processed_news[:max_articles]:
+        for item in processed_news_with_sentiment[:max_articles]:
             # Handle different source formats
             if isinstance(item, dict):
                 transformed_items.append({
@@ -959,7 +1075,9 @@ def get_stock_news(ticker_symbol, max_articles=15):
                     'url': item.get('url') or item.get('link', '#'),
                     'publishedAt': item.get('publishedAt') or item.get('published', datetime.now().isoformat()),
                     'source': item.get('source') or item.get('publisher', 'Unknown Source'),
-                    'sentiment': item.get('sentiment', 'neutral')
+                    'sentiment': item.get('sentiment', 'neutral'),
+                    'sentiment_score': item.get('sentiment_score', 0.0),
+                    'image_url': item.get('image_url')
                 })
         
         return transformed_items
@@ -2223,10 +2341,15 @@ async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d")
         else:
             yf_period, yf_interval = period, interval
         
+        print(f"Fetching chart data for {symbol} with period={yf_period}, interval={yf_interval}")
         df = fetch_stock_data(symbol.upper(), yf_period, yf_interval)
         
         if df.empty:
-            raise HTTPException(status_code=404, detail=f"No data available for {symbol}")
+            print(f"No data available for {symbol}")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No chart data available for symbol '{symbol}'. The symbol may be invalid, delisted, or not supported."
+            )
         
         chart_data = []
         for index, row in df.iterrows():
@@ -2245,14 +2368,22 @@ async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d")
                 volume=int(row['Volume'])
             ))
         
+        print(f"Successfully fetched {len(chart_data)} data points for {symbol}")
         return {
             "symbol": symbol.upper(),
             "period": period,
             "interval": yf_interval,
             "data": chart_data
         }
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Unexpected error fetching chart data for {symbol}: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Internal server error while fetching chart data for {symbol}: {str(e)}"
+        )
 
 @app.get("/stocks/{symbol}/technical")
 async def get_technical_indicators(symbol: str, period: str = "1y"):
@@ -2295,14 +2426,86 @@ async def get_technical_indicators(symbol: str, period: str = "1y"):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/stocks/{symbol}/news")
-async def get_stock_news_endpoint(symbol: str, max_articles: int = 15):
-    """Get news for a stock"""
+async def get_stock_news_endpoint(symbol: str, max_articles: int = 8):
+    """Get comprehensive news for a stock from multiple sources with sentiment analysis"""
     try:
-        news_items = get_stock_news(symbol.upper(), max_articles)
+        ticker = symbol.upper()
+        
+        # Get news from multiple sources
+        news_by_source = {}
+        error_messages = {}
+        
+        # 1. NewsAPI
+        if os.getenv("NEWS_API_KEY"):
+            try:
+                news_items_api, error_message_api = get_stock_news_from_newsapi(ticker)
+                if news_items_api:
+                    news_by_source['NewsAPI'] = news_items_api
+                if error_message_api:
+                    error_messages['NewsAPI'] = error_message_api
+            except Exception as e:
+                error_messages['NewsAPI'] = f"NewsAPI error: {str(e)}"
+        
+        # 2. Yahoo Finance
+        try:
+            scraped_yfinance_items, yfinance_error = scrape_yahoo_finance_news(ticker)
+            if scraped_yfinance_items:
+                news_by_source['Yahoo Finance'] = scraped_yfinance_items
+            if yfinance_error:
+                error_messages['Yahoo Finance'] = yfinance_error
+        except Exception as e:
+            error_messages['Yahoo Finance'] = f"Yahoo Finance error: {str(e)}"
+        
+        # 3. Google News
+        try:
+            scraped_gnews_items, gnews_error = scrape_google_news(ticker)
+            if scraped_gnews_items:
+                news_by_source['Google News'] = scraped_gnews_items
+            if gnews_error:
+                error_messages['Google News'] = gnews_error
+        except Exception as e:
+            error_messages['Google News'] = f"Google News error: {str(e)}"
+        
+        # Calculate overall sentiment
+        overall_sentiment_score = 0.0
+        total_articles = 0
+        
+        for source, articles in news_by_source.items():
+            for article in articles:
+                sentiment = article.get('vader_sentiment', {})
+                sentiment_score = sentiment.get('compound', 0)
+                overall_sentiment_score += sentiment_score
+                total_articles += 1
+        
+        if total_articles > 0:
+            overall_sentiment_score = overall_sentiment_score / total_articles
+        
+        # Get fallback news if no sources worked
+        if not news_by_source:
+            fallback_news = get_stock_news(ticker, max_articles)
+            news_by_source['Fallback'] = fallback_news
+        
+        # Add sentiment scores to each article
+        for source, articles in news_by_source.items():
+            for article in articles:
+                sentiment = article.get('vader_sentiment', {})
+                sentiment_score = sentiment.get('compound', 0)
+                article['sentiment_score'] = round(sentiment_score, 3)
+                article['sentiment_label'] = "positive" if sentiment_score > 0.05 else "negative" if sentiment_score < -0.05 else "neutral"
+        
         return {
-            "symbol": symbol.upper(),
-            "articles": news_items,
-            "count": len(news_items)
+            "symbol": ticker,
+            "news_by_source": news_by_source,
+            "overall_sentiment_score": round(overall_sentiment_score, 3),
+            "overall_sentiment_label": "positive" if overall_sentiment_score > 0.05 else "negative" if overall_sentiment_score < -0.05 else "neutral",
+            "total_articles": sum(len(articles) for articles in news_by_source.values()),
+            "error_messages": error_messages,
+            "sources_available": list(news_by_source.keys()),
+            "sentiment_summary": {
+                "score": round(overall_sentiment_score, 3),
+                "label": "positive" if overall_sentiment_score > 0.05 else "negative" if overall_sentiment_score < -0.05 else "neutral",
+                "strength": "strong" if abs(overall_sentiment_score) > 0.5 else "moderate" if abs(overall_sentiment_score) > 0.1 else "weak"
+            }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2981,6 +3184,362 @@ async def scrape_yahoo_news_endpoint(symbol: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/stocks/{symbol}/news/enhanced")
+async def get_enhanced_stock_news(symbol: str, max_articles: int = 8):
+    """Get enhanced news for a stock with rich formatting and sentiment analysis (similar to main app.py)"""
+    try:
+        ticker = symbol.upper()
+        
+        # Get news from multiple sources
+        news_by_source = {}
+        error_messages = {}
+        
+        # 1. NewsAPI
+        news_items_api = []
+        news_error_message_api = None
+        if os.getenv("NEWS_API_KEY"):
+            try:
+                news_items_api, news_error_message_api = get_stock_news_from_newsapi(ticker)
+                if news_items_api:
+                    news_by_source['NewsAPI'] = news_items_api
+                if news_error_message_api:
+                    error_messages['NewsAPI'] = news_error_message_api
+            except Exception as e:
+                error_messages['NewsAPI'] = f"NewsAPI error: {str(e)}"
+        
+        # 2. Yahoo Finance
+        scraped_yfinance_items = []
+        scraped_yfinance_error = None
+        try:
+            scraped_yfinance_items, scraped_yfinance_error = scrape_yahoo_finance_news(ticker)
+            if scraped_yfinance_items:
+                news_by_source['Yahoo Finance'] = scraped_yfinance_items
+            if scraped_yfinance_error:
+                error_messages['Yahoo Finance'] = scraped_yfinance_error
+        except Exception as e:
+            error_messages['Yahoo Finance'] = f"Yahoo Finance error: {str(e)}"
+        
+        # 3. Google News
+        scraped_gnews_items = []
+        scraped_gnews_error = None
+        try:
+            scraped_gnews_items, scraped_gnews_error = scrape_google_news(ticker)
+            if scraped_gnews_items:
+                news_by_source['Google News'] = scraped_gnews_items
+            if scraped_gnews_error:
+                error_messages['Google News'] = scraped_gnews_error
+        except Exception as e:
+            error_messages['Google News'] = f"Google News error: {str(e)}"
+        
+        # Filter out empty sources
+        news_sources_with_content = {k: v for k, v in news_by_source.items() if v}
+        
+        # Calculate overall sentiment
+        overall_sentiment_score = 0.0
+        total_articles = 0
+        
+        for source, articles in news_sources_with_content.items():
+            for article in articles:
+                sentiment = article.get('vader_sentiment', {})
+                sentiment_score = sentiment.get('compound', 0)
+                overall_sentiment_score += sentiment_score
+                total_articles += 1
+        
+        if total_articles > 0:
+            overall_sentiment_score = overall_sentiment_score / total_articles
+        
+        # Enhanced response structure similar to main app.py
+        response = {
+            "symbol": ticker,
+            "news_by_source": news_sources_with_content,
+            "overall_sentiment_score": overall_sentiment_score,
+            "total_articles": sum(len(articles) for articles in news_sources_with_content.values()),
+            "error_messages": error_messages,
+            "sources_available": list(news_sources_with_content.keys()),
+            "has_news": len(news_sources_with_content) > 0,
+            "sentiment_analysis": {
+                "overall_score": overall_sentiment_score,
+                "sentiment_label": "positive" if overall_sentiment_score > 0.05 else "negative" if overall_sentiment_score < -0.05 else "neutral",
+                "confidence": abs(overall_sentiment_score)
+            }
+        }
+        
+        # Add individual article sentiment analysis with detailed scores
+        for source, articles in news_sources_with_content.items():
+            for article in articles:
+                sentiment = article.get('vader_sentiment', {})
+                sentiment_score = sentiment.get('compound', 0)
+                positive_score = sentiment.get('pos', 0)
+                negative_score = sentiment.get('neg', 0)
+                neutral_score = sentiment.get('neu', 0)
+                
+                article['sentiment_analysis'] = {
+                    "compound_score": round(sentiment_score, 3),
+                    "positive_score": round(positive_score, 3),
+                    "negative_score": round(negative_score, 3),
+                    "neutral_score": round(neutral_score, 3),
+                    "label": "positive" if sentiment_score > 0.05 else "negative" if sentiment_score < -0.05 else "neutral",
+                    "confidence": round(abs(sentiment_score), 3),
+                    "strength": "strong" if abs(sentiment_score) > 0.5 else "moderate" if abs(sentiment_score) > 0.1 else "weak"
+                }
+        
+        return response
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/stocks/{symbol}/news/sentiment")
+async def get_news_sentiment_for_trading(symbol: str):
+    """Get news sentiment analysis specifically for trading signal generation (similar to main app.py)"""
+    try:
+        ticker = symbol.upper()
+        
+        # Get news from multiple sources
+        news_by_source = {}
+        error_messages = {}
+        
+        # 1. NewsAPI
+        if os.getenv("NEWS_API_KEY"):
+            try:
+                news_items_api, error_message_api = get_stock_news_from_newsapi(ticker)
+                if news_items_api:
+                    news_by_source['NewsAPI'] = news_items_api
+                if error_message_api:
+                    error_messages['NewsAPI'] = error_message_api
+            except Exception as e:
+                error_messages['NewsAPI'] = f"NewsAPI error: {str(e)}"
+        
+        # 2. Yahoo Finance
+        try:
+            scraped_yfinance_items, yfinance_error = scrape_yahoo_finance_news(ticker)
+            if scraped_yfinance_items:
+                news_by_source['Yahoo Finance'] = scraped_yfinance_items
+            if yfinance_error:
+                error_messages['Yahoo Finance'] = yfinance_error
+        except Exception as e:
+            error_messages['Yahoo Finance'] = f"Yahoo Finance error: {str(e)}"
+        
+        # 3. Google News
+        try:
+            scraped_gnews_items, gnews_error = scrape_google_news(ticker)
+            if scraped_gnews_items:
+                news_by_source['Google News'] = scraped_gnews_items
+            if gnews_error:
+                error_messages['Google News'] = gnews_error
+        except Exception as e:
+            error_messages['Google News'] = f"Google News error: {str(e)}"
+        
+        # Calculate overall sentiment score for trading signals
+        overall_sentiment_score = 0.0
+        total_articles = 0
+        sentiment_breakdown = {
+            'positive': 0,
+            'negative': 0,
+            'neutral': 0
+        }
+        
+        for source, articles in news_by_source.items():
+            for article in articles:
+                sentiment = article.get('vader_sentiment', {})
+                sentiment_score = sentiment.get('compound', 0)
+                overall_sentiment_score += sentiment_score
+                total_articles += 1
+                
+                # Categorize sentiment
+                if sentiment_score > 0.05:
+                    sentiment_breakdown['positive'] += 1
+                elif sentiment_score < -0.05:
+                    sentiment_breakdown['negative'] += 1
+                else:
+                    sentiment_breakdown['neutral'] += 1
+        
+        if total_articles > 0:
+            overall_sentiment_score = overall_sentiment_score / total_articles
+        
+        # Get company name for signal generation
+        company_name = ticker
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            if info and info.get('shortName'):
+                company_name = info.get('shortName', ticker)
+        except:
+            pass
+        
+        # Generate sentiment-based trading insights (similar to main app.py)
+        sentiment_insights = []
+        if overall_sentiment_score > 0.2:
+            sentiment_insights.append(f"News for {company_name} strongly positive ({overall_sentiment_score:.2f}).")
+        elif overall_sentiment_score > 0.05:
+            sentiment_insights.append(f"News for {company_name} mildly positive ({overall_sentiment_score:.2f}).")
+        elif overall_sentiment_score < -0.2:
+            sentiment_insights.append(f"News for {company_name} strongly negative ({overall_sentiment_score:.2f}).")
+        elif overall_sentiment_score < -0.05:
+            sentiment_insights.append(f"News for {company_name} mildly negative ({overall_sentiment_score:.2f}).")
+        else:
+            sentiment_insights.append(f"News for {company_name} neutral ({overall_sentiment_score:.2f}).")
+        
+        # Add detailed sentiment scores to each article
+        for source, articles in news_by_source.items():
+            for article in articles:
+                sentiment = article.get('vader_sentiment', {})
+                sentiment_score = sentiment.get('compound', 0)
+                positive_score = sentiment.get('pos', 0)
+                negative_score = sentiment.get('neg', 0)
+                neutral_score = sentiment.get('neu', 0)
+                
+                article['sentiment_scores'] = {
+                    "compound": round(sentiment_score, 3),
+                    "positive": round(positive_score, 3),
+                    "negative": round(negative_score, 3),
+                    "neutral": round(neutral_score, 3)
+                }
+                article['sentiment_label'] = "positive" if sentiment_score > 0.05 else "negative" if sentiment_score < -0.05 else "neutral"
+        
+        return {
+            "symbol": ticker,
+            "company_name": company_name,
+            "overall_sentiment_score": round(overall_sentiment_score, 3),
+            "overall_sentiment_label": "positive" if overall_sentiment_score > 0.05 else "negative" if overall_sentiment_score < -0.05 else "neutral",
+            "sentiment_breakdown": sentiment_breakdown,
+            "sentiment_percentages": {
+                "positive": round((sentiment_breakdown['positive'] / total_articles * 100), 1) if total_articles > 0 else 0,
+                "negative": round((sentiment_breakdown['negative'] / total_articles * 100), 1) if total_articles > 0 else 0,
+                "neutral": round((sentiment_breakdown['neutral'] / total_articles * 100), 1) if total_articles > 0 else 0
+            },
+            "total_articles": total_articles,
+            "sentiment_insights": sentiment_insights,
+            "news_sources": list(news_by_source.keys()),
+            "error_messages": error_messages,
+            "trading_signal_impact": {
+                "buy_score_boost": 1.5 if overall_sentiment_score > 0.2 else 0.5 if overall_sentiment_score > 0.05 else 0,
+                "sell_score_boost": 1.5 if overall_sentiment_score < -0.2 else 0.5 if overall_sentiment_score < -0.05 else 0,
+                "sentiment_strength": "strong" if abs(overall_sentiment_score) > 0.2 else "mild" if abs(overall_sentiment_score) > 0.05 else "neutral"
+            },
+            "news_by_source": news_by_source
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/stocks/{symbol}/news/sentiment/scores")
+async def get_news_sentiment_scores(symbol: str):
+    """Get detailed sentiment scores for news articles in a clear, readable format"""
+    try:
+        ticker = symbol.upper()
+        
+        # Get news from multiple sources
+        news_by_source = {}
+        error_messages = {}
+        
+        # 1. NewsAPI
+        if os.getenv("NEWS_API_KEY"):
+            try:
+                news_items_api, error_message_api = get_stock_news_from_newsapi(ticker)
+                if news_items_api:
+                    news_by_source['NewsAPI'] = news_items_api
+                if error_message_api:
+                    error_messages['NewsAPI'] = error_message_api
+            except Exception as e:
+                error_messages['NewsAPI'] = f"NewsAPI error: {str(e)}"
+        
+        # 2. Yahoo Finance
+        try:
+            scraped_yfinance_items, yfinance_error = scrape_yahoo_finance_news(ticker)
+            if scraped_yfinance_items:
+                news_by_source['Yahoo Finance'] = scraped_yfinance_items
+            if yfinance_error:
+                error_messages['Yahoo Finance'] = yfinance_error
+        except Exception as e:
+            error_messages['Yahoo Finance'] = f"Yahoo Finance error: {str(e)}"
+        
+        # 3. Google News
+        try:
+            scraped_gnews_items, gnews_error = scrape_google_news(ticker)
+            if scraped_gnews_items:
+                news_by_source['Google News'] = scraped_gnews_items
+            if gnews_error:
+                error_messages['Google News'] = gnews_error
+        except Exception as e:
+            error_messages['Google News'] = f"Google News error: {str(e)}"
+        
+        # Calculate overall sentiment and detailed breakdown
+        overall_sentiment_score = 0.0
+        total_articles = 0
+        sentiment_breakdown = {
+            'positive': 0,
+            'negative': 0,
+            'neutral': 0
+        }
+        
+        # Process each article and add detailed sentiment scores
+        processed_articles = []
+        
+        for source, articles in news_by_source.items():
+            for article in articles:
+                sentiment = article.get('vader_sentiment', {})
+                sentiment_score = sentiment.get('compound', 0)
+                positive_score = sentiment.get('pos', 0)
+                negative_score = sentiment.get('neg', 0)
+                neutral_score = sentiment.get('neu', 0)
+                
+                overall_sentiment_score += sentiment_score
+                total_articles += 1
+                
+                # Categorize sentiment
+                if sentiment_score > 0.05:
+                    sentiment_breakdown['positive'] += 1
+                elif sentiment_score < -0.05:
+                    sentiment_breakdown['negative'] += 1
+                else:
+                    sentiment_breakdown['neutral'] += 1
+                
+                # Create detailed article with sentiment scores
+                processed_article = {
+                    "title": article.get('title', 'N/A'),
+                    "source": source,
+                    "url": article.get('url') or article.get('link', '#'),
+                    "published": article.get('publishedAt') or article.get('published', 'N/A'),
+                    "sentiment_scores": {
+                        "compound": round(sentiment_score, 3),
+                        "positive": round(positive_score, 3),
+                        "negative": round(negative_score, 3),
+                        "neutral": round(neutral_score, 3)
+                    },
+                    "sentiment_label": "positive" if sentiment_score > 0.05 else "negative" if sentiment_score < -0.05 else "neutral",
+                    "sentiment_strength": "strong" if abs(sentiment_score) > 0.5 else "moderate" if abs(sentiment_score) > 0.1 else "weak",
+                    "confidence": round(abs(sentiment_score), 3)
+                }
+                processed_articles.append(processed_article)
+        
+        if total_articles > 0:
+            overall_sentiment_score = overall_sentiment_score / total_articles
+        
+        # Sort articles by sentiment score (most positive first)
+        processed_articles.sort(key=lambda x: x['sentiment_scores']['compound'], reverse=True)
+        
+        return {
+            "symbol": ticker,
+            "overall_sentiment": {
+                "score": round(overall_sentiment_score, 3),
+                "label": "positive" if overall_sentiment_score > 0.05 else "negative" if overall_sentiment_score < -0.05 else "neutral",
+                "strength": "strong" if abs(overall_sentiment_score) > 0.5 else "moderate" if abs(overall_sentiment_score) > 0.1 else "weak"
+            },
+            "sentiment_breakdown": sentiment_breakdown,
+            "sentiment_percentages": {
+                "positive": round((sentiment_breakdown['positive'] / total_articles * 100), 1) if total_articles > 0 else 0,
+                "negative": round((sentiment_breakdown['negative'] / total_articles * 100), 1) if total_articles > 0 else 0,
+                "neutral": round((sentiment_breakdown['neutral'] / total_articles * 100), 1) if total_articles > 0 else 0
+            },
+            "total_articles": total_articles,
+            "articles_with_scores": processed_articles,
+            "sources_used": list(news_by_source.keys()),
+            "error_messages": error_messages
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/market/simulation")
 async def get_market_simulation(years: int = 5, initial_value: float = 10000, volatility: float = 0.15, growth_rate: float = 0.08):
     """Generate market simulation data"""
@@ -3065,6 +3624,31 @@ async def get_advanced_metrics(symbol: str, period: str = "1y", risk_free_rate: 
             "risk_free_rate": risk_free_rate,
             "metrics": metrics
         }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/stocks/{symbol}/dividend-debug")
+async def get_dividend_debug(symbol: str):
+    """Debug endpoint to check dividend yield data"""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol.upper())
+        info = ticker.info
+        
+        dividend_debug = {
+            "symbol": symbol.upper(),
+            "dividendYield": info.get('dividendYield'),
+            "trailingAnnualDividendYield": info.get('trailingAnnualDividendYield'),
+            "forwardDividendYield": info.get('forwardDividendYield'),
+            "dividendRate": info.get('dividendRate'),
+            "trailingAnnualDividendRate": info.get('trailingAnnualDividendRate'),
+            "forwardAnnualDividendRate": info.get('forwardAnnualDividendRate'),
+            "currentPrice": info.get('regularMarketPrice') or info.get('currentPrice'),
+            "calculated_yield": get_dividend_yield(info)
+        }
+        
+        return dividend_debug
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

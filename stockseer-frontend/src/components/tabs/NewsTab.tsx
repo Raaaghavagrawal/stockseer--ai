@@ -27,6 +27,7 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
   const [selectedSentiment, setSelectedSentiment] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const fetchNews = async () => {
     if (!selectedStock) return;
@@ -52,9 +53,21 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       
       setNews(transformedNews);
       setFilteredNews(transformedNews);
-    } catch (err) {
+      setRetryCount(0); // Reset retry count on success
+    } catch (err: any) {
       console.error('Error fetching news:', err);
-      setError('Failed to fetch news. Please try again later.');
+      
+      // Handle different types of errors
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setError('Request timed out. The news service is taking longer than expected. Please try again.');
+      } else if (err.response?.status === 500) {
+        setError('Server error occurred while fetching news. Please try again later.');
+      } else if (err.response?.status === 404) {
+        setError('No news found for this stock symbol.');
+      } else {
+        setError('Failed to fetch news. Please check your connection and try again.');
+      }
+      
       setNews([]);
       setFilteredNews([]);
     } finally {
@@ -103,6 +116,9 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       <div className="text-center py-12 text-slate-400">
         <Loader2 className="w-16 h-16 mx-auto mb-4 opacity-50 animate-spin" />
         <p>Fetching latest news...</p>
+        {retryCount > 0 && (
+          <p className="text-sm text-slate-500 mt-2">Retry attempt {retryCount}</p>
+        )}
       </div>
     );
   }
@@ -114,10 +130,13 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
           <p className="text-red-400 mb-2">Error loading news</p>
           <p className="text-sm text-red-300">{error}</p>
           <button 
-            onClick={fetchNews}
+            onClick={() => {
+              setRetryCount(prev => prev + 1);
+              fetchNews();
+            }}
             className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white text-sm transition-colors"
           >
-            Try Again
+            Try Again {retryCount > 0 && `(${retryCount})`}
           </button>
         </div>
       </div>
