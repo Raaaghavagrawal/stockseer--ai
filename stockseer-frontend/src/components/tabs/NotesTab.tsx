@@ -73,10 +73,10 @@ export default function NotesTab() {
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
           <h3 className="text-xl font-semibold text-white mb-4">Add New Note</h3>
           <div className="space-y-4">
-            <input placeholder="Title" value={newNote.title} onChange={(e) => setNewNote(prev => ({ ...prev, title: e.target.value }))} className="bg-slate-700 border border-slate-600 text-white rounded px-3 py-2" />
-            <textarea placeholder="Content" value={newNote.content} onChange={(e) => setNewNote(prev => ({ ...prev, content: e.target.value }))} className="w-full h-32 bg-slate-700 border border-slate-600 text-white rounded px-3 py-2 resize-none" />
-            <input placeholder="Tags (comma-separated)" value={newNote.tags} onChange={(e) => setNewNote(prev => ({ ...prev, tags: e.target.value }))} className="bg-slate-700 border border-slate-600 text-white rounded px-3 py-2" />
-            <input placeholder="Related Stocks (comma-separated)" value={newNote.relatedStocks} onChange={(e) => setNewNote(prev => ({ ...prev, relatedStocks: e.target.value }))} className="bg-slate-700 border border-slate-600 text-white rounded px-3 py-2" />
+            <input placeholder="Title" value={newNote.title} onChange={(e) => setNewNote(prev => ({ ...prev, title: e.target.value }))} className="bg-input border border-border text-foreground rounded px-3 py-2 placeholder:text-muted-foreground" />
+            <textarea placeholder="Content" value={newNote.content} onChange={(e) => setNewNote(prev => ({ ...prev, content: e.target.value }))} className="w-full h-32 bg-input border border-border text-foreground rounded px-3 py-2 resize-none placeholder:text-muted-foreground" />
+            <input placeholder="Tags (comma-separated)" value={newNote.tags} onChange={(e) => setNewNote(prev => ({ ...prev, tags: e.target.value }))} className="bg-input border border-border text-foreground rounded px-3 py-2 placeholder:text-muted-foreground" />
+            <input placeholder="Related Stocks (comma-separated)" value={newNote.relatedStocks} onChange={(e) => setNewNote(prev => ({ ...prev, relatedStocks: e.target.value }))} className="bg-input border border-border text-foreground rounded px-3 py-2 placeholder:text-muted-foreground" />
             <div className="flex space-x-2">
               <button onClick={addNote} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white">Add Note</button>
               <button onClick={() => setShowAddForm(false)} className="border border-slate-600 text-slate-300 hover:bg-slate-600 px-4 py-2 rounded">Cancel</button>

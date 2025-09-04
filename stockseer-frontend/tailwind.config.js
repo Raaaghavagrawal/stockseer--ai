@@ -67,12 +67,23 @@ export default {
           700: '#334155',
           800: '#1e293b',
           900: '#0f172a',
+        },
+        binance: {
+          yellow: '#F0B90B',
+          'yellow-dark': '#D4A017',
+          'yellow-light': '#FCD535',
+          gray: '#1E2329',
+          'gray-light': '#2B3139',
+          'gray-dark': '#0B0E11',
+          text: '#EAECEF',
+          'text-secondary': '#848E9C',
         }
       },
       fontFamily: {
         sans: ['Poppins', 'system-ui', 'sans-serif'],
         heading: ['Manrope', 'system-ui', 'sans-serif'],
         display: ['Martel Sans', 'system-ui', 'sans-serif'],
+        orbitron: ['Orbitron', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       animation: {

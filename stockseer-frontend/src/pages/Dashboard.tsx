@@ -182,9 +182,9 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-background text-white">
       {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 p-6">
+      <div className="bg-card border-b border-border p-6">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold text-white mb-2">
             📈 StockSeer.AI
@@ -197,7 +197,7 @@ export default function Dashboard() {
 
       {/* Stock Search */}
       <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 mb-6">
+        <div className="bg-card/50 border border-border rounded-lg p-6 mb-6">
           <div className="flex space-x-4">
             <div className="flex-1">
               <input
@@ -206,7 +206,7 @@ export default function Dashboard() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleStockSearch()}
-                className="w-full bg-slate-700 border border-slate-600 text-white text-lg rounded px-4 py-2"
+                className="w-full bg-input border border-border text-foreground text-lg rounded px-4 py-2 placeholder:text-muted-foreground"
               />
             </div>
             <button 
@@ -226,7 +226,7 @@ export default function Dashboard() {
 
         {/* Tab Navigation */}
         <div className="mb-6">
-          <div className="flex items-center justify-between bg-slate-800/50 border border-slate-700 rounded-lg p-2">
+          <div className="flex items-center justify-between bg-card/50 border border-border rounded-lg p-2">
             {/* Left Arrow */}
             <button
               onClick={goToPreviousPage}
@@ -234,7 +234,7 @@ export default function Dashboard() {
               className={`p-3 rounded-xl transition-all duration-300 ease-in-out transform ${
                 currentTabPage === 0
                   ? 'text-slate-500 cursor-not-allowed'
-                  : 'text-slate-300 hover:text-white hover:bg-gradient-to-r hover:from-slate-700 hover:to-slate-600 hover:scale-110 hover:shadow-lg'
+                  : 'text-slate-300 hover:text-white hover:bg-gradient-to-r hover:from-secondary hover:to-muted hover:scale-110 hover:shadow-lg'
               }`}
             >
               <ChevronLeft className="w-6 h-6" />
@@ -249,7 +249,7 @@ export default function Dashboard() {
                   className={`px-8 py-3 text-base font-semibold rounded-xl transition-all duration-300 ease-in-out whitespace-nowrap transform hover:scale-105 hover:shadow-lg ${
                     activeTab === tab.id 
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg scale-105' 
-                      : 'bg-slate-700/50 border border-slate-600 text-slate-300 hover:bg-gradient-to-r hover:from-slate-600 hover:to-slate-700 hover:text-white hover:border-slate-500 hover:shadow-md'
+                      : 'bg-secondary/50 border border-border text-slate-300 hover:bg-gradient-to-r hover:from-secondary hover:to-muted hover:text-white hover:border-border hover:shadow-md'
                   }`}
                 >
                   {tab.label}
@@ -264,7 +264,7 @@ export default function Dashboard() {
               className={`p-3 rounded-xl transition-all duration-300 ease-in-out transform ${
                 currentTabPage === totalPages - 1
                   ? 'text-slate-500 cursor-not-allowed'
-                  : 'text-slate-300 hover:text-white hover:bg-gradient-to-r hover:from-slate-700 hover:to-slate-600 hover:scale-110 hover:shadow-lg'
+                  : 'text-slate-300 hover:text-white hover:bg-gradient-to-r hover:from-secondary hover:to-muted hover:scale-110 hover:shadow-lg'
               }`}
             >
               <ChevronRight className="w-6 h-6" />
@@ -281,7 +281,7 @@ export default function Dashboard() {
                   className={`w-3 h-3 rounded-full transition-all duration-300 ease-in-out transform hover:scale-125 ${
                     index === currentTabPage
                       ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg scale-125'
-                      : 'bg-slate-600 hover:bg-gradient-to-r hover:from-slate-500 hover:to-slate-400 hover:shadow-md'
+                      : 'bg-muted hover:bg-gradient-to-r hover:from-muted hover:to-accent hover:shadow-md'
                   }`}
                 />
               ))}

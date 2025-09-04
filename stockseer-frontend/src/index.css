@@ -27,25 +27,25 @@
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 213 31% 91%;
-    --primary: 210 100% 50%;
-    --primary-foreground: 224 71% 4%;
-    --secondary: 222 84% 5%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 222 84% 5%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 222 84% 5%;
-    --accent-foreground: 213 31% 91%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 45 100% 51%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 8%;
+    --accent-foreground: 0 0% 95%;
     --destructive: 0 63% 31%;
-    --destructive-foreground: 213 31% 91%;
-    --border: 222 84% 5%;
-    --input: 222 84% 5%;
-    --ring: 210 100% 50%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 0 0% 12%;
+    --input: 0 0% 8%;
+    --ring: 45 100% 51%;
     
     /* Custom modern colors */
     --success: 142 76% 36%;
@@ -71,7 +71,7 @@
   }
   
   body {
-    @apply bg-white dark:bg-dark-900 text-gray-900 dark:text-white font-sans;
+    @apply bg-white dark:bg-background text-gray-900 dark:text-white font-sans;
     font-family: 'Poppins', system-ui, -apple-system, sans-serif;
   }
   
@@ -132,6 +132,10 @@
   
   .font-display {
     font-family: 'Martel Sans', system-ui, -apple-system, sans-serif;
+  }
+  
+  .font-orbitron {
+    font-family: 'Orbitron', system-ui, -apple-system, sans-serif;
   }
   
   .font-body {
@@ -349,6 +353,59 @@
     }
     to {
       box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
+    }
+  }
+  
+  @keyframes textAppear {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    20% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    80% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+  
+  .letter-animate {
+    animation: textAppear 3s ease-in-out infinite;
+    opacity: 0;
+    display: inline-block;
+  }
+  
+  
+  /* Ensure gradient text is visible */
+  .text-gradient {
+    background: linear-gradient(to right, #F0B90B, #FCD535);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: #F0B90B; /* Fallback color */
+  }
+  
+  /* Ensure text is always visible */
+  .text-gradient::before {
+    content: attr(data-text);
+    position: absolute;
+    background: linear-gradient(to right, #F0B90B, #FCD535);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* Fallback for browsers that don't support background-clip */
+  @supports not (-webkit-background-clip: text) {
+    .text-gradient {
+      color: #F0B90B !important;
+      background: none !important;
     }
   }
 }
