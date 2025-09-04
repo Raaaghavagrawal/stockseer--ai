@@ -17,9 +17,16 @@ import {
   CheckCircle,
   Play,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Sun,
+  Moon,
+  LogOut,
+  Mail,
+  Info
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import AuthModal from '../components/AuthModal';
 
 // Animated Text Component
 const AnimatedText: React.FC<{ 
@@ -64,10 +71,91 @@ const AnimatedText: React.FC<{
   );
 };
 
+// Animated Counter Component
+const AnimatedCounter: React.FC<{
+  end: number;
+  duration?: number;
+  suffix?: string;
+  className?: string;
+}> = ({ end, duration = 2000, suffix = '', className = '' }) => {
+  const [count, setCount] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const element = document.getElementById(`counter-${end}`);
+    if (element) {
+      observer.observe(element);
+    }
+
+    return () => {
+      if (element) {
+        observer.unobserve(element);
+      }
+    };
+  }, [end]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    let startTime: number;
+    const startValue = 0;
+
+    const animate = (currentTime: number) => {
+      if (!startTime) startTime = currentTime;
+      const progress = Math.min((currentTime - startTime) / duration, 1);
+      
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      const currentCount = Math.floor(startValue + (end - startValue) * easeOutQuart);
+      
+      setCount(currentCount);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [isVisible, end, duration]);
+
+  return (
+    <span id={`counter-${end}`} className={className}>
+      {count.toLocaleString()}{suffix}
+    </span>
+  );
+};
+
 const LandingPage: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { currentUser, logout } = useAuth();
+  const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
+  // Close hamburger menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isHamburgerOpen && !target.closest('.hamburger-menu')) {
+        setIsHamburgerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isHamburgerOpen]);
 
   const features = [
     {
@@ -97,10 +185,10 @@ const LandingPage: React.FC = () => {
   ];
 
   const stats = [
-    { label: 'Stocks Tracked', value: '10,000+', icon: TrendingUp },
-    { label: 'AI Models', value: '50+', icon: Brain },
-    { label: 'Accuracy Rate', value: '85%', icon: Target },
-    { label: 'Active Users', value: '100K+', icon: Users }
+    { label: 'Stocks Tracked', value: 10000, suffix: '+', icon: TrendingUp },
+    { label: 'AI Models', value: 50, suffix: '+', icon: Brain },
+    { label: 'Accuracy Rate', value: 85, suffix: '%', icon: Target },
+    { label: 'Active Users', value: 100000, suffix: '+', icon: Users }
   ];
 
   const benefits = [
@@ -158,7 +246,7 @@ const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white dark:bg-binance-gray-dark">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/95 dark:bg-binance-gray-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-binance-gray">
+      <header className="relative sticky top-0 z-50 bg-white/95 dark:bg-binance-gray-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-binance-gray">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -169,49 +257,86 @@ const LandingPage: React.FC = () => {
               <span className="text-2xl font-bold text-gray-900 dark:text-binance-text">StockSeer.ai</span>
             </div>
             
-            {/* Right side - Navigation and buttons */}
-            <div className="flex items-center space-x-8">
+                        {/* Right side - Navigation and buttons */}
+            <div className="flex items-center space-x-4">
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center space-x-8">
                 <a href="#features" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Features</a>
                 <a href="#stats" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Stats</a>
                 <a href="#faq" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">FAQ</a>
-                <a href="#about" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">About</a>
               </nav>
 
-              {/* Theme toggle and mobile menu */}
+              {/* Auth buttons, theme toggle and hamburger menu */}
               <div className="flex items-center space-x-4">
+                {/* Authentication buttons */}
+                {!currentUser && (
+                  <button
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthModalOpen(true);
+                    }}
+                    className="bg-binance-yellow hover:bg-binance-yellow-dark text-black font-semibold px-4 py-2 rounded-lg transition-colors"
+                  >
+                    Sign In
+                  </button>
+                )}
+
                 <button
                   onClick={toggleTheme}
                   className="p-2 rounded-lg bg-gray-100 dark:bg-binance-gray hover:bg-gray-200 dark:hover:bg-binance-gray-light transition-colors"
                 >
-                  {theme === 'dark' ? '🌞' : '🌙'}
+                  {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
 
-                {/* Mobile menu button */}
+                {/* Hamburger menu button */}
                 <button
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="md:hidden p-2 rounded-lg bg-gray-100 dark:bg-binance-gray hover:bg-gray-200 dark:hover:bg-binance-gray-light transition-colors"
+                  onClick={() => setIsHamburgerOpen(!isHamburgerOpen)}
+                  className="hamburger-menu p-2 rounded-lg bg-gray-100 dark:bg-binance-gray hover:bg-gray-200 dark:hover:bg-binance-gray-light transition-colors"
                 >
-                  {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                  {isHamburgerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Mobile Navigation */}
-          {isMenuOpen && (
+          {/* Hamburger Menu Popup */}
+          {isHamburgerOpen && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden border-t border-gray-200 dark:border-binance-gray"
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="hamburger-menu absolute right-4 top-16 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 min-w-[200px] z-50"
             >
-              <div className="px-2 pt-2 pb-3 space-y-1">
-                <a href="#features" className="block px-3 py-2 text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Features</a>
-                <a href="#stats" className="block px-3 py-2 text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Stats</a>
-                <a href="#faq" className="block px-3 py-2 text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">FAQ</a>
-                <a href="#about" className="block px-3 py-2 text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">About</a>
+              <div className="space-y-1">
+                <a 
+                  href="#contact" 
+                  onClick={() => setIsHamburgerOpen(false)} 
+                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Mail className="w-4 h-4 mr-3" />
+                  Contact Us
+                </a>
+                <a 
+                  href="#about" 
+                  onClick={() => setIsHamburgerOpen(false)} 
+                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Info className="w-4 h-4 mr-3" />
+                  About
+                </a>
+                
+                {currentUser && (
+                  <button
+                    onClick={() => {
+                      logout();
+                      setIsHamburgerOpen(false);
+                    }}
+                    className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4 mr-3" />
+                    Logout
+                  </button>
+                )}
               </div>
             </motion.div>
           )}
@@ -220,13 +345,13 @@ const LandingPage: React.FC = () => {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left side - Content */}
-            <motion.div
+          <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
+            transition={{ duration: 0.8 }}
               className="text-center lg:text-left"
             >
               <div className="inline-flex items-center px-4 py-2 bg-binance-yellow/10 dark:bg-binance-yellow/20 rounded-full text-binance-yellow-dark dark:text-binance-yellow font-semibold text-sm mb-6">
@@ -246,14 +371,15 @@ const LandingPage: React.FC = () => {
                   delay={1200}
                   gradient={true}
                 />
-              </h1>
+            </h1>
               
               <p className="text-xl text-gray-600 dark:text-binance-text-secondary mb-8 max-w-2xl">
-                Leverage advanced artificial intelligence to make informed investment decisions. 
-                Get real-time insights, technical analysis, and predictive analytics.
-              </p>
-              
+              Leverage advanced artificial intelligence to make informed investment decisions. 
+              Get real-time insights, technical analysis, and predictive analytics.
+            </p>
+            
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              {currentUser ? (
                 <Link
                   to="/dashboard"
                   className="inline-flex items-center justify-center px-8 py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
@@ -261,6 +387,18 @@ const LandingPage: React.FC = () => {
                   Start Trading Now
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
+              ) : (
+                <button
+                  onClick={() => {
+                    setAuthMode('login');
+                    setAuthModalOpen(true);
+                  }}
+                  className="inline-flex items-center justify-center px-8 py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
+                >
+                  Start Trading Now
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </button>
+              )}
                 <button className="inline-flex items-center justify-center px-8 py-4 border-2 border-gray-300 dark:border-binance-gray text-gray-700 dark:text-binance-text font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors">
                   <Play className="mr-2 w-5 h-5" />
                   Watch Demo
@@ -415,12 +553,12 @@ const LandingPage: React.FC = () => {
                     <div className="pt-3 border-t border-gray-200 dark:border-binance-gray-light">
                       <button className="w-full py-2 text-sm font-medium text-binance-yellow hover:text-binance-yellow-dark transition-colors">
                         View All Markets →
-                      </button>
+              </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
+            </div>
+          </motion.div>
           </div>
         </div>
       </section>
@@ -486,7 +624,11 @@ const LandingPage: React.FC = () => {
                   <stat.icon className="w-8 h-8 text-binance-yellow" />
                 </div>
                 <div className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-binance-text mb-2">
-                  {stat.value}
+                  <AnimatedCounter 
+                    end={stat.value} 
+                    suffix={stat.suffix}
+                    duration={2000}
+                  />
                 </div>
                 <div className="text-gray-600 dark:text-binance-text-secondary">
                   {stat.label}
@@ -679,6 +821,82 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* Contact Section */}
+      <section id="contact" className="py-20 bg-gray-50 dark:bg-[hsl(0,0%,6%)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Get in Touch
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              Have questions about StockSeer.ai? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Contact Information</h3>
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <Mail className="w-6 h-6 text-binance-yellow mr-4" />
+                  <div>
+                    <p className="text-gray-900 dark:text-white font-semibold">Email</p>
+                    <p className="text-gray-600 dark:text-gray-400">support@stockseer.ai</p>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <Users className="w-6 h-6 text-binance-yellow mr-4" />
+                  <div>
+                    <p className="text-gray-900 dark:text-white font-semibold">Support</p>
+                    <p className="text-gray-600 dark:text-gray-400">24/7 Customer Support</p>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <Globe className="w-6 h-6 text-binance-yellow mr-4" />
+                  <div>
+                    <p className="text-gray-900 dark:text-white font-semibold">Website</p>
+                    <p className="text-gray-600 dark:text-gray-400">www.stockseer.ai</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Send us a Message</h3>
+              <form className="space-y-6">
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Your Name"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="email"
+                    placeholder="Your Email"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <textarea
+                    rows={4}
+                    placeholder="Your Message"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent resize-none"
+                  ></textarea>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-binance-yellow hover:bg-binance-yellow-dark text-black font-semibold py-3 px-6 rounded-lg transition-colors"
+                >
+                  Send Message
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="bg-gray-900 dark:bg-binance-gray-dark border-t border-gray-200 dark:border-binance-gray">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -730,11 +948,19 @@ const LandingPage: React.FC = () => {
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-center">
             <p className="text-gray-400">
-              © 2024 StockSeer.ai. All rights reserved. AI-powered stock market analytics.
-            </p>
+            © 2024 StockSeer.ai. All rights reserved. AI-powered stock market analytics.
+          </p>
           </div>
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        mode={authMode}
+        onModeChange={setAuthMode}
+      />
     </div>
   );
 };

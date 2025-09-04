@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Search, 
   RefreshCw,
-  ChevronLeft,
-  ChevronRight
+  Menu,
+  X,
+  Home
 } from 'lucide-react';
 
 // Import all tab components
@@ -39,7 +41,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
-  const [currentTabPage, setCurrentTabPage] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Tab configuration
   const allTabs = [
@@ -59,23 +61,9 @@ export default function Dashboard() {
     { id: 'notes', label: '📝 Notes' }
   ];
 
-  const tabsPerPage = 5;
-  const totalPages = Math.ceil(allTabs.length / tabsPerPage);
-
-  // Get current page tabs
-  const getCurrentPageTabs = () => {
-    const startIndex = currentTabPage * tabsPerPage;
-    const endIndex = startIndex + tabsPerPage;
-    return allTabs.slice(startIndex, endIndex);
-  };
-
-  // Navigation functions
-  const goToPreviousPage = () => {
-    setCurrentTabPage(prev => Math.max(0, prev - 1));
-  };
-
-  const goToNextPage = () => {
-    setCurrentTabPage(prev => Math.min(totalPages - 1, prev + 1));
+  // Toggle sidebar
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
   };
 
   const fetchStockData = async (symbol: string) => {
@@ -182,116 +170,133 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white">
-      {/* Header */}
-      <div className="bg-card border-b border-border p-6">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            📈 StockSeer.AI
-          </h1>
-          <p className="text-slate-400">
-            AI-Powered Stock Analysis & Portfolio Management
-          </p>
+    <div className="min-h-screen bg-background text-white flex">
+      {/* Sidebar */}
+      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-card border-r border-border transition-all duration-300 flex flex-col`}>
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center justify-between">
+            {sidebarOpen && (
+              <div>
+                <h1 className="text-xl font-bold text-white">📈 StockSeer.AI</h1>
+                <p className="text-xs text-slate-400">AI-Powered Analysis</p>
+              </div>
+            )}
+            <button
+              onClick={toggleSidebar}
+              className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+            >
+              {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Stock Search */}
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-card/50 border border-border rounded-lg p-6 mb-6">
-          <div className="flex space-x-4">
-            <div className="flex-1">
+        {/* Stock Search */}
+        <div className="p-4 border-b border-border">
+          <div className="space-y-3">
+            <div>
               <input
                 type="text"
-                placeholder="Enter stock symbol (e.g., AAPL, TSLA, GOOGL)"
+                placeholder={sidebarOpen ? "Enter stock symbol" : "Symbol"}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleStockSearch()}
-                className="w-full bg-input border border-border text-foreground text-lg rounded px-4 py-2 placeholder:text-muted-foreground"
+                className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded px-3 py-2 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <button 
               onClick={handleStockSearch}
               disabled={loading || !searchQuery.trim()}
-              className="bg-blue-600 hover:bg-blue-700 px-8 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center"
             >
               {loading ? (
-                <RefreshCw className="w-5 h-5 mr-2 animate-spin inline" />
+                <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
-                <Search className="w-5 h-5 mr-2 inline" />
+                <Search className="w-4 h-4" />
               )}
-              Search
+              {sidebarOpen && <span className="ml-2">Search</span>}
             </button>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between bg-card/50 border border-border rounded-lg p-2">
-            {/* Left Arrow */}
-            <button
-              onClick={goToPreviousPage}
-              disabled={currentTabPage === 0}
-              className={`p-3 rounded-xl transition-all duration-300 ease-in-out transform ${
-                currentTabPage === 0
-                  ? 'text-slate-500 cursor-not-allowed'
-                  : 'text-slate-300 hover:text-white hover:bg-gradient-to-r hover:from-secondary hover:to-muted hover:scale-110 hover:shadow-lg'
-              }`}
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-
-            {/* Tab Buttons */}
-            <div className="flex-1 flex justify-center space-x-3 mx-4">
-              {getCurrentPageTabs().map(tab => (
+        {/* Navigation Tabs */}
+        <div className="flex-1 overflow-y-auto">
+          <nav className="p-2">
+            <div className="space-y-1">
+              {allTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-8 py-3 text-base font-semibold rounded-xl transition-all duration-300 ease-in-out whitespace-nowrap transform hover:scale-105 hover:shadow-lg ${
-                    activeTab === tab.id 
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg scale-105' 
-                      : 'bg-secondary/50 border border-border text-slate-300 hover:bg-gradient-to-r hover:from-secondary hover:to-muted hover:text-white hover:border-border hover:shadow-md'
+                  className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'text-slate-300 hover:bg-secondary hover:text-white'
                   }`}
+                  title={!sidebarOpen ? tab.label : undefined}
                 >
-                  {tab.label}
+                  <span className="text-lg">{tab.label.split(' ')[0]}</span>
+                  {sidebarOpen && <span className="ml-3">{tab.label.split(' ').slice(1).join(' ')}</span>}
                 </button>
               ))}
             </div>
+          </nav>
+        </div>
 
-            {/* Right Arrow */}
-            <button
-              onClick={goToNextPage}
-              disabled={currentTabPage === totalPages - 1}
-              className={`p-3 rounded-xl transition-all duration-300 ease-in-out transform ${
-                currentTabPage === totalPages - 1
-                  ? 'text-slate-500 cursor-not-allowed'
-                  : 'text-slate-300 hover:text-white hover:bg-gradient-to-r hover:from-secondary hover:to-muted hover:scale-110 hover:shadow-lg'
-              }`}
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Page Indicator */}
-          <div className="flex justify-center mt-3">
-            <div className="flex space-x-2">
-              {Array.from({ length: totalPages }, (_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentTabPage(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ease-in-out transform hover:scale-125 ${
-                    index === currentTabPage
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg scale-125'
-                      : 'bg-muted hover:bg-gradient-to-r hover:from-muted hover:to-accent hover:shadow-md'
-                  }`}
-                />
-              ))}
+        {/* Sidebar Footer */}
+        {sidebarOpen && (
+          <div className="p-4 border-t border-border">
+            <div className="text-xs text-slate-400 text-center">
+              {selectedStock && (
+                <div>
+                  <div className="font-medium text-white">{selectedStock}</div>
+                  {stockData && (
+                    <div className="text-green-400">${stockData.price?.toFixed(2)}</div>
+                  )}
+                </div>
+              )}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Bar */}
+        <div className="bg-card border-b border-border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Link
+                to="/"
+                className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                title="Go to Home"
+              >
+                <Home className="w-5 h-5" />
+              </Link>
+              <div>
+                <h2 className="text-2xl font-bold text-white capitalize">
+                  {allTabs.find(tab => tab.id === activeTab)?.label || 'Dashboard'}
+                </h2>
+                {selectedStock && (
+                  <p className="text-slate-400">Analyzing {selectedStock}</p>
+                )}
+              </div>
+            </div>
+            {selectedStock && stockData && (
+              <div className="text-right">
+                <div className="text-2xl font-bold text-white">${stockData.price?.toFixed(2)}</div>
+                <div className={`text-sm ${stockData.changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {stockData.changePercent >= 0 ? '+' : ''}{stockData.changePercent?.toFixed(2)}%
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Tab Content */}
-        <div className="mt-6">
-          {renderTabContent()}
+        <div className="flex-1 p-6 overflow-y-auto">
+          <div className="bg-card/50 border border-border rounded-lg p-6 h-full">
+            {renderTabContent()}
+          </div>
         </div>
       </div>
     </div>
