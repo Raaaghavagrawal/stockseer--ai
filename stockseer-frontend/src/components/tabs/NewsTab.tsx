@@ -38,8 +38,31 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
     try {
       const response = await newsAPI.getStockNews(selectedStock);
       
-      // Handle the response format from backend: {symbol, articles, count}
-      const newsData = (response as any).articles || response;
+      // Handle the actual response format from backend: {symbol, news_by_source: {source: [...]}}
+      let newsData: any[] = [];
+      
+      if (response && typeof response === 'object') {
+        // Check if it's the expected format with news_by_source
+        if ((response as any).news_by_source) {
+          // Flatten all news from all sources into a single array
+          const newsBySource = (response as any).news_by_source;
+          newsData = Object.values(newsBySource).flat() as any[];
+        }
+        // Check if it's the old format with articles
+        else if ((response as any).articles) {
+          newsData = (response as any).articles;
+        }
+        // Check if response is directly an array
+        else if (Array.isArray(response)) {
+          newsData = response;
+        }
+      }
+      
+      // Ensure newsData is an array before mapping
+      if (!Array.isArray(newsData)) {
+        console.warn('News data is not an array:', newsData);
+        newsData = [];
+      }
       
       // Transform the data to match our interface
       const transformedNews = newsData.map((item: any) => ({
