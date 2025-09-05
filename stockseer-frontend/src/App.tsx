@@ -48,14 +48,10 @@ function AppContent() {
               </ProtectedRoute>
             } 
           />
-          <Route 
-            path="/pricing" 
-            element={
-              <ProtectedRoute>
-                <PricingPage />
-              </ProtectedRoute>
-            } 
-          />
+                        <Route 
+                path="/pricing" 
+                element={<PricingPage />} 
+              />
           {/* Catch-all route to redirect to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

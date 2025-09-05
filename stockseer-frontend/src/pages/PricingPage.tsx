@@ -2,13 +2,18 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Star, Crown, Globe, Clock, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useAuth } from '../contexts/AuthContext';
 import PaymentModal from '../components/PaymentModal';
+import AuthModal from '../components/AuthModal';
 
 export default function PricingPage() {
   const { currentPlan, setCurrentPlan, isTrialActive, trialEndDate, selectedContinent } = useSubscription();
+  const { currentUser } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<'free' | 'premium' | 'premium-plus'>(currentPlan);
   const [isAnnual, setIsAnnual] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<'premium' | 'premiumPlus'>('premium');
 
   // Auto-show payment modal for Premium Plus when redirected from continent selection
@@ -151,6 +156,13 @@ export default function PricingPage() {
   const handlePlanSelect = (plan: 'free' | 'premium' | 'premium-plus') => {
     setSelectedPlan(plan);
     
+    // Check if user is authenticated
+    if (!currentUser) {
+      // Show authentication modal for non-authenticated users
+      setShowAuthModal(true);
+      return;
+    }
+    
     if (plan === 'free') {
       setCurrentPlan(plan);
     } else {
@@ -165,6 +177,21 @@ export default function PricingPage() {
   const getCurrentPrice = (plan: keyof typeof plans) => {
     return isAnnual ? plans[plan].price.annual : plans[plan].price.monthly;
   };
+
+  // Handle authentication success
+  useEffect(() => {
+    if (currentUser && showAuthModal) {
+      setShowAuthModal(false);
+      // After successful authentication, proceed with the selected plan
+      if (selectedPlan === 'free') {
+        setCurrentPlan(selectedPlan);
+      } else {
+        const paymentPlan = selectedPlan === 'premium-plus' ? 'premiumPlus' : selectedPlan;
+        setSelectedPlanForPayment(paymentPlan as 'premium' | 'premiumPlus');
+        setShowPaymentModal(true);
+      }
+    }
+  }, [currentUser, showAuthModal, selectedPlan, setCurrentPlan]);
 
   const getSavings = (plan: keyof typeof plans) => {
     if (plan === 'free') return 0;
@@ -533,6 +560,14 @@ export default function PricingPage() {
         onClose={() => setShowPaymentModal(false)}
         plan={selectedPlanForPayment}
         isAnnual={isAnnual}
+      />
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        mode={authMode}
+        onModeChange={setAuthMode}
       />
     </div>
   );
