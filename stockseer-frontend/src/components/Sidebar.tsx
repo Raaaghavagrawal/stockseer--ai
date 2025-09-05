@@ -1,13 +1,15 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { 
   TrendingUp, 
   Brain, 
   X,
   Home,
   Wallet,
-  Cog
+  Cog,
+  Crown
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -44,6 +46,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
       description: 'App preferences and configuration'
     }
   ];
+
+  const pricingItem = {
+    id: 'pricing',
+    label: 'Pricing',
+    icon: Crown,
+    description: 'Choose your subscription plan',
+    href: '/pricing'
+  };
 
   return (
     <>
@@ -87,6 +97,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
                 </button>
               );
             })}
+            
+            {/* Pricing Link */}
+            <Link
+              to={pricingItem.href}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-700 hover:text-gray-900 dark:hover:text-white"
+            >
+              <Crown className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+              <div className="flex-1">
+                <div className="font-medium">{pricingItem.label}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{pricingItem.description}</div>
+              </div>
+            </Link>
           </nav>
 
           {/* Quick Stats */}
@@ -167,6 +189,19 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
                 </button>
               );
             })}
+            
+            {/* Pricing Link */}
+            <Link
+              to={pricingItem.href}
+              onClick={onClose}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-700 hover:text-gray-900 dark:hover:text-white"
+            >
+              <Crown className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+              <div className="flex-1">
+                <div className="font-medium">{pricingItem.label}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{pricingItem.description}</div>
+              </div>
+            </Link>
           </nav>
 
           {/* Quick Stats */}

@@ -29,7 +29,7 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const fetchNews = async () => {
+  const fetchNews = async (retryAttempt: number = 0) => {
     if (!selectedStock) return;
     
     setLoading(true);
@@ -37,6 +37,7 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
     
     try {
       const response = await newsAPI.getStockNews(selectedStock);
+      console.log('News API Response:', response);
       
       // Handle the actual response format from backend: {symbol, news_by_source: {source: [...]}}
       let newsData: any[] = [];
@@ -64,6 +65,8 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
         newsData = [];
       }
       
+      console.log('Processed news data:', newsData);
+      
       // Transform the data to match our interface
       const transformedNews = newsData.map((item: any) => ({
         title: item.title || 'No Title',
@@ -83,16 +86,30 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       // Handle different types of errors
       if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
         setError('Request timed out. The news service is taking longer than expected. Please try again.');
+      } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
+        setError('Cannot connect to the server. Please make sure the backend server is running on http://localhost:8000');
       } else if (err.response?.status === 500) {
         setError('Server error occurred while fetching news. Please try again later.');
       } else if (err.response?.status === 404) {
         setError('No news found for this stock symbol.');
+      } else if (err.response?.status === 0) {
+        setError('Backend server is not running. Please start the backend server first.');
       } else {
-        setError('Failed to fetch news. Please check your connection and try again.');
+        setError(`Failed to fetch news: ${err.message || 'Unknown error'}. Please check your connection and try again.`);
       }
       
       setNews([]);
       setFilteredNews([]);
+      
+      // Auto-retry for network errors with exponential backoff
+      if ((err.code === 'ERR_NETWORK' || err.message?.includes('Network Error') || err.response?.status === 0) && retryAttempt < 3) {
+        const delay = Math.pow(2, retryAttempt) * 1000; // 1s, 2s, 4s
+        setTimeout(() => {
+          setRetryCount(retryAttempt + 1);
+          fetchNews(retryAttempt + 1);
+        }, delay);
+        return; // Don't set loading to false yet
+      }
     } finally {
       setLoading(false);
     }
@@ -154,8 +171,8 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
           <p className="text-sm text-red-300">{error}</p>
           <button 
             onClick={() => {
-              setRetryCount(prev => prev + 1);
-              fetchNews();
+              setRetryCount(0);
+              fetchNews(0);
             }}
             className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white text-sm transition-colors"
           >

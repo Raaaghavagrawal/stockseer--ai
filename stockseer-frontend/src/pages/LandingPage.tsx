@@ -22,7 +22,8 @@ import {
   Moon,
   LogOut,
   Mail,
-  Info
+  Info,
+  Crown
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -261,9 +262,17 @@ const LandingPage: React.FC = () => {
             <div className="flex items-center space-x-4">
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center space-x-8">
+                <a href="#home" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Home</a>
                 <a href="#features" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Features</a>
                 <a href="#stats" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Stats</a>
                 <a href="#faq" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">FAQ</a>
+                <Link
+                  to="/pricing"
+                  className="flex items-center space-x-1 text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors"
+                >
+                  <Crown className="w-4 h-4" />
+                  <span>Pricing</span>
+                </Link>
               </nav>
 
               {/* Auth buttons, theme toggle and hamburger menu */}
@@ -309,6 +318,22 @@ const LandingPage: React.FC = () => {
             >
               <div className="space-y-1">
                 <a 
+                  href="#home" 
+                  onClick={() => setIsHamburgerOpen(false)} 
+                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <TrendingUp className="w-4 h-4 mr-3" />
+                  Home
+                </a>
+                <Link
+                  to="/pricing"
+                  onClick={() => setIsHamburgerOpen(false)}
+                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Crown className="w-4 h-4 mr-3" />
+                  Pricing
+                </Link>
+                <a 
                   href="#contact" 
                   onClick={() => setIsHamburgerOpen(false)} 
                   className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -344,7 +369,7 @@ const LandingPage: React.FC = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
+      <section id="home" className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left side - Content */}
@@ -929,7 +954,7 @@ const LandingPage: React.FC = () => {
               <h3 className="text-white font-semibold mb-4">Product</h3>
               <ul className="space-y-2">
                 <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Features</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Pricing</a></li>
+                <li><Link to="/pricing" className="text-gray-400 hover:text-binance-yellow transition-colors">Pricing</Link></li>
                 <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">API</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Documentation</a></li>
               </ul>

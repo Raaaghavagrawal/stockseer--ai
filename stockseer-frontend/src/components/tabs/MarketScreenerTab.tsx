@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import UpgradePrompt from '../UpgradePrompt';
+import { useFeatureAccess } from '../UpgradePrompt';
 import { 
   Search,
   Filter,
@@ -26,6 +28,7 @@ import {
 import type { StockScreenerCriteria, ScreenedStock } from '@/types/stock';
 
 export default function MarketScreenerTab() {
+  const { canAccessPremium } = useFeatureAccess();
   const [criteria, setCriteria] = useState<StockScreenerCriteria>({
     minPrice: 0,
     maxPrice: 1000,
@@ -49,6 +52,7 @@ export default function MarketScreenerTab() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sortBy, setSortBy] = useState<'symbol' | 'name' | 'price' | 'marketCap' | 'pe' | 'pb' | 'roe'>('symbol');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Sample sectors and countries
   const availableSectors = [
@@ -132,6 +136,11 @@ export default function MarketScreenerTab() {
   };
 
   const filteredStocks = screenedStocks.filter(stock => {
+    // Search filter
+    if (searchQuery && !stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) && 
+        !stock.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    
+    // Criteria filters
     if (stock.price < criteria.minPrice || stock.price > criteria.maxPrice) return false;
     if (stock.marketCap < criteria.minMarketCap || stock.marketCap > criteria.maxMarketCap) return false;
     if (stock.volume < criteria.minVolume) return false;
@@ -214,6 +223,16 @@ export default function MarketScreenerTab() {
     a.click();
     window.URL.revokeObjectURL(url);
   };
+
+  if (!canAccessPremium) {
+    return (
+      <UpgradePrompt 
+        feature="Market Screener"
+        requiredPlan="premium"
+        className="mt-8"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -315,6 +334,7 @@ export default function MarketScreenerTab() {
           </div>
 
           {/* Advanced Criteria Toggle */}
+          <Separator className="bg-slate-700" />
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
@@ -413,6 +433,7 @@ export default function MarketScreenerTab() {
           )}
 
           {/* Sectors and Countries */}
+          <Separator className="bg-slate-700" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h4 className="text-lg font-semibold text-white mb-4">Sectors</h4>
@@ -475,6 +496,16 @@ export default function MarketScreenerTab() {
               </CardDescription>
             </div>
             <div className="flex items-center space-x-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Search stocks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-slate-700 border-slate-600 text-white w-64"
+                />
+              </div>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -512,19 +543,79 @@ export default function MarketScreenerTab() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-700">
-                    <th className="text-left py-3 px-2 text-slate-300">Symbol</th>
-                    <th className="text-left py-3 px-2 text-slate-300">Name</th>
-                    <th className="text-right py-3 px-2 text-slate-300">Price</th>
-                    <th className="text-right py-3 px-2 text-slate-300">Change %</th>
-                    <th className="text-right py-3 px-2 text-slate-300">Market Cap</th>
-                    <th className="text-right py-3 px-2 text-slate-300">P/E</th>
-                    <th className="text-right py-3 px-2 text-slate-300">P/B</th>
-                    <th className="text-right py-3 px-2 text-slate-300">ROE %</th>
-                    <th className="text-right py-3 px-2 text-slate-300">ROA %</th>
-                    <th className="text-right py-3 px-2 text-slate-300">D/E</th>
-                    <th className="text-right py-3 px-2 text-slate-300">Volume</th>
-                    <th className="text-left py-3 px-2 text-slate-300">Sector</th>
-                    <th className="text-left py-3 px-2 text-slate-300">Country</th>
+                    <th 
+                      className="text-left py-3 px-2 text-slate-300 flex items-center cursor-pointer hover:bg-slate-700/30"
+                      onClick={() => toggleSort('symbol')}
+                    >
+                      <Target className="w-4 h-4 mr-1" />
+                      Symbol {getSortIcon('symbol')}
+                    </th>
+                    <th 
+                      className="text-left py-3 px-2 text-slate-300 flex items-center cursor-pointer hover:bg-slate-700/30"
+                      onClick={() => toggleSort('name')}
+                    >
+                      <Building2 className="w-4 h-4 mr-1" />
+                      Name {getSortIcon('name')}
+                    </th>
+                    <th 
+                      className="text-right py-3 px-2 text-slate-300 flex items-center justify-end cursor-pointer hover:bg-slate-700/30"
+                      onClick={() => toggleSort('price')}
+                    >
+                      <DollarSign className="w-4 h-4 mr-1" />
+                      Price {getSortIcon('price')}
+                    </th>
+                    <th className="text-right py-3 px-2 text-slate-300 flex items-center justify-end">
+                      <Percent className="w-4 h-4 mr-1" />
+                      Change %
+                    </th>
+                    <th 
+                      className="text-right py-3 px-2 text-slate-300 flex items-center justify-end cursor-pointer hover:bg-slate-700/30"
+                      onClick={() => toggleSort('marketCap')}
+                    >
+                      <BarChart3 className="w-4 h-4 mr-1" />
+                      Market Cap {getSortIcon('marketCap')}
+                    </th>
+                    <th 
+                      className="text-right py-3 px-2 text-slate-300 flex items-center justify-end cursor-pointer hover:bg-slate-700/30"
+                      onClick={() => toggleSort('pe')}
+                    >
+                      <TrendingUp className="w-4 h-4 mr-1" />
+                      P/E {getSortIcon('pe')}
+                    </th>
+                    <th 
+                      className="text-right py-3 px-2 text-slate-300 flex items-center justify-end cursor-pointer hover:bg-slate-700/30"
+                      onClick={() => toggleSort('pb')}
+                    >
+                      <TrendingDown className="w-4 h-4 mr-1" />
+                      P/B {getSortIcon('pb')}
+                    </th>
+                    <th 
+                      className="text-right py-3 px-2 text-slate-300 flex items-center justify-end cursor-pointer hover:bg-slate-700/30"
+                      onClick={() => toggleSort('roe')}
+                    >
+                      <Star className="w-4 h-4 mr-1" />
+                      ROE % {getSortIcon('roe')}
+                    </th>
+                    <th className="text-right py-3 px-2 text-slate-300 flex items-center justify-end">
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      ROA %
+                    </th>
+                    <th className="text-right py-3 px-2 text-slate-300 flex items-center justify-end">
+                      <AlertTriangle className="w-4 h-4 mr-1" />
+                      D/E
+                    </th>
+                    <th className="text-right py-3 px-2 text-slate-300 flex items-center justify-end">
+                      <Users className="w-4 h-4 mr-1" />
+                      Volume
+                    </th>
+                    <th className="text-left py-3 px-2 text-slate-300 flex items-center">
+                      <Globe className="w-4 h-4 mr-1" />
+                      Sector
+                    </th>
+                    <th className="text-left py-3 px-2 text-slate-300 flex items-center">
+                      <Globe className="w-4 h-4 mr-1" />
+                      Country
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -603,7 +694,15 @@ export default function MarketScreenerTab() {
             <div className="text-center py-12">
               <Filter className="w-16 h-16 text-slate-400 mx-auto mb-4" />
               <p className="text-slate-400 text-lg mb-2">No stocks match your criteria</p>
-              <p className="text-slate-500">Try adjusting your screening parameters</p>
+              <p className="text-slate-500 mb-4">Try adjusting your screening parameters</p>
+              <Button
+                onClick={resetCriteria}
+                variant="outline"
+                className="border-slate-600 text-slate-300 hover:bg-slate-600"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Clear All Filters
+              </Button>
             </div>
           )}
         </CardContent>

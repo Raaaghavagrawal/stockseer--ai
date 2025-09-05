@@ -798,12 +798,23 @@ def get_stock_info(ticker_symbol, max_retries=3):
                     raise HTTPException(status_code=404, detail=f"Stock info not found for {ticker_symbol}")
                 continue
             
+            # Get price data similar to main app.py
+            current_price = info.get('regularMarketPrice', info.get('currentPrice'))
+            previous_close = info.get('regularMarketPreviousClose', info.get('previousClose'))
+            
+            # Calculate change and change percent like main app.py
+            today_change = None
+            today_change_percent = None
+            if current_price and previous_close and previous_close != 0:
+                today_change = current_price - previous_close
+                today_change_percent = (today_change / previous_close) * 100
+            
             result = {
                 'symbol': ticker_symbol,
                 'name': info.get('longName', info.get('shortName', ticker_symbol)),
-                'price': info.get('regularMarketPrice', info.get('currentPrice')),
-                'change': info.get('regularMarketChange', 0),
-                'changePercent': info.get('regularMarketChangePercent', 0),
+                'price': current_price,
+                'change': today_change if today_change is not None else info.get('regularMarketChange', 0),
+                'changePercent': today_change_percent if today_change_percent is not None else info.get('regularMarketChangePercent', 0),
                 'volume': info.get('regularMarketVolume', info.get('volume', 0)),
                 'marketCap': info.get('marketCap'),
                 'pe': info.get('trailingPE'),
@@ -811,11 +822,14 @@ def get_stock_info(ticker_symbol, max_retries=3):
                 'high': info.get('dayHigh', info.get('regularMarketDayHigh')),
                 'low': info.get('dayLow', info.get('regularMarketDayLow')),
                 'open': info.get('open', info.get('regularMarketOpen')),
-                'previousClose': info.get('regularMarketPreviousClose', info.get('previousClose')),
+                'previousClose': previous_close,
                 'sector': info.get('sector'),
                 'industry': info.get('industry'),
                 'description': info.get('longBusinessSummary'),
-                'currency': info.get('currency', 'USD')
+                'currency': info.get('currency', 'USD'),
+                'high52Week': info.get('fiftyTwoWeekHigh'),
+                'low52Week': info.get('fiftyTwoWeekLow'),
+                'timestamp': datetime.now().isoformat()
             }
             
             # Cache the result

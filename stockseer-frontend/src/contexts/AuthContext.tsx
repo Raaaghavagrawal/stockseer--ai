@@ -8,6 +8,8 @@ interface AuthContextType {
   signup: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
+  showContinentModal: boolean;
+  setShowContinentModal: (show: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +29,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showContinentModal, setShowContinentModal] = useState(false);
 
   const signup = async (email: string, password: string, displayName: string) => {
     try {
@@ -50,6 +53,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           notifications: true
         }
       });
+      
+      // Show continent selection modal after successful signup
+      setShowContinentModal(true);
     } catch (error) {
       throw error;
     }
@@ -59,6 +65,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       await signInWithEmailAndPassword(auth, email, password);
+      // Show continent selection modal after successful login
+      setShowContinentModal(true);
     } catch (error) {
       throw error;
     }
@@ -93,7 +101,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     signup,
     logout,
-    loading
+    loading,
+    showContinentModal,
+    setShowContinentModal
   };
 
   return (

@@ -5,8 +5,11 @@ import {
   RefreshCw,
   Menu,
   X,
-  Home
+  Home,
+  Crown
 } from 'lucide-react';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import FreePlanNotification from '../components/FreePlanNotification';
 
 // Import all tab components
 import OverviewTab from '../components/tabs/OverviewTab';
@@ -34,6 +37,7 @@ import type {
 import { stockAPI, handleAPIError } from '../utils/api';
 
 export default function Dashboard() {
+  const { currentPlan, isTrialActive, showFreePlanNotification, setShowFreePlanNotification, selectedContinent } = useSubscription();
   const [selectedStock, setSelectedStock] = useState<string>('');
   const [stockData, setStockData] = useState<StockData | null>(null);
   const [chartData, setChartData] = useState<StockChartData[]>([]);
@@ -281,14 +285,42 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            {selectedStock && stockData && (
-              <div className="text-right">
-                <div className="text-2xl font-bold text-white">${stockData.price?.toFixed(2)}</div>
-                <div className={`text-sm ${stockData.changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {stockData.changePercent >= 0 ? '+' : ''}{stockData.changePercent?.toFixed(2)}%
-                </div>
+            
+            <div className="flex items-center space-x-4">
+              {/* Pricing Button */}
+              <Link
+                to="/pricing"
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200"
+              >
+                <Crown className="w-4 h-4" />
+                <span className="text-sm font-medium">Upgrade Plan</span>
+              </Link>
+              
+              {/* Plan Status */}
+              <div className="flex items-center space-x-2">
+                <Crown className={`w-5 h-5 ${
+                  currentPlan === 'free' ? 'text-slate-400' : 
+                  currentPlan === 'premium' ? 'text-purple-400' : 'text-amber-400'
+                }`} />
+                <span className={`text-sm font-medium ${
+                  currentPlan === 'free' ? 'text-slate-400' : 
+                  currentPlan === 'premium' ? 'text-purple-400' : 'text-amber-400'
+                }`}>
+                  {currentPlan === 'free' ? 'Free Plan' : 
+                   currentPlan === 'premium' ? 'Premium' : 'Premium Plus'}
+                  {isTrialActive && ' (Trial)'}
+                </span>
               </div>
-            )}
+              
+              {selectedStock && stockData && (
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-white">${stockData.price?.toFixed(2)}</div>
+                  <div className={`text-sm ${stockData.changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {stockData.changePercent >= 0 ? '+' : ''}{stockData.changePercent?.toFixed(2)}%
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -299,6 +331,13 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      
+      {/* Free Plan Notification */}
+      <FreePlanNotification
+        isVisible={showFreePlanNotification}
+        onClose={() => setShowFreePlanNotification(false)}
+        continent={selectedContinent === 'asia' ? 'Asia' : 'Selected Region'}
+      />
     </div>
   );
 }
