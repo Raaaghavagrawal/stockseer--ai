@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { TrendingUp, TrendingDown, Plus, Minus, Download, BarChart3, LineChart, BarChart } from 'lucide-react';
 import type { StockData, StockChartData } from '../../types/stock';
+import { formatPrice, formatChange, formatChangePercent } from '../../utils/currency';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -158,10 +159,10 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <div className="text-2xl font-bold text-white">${stockData.price?.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-white">{formatPrice(stockData.price || 0, stockData.currency)}</div>
               <div className={`flex items-center ${stockData.change && stockData.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {stockData.change && stockData.change >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
-                {stockData.change?.toFixed(2)} ({stockData.changePercent?.toFixed(2)}%)
+                {formatChange(stockData.change || 0, stockData.currency)} ({formatChangePercent(stockData.changePercent || 0)}%)
               </div>
             </div>
             <button
@@ -414,7 +415,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
                                textAnchor="start"
                                className="font-mono"
                              >
-                               ${price.toFixed(2)}
+                               {formatPrice(price, stockData?.currency)}
                              </text>
                            </g>
                          );

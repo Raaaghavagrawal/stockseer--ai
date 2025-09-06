@@ -6,10 +6,12 @@ import {
   Menu,
   X,
   Home,
-  Crown
+  Crown,
+  TrendingUp
 } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import FreePlanNotification from '../components/FreePlanNotification';
+import { formatPrice, formatChange, formatChangePercent } from '../utils/currency';
 
 // Import all tab components
 import OverviewTab from '../components/tabs/OverviewTab';
@@ -174,29 +176,36 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-white flex">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-card border-r border-border transition-all duration-300 flex flex-col`}>
+      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex flex-col shadow-lg`}>
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between">
             {sidebarOpen && (
               <div>
-                <h1 className="text-xl font-bold text-white">📈 StockSeer.AI</h1>
-                <p className="text-xs text-slate-400">AI-Powered Analysis</p>
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-binance-gray-dark" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-binance-text">StockSeer.AI</h1>
+                    <p className="text-xs text-gray-600 dark:text-binance-text-secondary">AI-Powered Analysis</p>
+                  </div>
+                </div>
               </div>
             )}
             <button
               onClick={toggleSidebar}
-              className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                    className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out transform hover:scale-110"
             >
-              {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              {sidebarOpen ? <X className="w-4 h-4 text-gray-700 dark:text-binance-text" /> : <Menu className="w-4 h-4 text-gray-700 dark:text-binance-text" />}
             </button>
           </div>
         </div>
 
         {/* Stock Search */}
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
           <div className="space-y-3">
             <div>
               <input
@@ -205,13 +214,13 @@ export default function Dashboard() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleStockSearch()}
-                className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded px-3 py-2 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm rounded-lg px-3 py-2 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:border-binance-yellow transition-all duration-300"
               />
             </div>
             <button 
               onClick={handleStockSearch}
               disabled={loading || !searchQuery.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center"
+              className="w-full bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow disabled:bg-gray-300 dark:disabled:bg-binance-gray px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center text-binance-gray-dark dark:text-white font-semibold transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 shadow-lg hover:shadow-xl"
             >
               {loading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -231,10 +240,10 @@ export default function Dashboard() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ease-in-out transform hover:scale-105 ${
                     activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'text-slate-300 hover:bg-secondary hover:text-white'
+                      ? 'bg-gradient-to-r from-binance-yellow to-binance-yellow-dark text-binance-gray-dark shadow-lg'
+                      : 'text-gray-700 dark:text-binance-text-secondary hover:bg-gray-100 dark:hover:bg-binance-gray hover:text-binance-yellow dark:hover:text-binance-yellow'
                   }`}
                   title={!sidebarOpen ? tab.label : undefined}
                 >
@@ -248,13 +257,15 @@ export default function Dashboard() {
 
         {/* Sidebar Footer */}
         {sidebarOpen && (
-          <div className="p-4 border-t border-border">
-            <div className="text-xs text-slate-400 text-center">
+                <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+            <div className="text-xs text-gray-600 dark:text-binance-text-secondary text-center">
               {selectedStock && (
                 <div>
-                  <div className="font-medium text-white">{selectedStock}</div>
+                  <div className="font-medium text-gray-900 dark:text-binance-text">{selectedStock}</div>
                   {stockData && (
-                    <div className="text-green-400">${stockData.price?.toFixed(2)}</div>
+                    <div className="text-binance-yellow font-semibold">
+                      {formatPrice(stockData.price || 0, stockData.currency)}
+                    </div>
                   )}
                 </div>
               )}
@@ -266,22 +277,22 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Top Bar */}
-        <div className="bg-card border-b border-border p-4">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link
                 to="/"
-                className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out transform hover:scale-110"
                 title="Go to Home"
               >
-                <Home className="w-5 h-5" />
+                <Home className="w-5 h-5 text-gray-700 dark:text-binance-text" />
               </Link>
               <div>
-                <h2 className="text-2xl font-bold text-white capitalize">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-binance-text capitalize">
                   {allTabs.find(tab => tab.id === activeTab)?.label || 'Dashboard'}
                 </h2>
                 {selectedStock && (
-                  <p className="text-slate-400">Analyzing {selectedStock}</p>
+                  <p className="text-gray-600 dark:text-binance-text-secondary">Analyzing {selectedStock}</p>
                 )}
               </div>
             </div>
@@ -290,7 +301,7 @@ export default function Dashboard() {
               {/* Pricing Button */}
               <Link
                 to="/pricing"
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200"
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-binance-gray-dark rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold"
               >
                 <Crown className="w-4 h-4" />
                 <span className="text-sm font-medium">Upgrade Plan</span>
@@ -299,12 +310,12 @@ export default function Dashboard() {
               {/* Plan Status */}
               <div className="flex items-center space-x-2">
                 <Crown className={`w-5 h-5 ${
-                  currentPlan === 'free' ? 'text-slate-400' : 
-                  currentPlan === 'premium' ? 'text-purple-400' : 'text-amber-400'
+                  currentPlan === 'free' ? 'text-gray-500 dark:text-binance-text-secondary' : 
+                  currentPlan === 'premium' ? 'text-binance-yellow' : 'text-binance-yellow-dark'
                 }`} />
                 <span className={`text-sm font-medium ${
-                  currentPlan === 'free' ? 'text-slate-400' : 
-                  currentPlan === 'premium' ? 'text-purple-400' : 'text-amber-400'
+                  currentPlan === 'free' ? 'text-gray-500 dark:text-binance-text-secondary' : 
+                  currentPlan === 'premium' ? 'text-binance-yellow' : 'text-binance-yellow-dark'
                 }`}>
                   {currentPlan === 'free' ? 'Free Plan' : 
                    currentPlan === 'premium' ? 'Premium' : 'Premium Plus'}
@@ -312,22 +323,38 @@ export default function Dashboard() {
                 </span>
               </div>
               
-              {selectedStock && stockData && (
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-white">${stockData.price?.toFixed(2)}</div>
-                  <div className={`text-sm ${stockData.changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {stockData.changePercent >= 0 ? '+' : ''}{stockData.changePercent?.toFixed(2)}%
-                  </div>
-                </div>
-              )}
+                      {selectedStock && stockData && (
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-gray-900 dark:text-binance-text">
+                            {formatPrice(stockData.price || 0, stockData.currency)}
+                          </div>
+                          <div className={`text-sm font-semibold ${stockData.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {formatChange(stockData.change || 0, stockData.currency)} ({formatChangePercent(stockData.changePercent || 0)}%)
+                          </div>
+                        </div>
+                      )}
             </div>
           </div>
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          <div className="bg-card/50 border border-border rounded-lg p-6 h-full">
-            {renderTabContent()}
+        <div className="flex-1 p-6 overflow-y-auto bg-gray-50 dark:bg-black">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 h-full shadow-lg">
+            {!selectedStock ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="w-24 h-24 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-full flex items-center justify-center mb-6 shadow-lg">
+                  <Search className="w-12 h-12 text-binance-gray-dark" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-binance-text mb-4">
+                  Search for a stock to view overview
+                </h3>
+                <p className="text-gray-600 dark:text-binance-text-secondary max-w-md">
+                  Enter a stock symbol in the sidebar to get started with real-time data, charts, and analysis.
+                </p>
+              </div>
+            ) : (
+              renderTabContent()
+            )}
           </div>
         </div>
       </div>

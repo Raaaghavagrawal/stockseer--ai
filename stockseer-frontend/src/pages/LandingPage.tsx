@@ -262,16 +262,41 @@ const LandingPage: React.FC = () => {
             <div className="flex items-center space-x-4">
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center space-x-8">
-                <a href="#home" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Home</a>
-                <a href="#features" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Features</a>
-                <a href="#stats" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">Stats</a>
-                <a href="#faq" className="text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors">FAQ</a>
+                <a 
+                  href="#home" 
+                  className="relative text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-all duration-300 ease-in-out group"
+                >
+                  <span className="relative z-10">Home</span>
+                  <div className="absolute inset-0 bg-binance-yellow/10 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300 ease-in-out"></div>
+                </a>
+                <a 
+                  href="#features" 
+                  className="relative text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-all duration-300 ease-in-out group"
+                >
+                  <span className="relative z-10">Features</span>
+                  <div className="absolute inset-0 bg-binance-yellow/10 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300 ease-in-out"></div>
+                </a>
+                <a 
+                  href="#stats" 
+                  className="relative text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-all duration-300 ease-in-out group"
+                >
+                  <span className="relative z-10">Stats</span>
+                  <div className="absolute inset-0 bg-binance-yellow/10 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300 ease-in-out"></div>
+                </a>
+                <a 
+                  href="#faq" 
+                  className="relative text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-all duration-300 ease-in-out group"
+                >
+                  <span className="relative z-10">FAQ</span>
+                  <div className="absolute inset-0 bg-binance-yellow/10 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300 ease-in-out"></div>
+                </a>
                 <Link
                   to="/pricing"
-                  className="flex items-center space-x-1 text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-colors"
+                  className="relative flex items-center space-x-1 text-gray-700 dark:text-binance-text-secondary hover:text-binance-yellow transition-all duration-300 ease-in-out group px-3 py-1"
                 >
-                  <Crown className="w-4 h-4" />
-                  <span>Pricing</span>
+                  <Crown className="w-4 h-4 relative z-10" />
+                  <span className="relative z-10">Pricing</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-binance-yellow/20 to-binance-yellow-dark/20 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300 ease-in-out"></div>
                 </Link>
               </nav>
 
@@ -284,25 +309,32 @@ const LandingPage: React.FC = () => {
                       setAuthMode('login');
                       setAuthModalOpen(true);
                     }}
-                    className="bg-binance-yellow hover:bg-binance-yellow-dark text-black font-semibold px-4 py-2 rounded-lg transition-colors"
+                    className="relative bg-binance-yellow hover:bg-binance-yellow-dark text-black font-semibold px-4 py-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg group overflow-hidden"
                   >
-                    Sign In
+                    <span className="relative z-10">Sign In</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></div>
                   </button>
                 )}
 
                 <button
                   onClick={toggleTheme}
-                  className="p-2 rounded-lg bg-gray-100 dark:bg-binance-gray hover:bg-gray-200 dark:hover:bg-binance-gray-light transition-colors"
+                  className="relative p-2 rounded-lg bg-gray-100 dark:bg-binance-gray hover:bg-gray-200 dark:hover:bg-binance-gray-light transition-all duration-300 ease-in-out transform hover:scale-110 hover:rotate-12 group"
                 >
-                  {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                  <div className="relative z-10">
+                    {theme === 'dark' ? <Sun className="w-5 h-5 group-hover:text-binance-yellow transition-colors duration-300" /> : <Moon className="w-5 h-5 group-hover:text-binance-yellow transition-colors duration-300" />}
+                  </div>
+                  <div className="absolute inset-0 bg-binance-yellow/10 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300 ease-in-out"></div>
                 </button>
 
                 {/* Hamburger menu button */}
                 <button
                   onClick={() => setIsHamburgerOpen(!isHamburgerOpen)}
-                  className="hamburger-menu p-2 rounded-lg bg-gray-100 dark:bg-binance-gray hover:bg-gray-200 dark:hover:bg-binance-gray-light transition-colors"
+                  className="relative hamburger-menu p-2 rounded-lg bg-gray-100 dark:bg-binance-gray hover:bg-gray-200 dark:hover:bg-binance-gray-light transition-all duration-300 ease-in-out transform hover:scale-110 group"
                 >
-                  {isHamburgerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                  <div className="relative z-10">
+                    {isHamburgerOpen ? <X className="w-5 h-5 group-hover:text-binance-yellow transition-colors duration-300" /> : <Menu className="w-5 h-5 group-hover:text-binance-yellow transition-colors duration-300" />}
+                  </div>
+                  <div className="absolute inset-0 bg-binance-yellow/10 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300 ease-in-out"></div>
                 </button>
               </div>
             </div>
@@ -320,34 +352,38 @@ const LandingPage: React.FC = () => {
                 <a 
                   href="#home" 
                   onClick={() => setIsHamburgerOpen(false)} 
-                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="relative flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out group"
                 >
-                  <TrendingUp className="w-4 h-4 mr-3" />
-                  Home
+                  <TrendingUp className="w-4 h-4 mr-3 group-hover:text-binance-yellow transition-colors duration-300" />
+                  <span className="group-hover:text-binance-yellow transition-colors duration-300">Home</span>
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-binance-yellow scale-y-0 group-hover:scale-y-100 transition-transform duration-300 ease-in-out origin-top"></div>
                 </a>
                 <Link
                   to="/pricing"
                   onClick={() => setIsHamburgerOpen(false)}
-                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="relative flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out group"
                 >
-                  <Crown className="w-4 h-4 mr-3" />
-                  Pricing
+                  <Crown className="w-4 h-4 mr-3 group-hover:text-binance-yellow transition-colors duration-300" />
+                  <span className="group-hover:text-binance-yellow transition-colors duration-300">Pricing</span>
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-binance-yellow scale-y-0 group-hover:scale-y-100 transition-transform duration-300 ease-in-out origin-top"></div>
                 </Link>
                 <a 
                   href="#contact" 
                   onClick={() => setIsHamburgerOpen(false)} 
-                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="relative flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out group"
                 >
-                  <Mail className="w-4 h-4 mr-3" />
-                  Contact Us
+                  <Mail className="w-4 h-4 mr-3 group-hover:text-binance-yellow transition-colors duration-300" />
+                  <span className="group-hover:text-binance-yellow transition-colors duration-300">Contact Us</span>
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-binance-yellow scale-y-0 group-hover:scale-y-100 transition-transform duration-300 ease-in-out origin-top"></div>
                 </a>
                 <a 
                   href="#about" 
                   onClick={() => setIsHamburgerOpen(false)} 
-                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="relative flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out group"
                 >
-                  <Info className="w-4 h-4 mr-3" />
-                  About
+                  <Info className="w-4 h-4 mr-3 group-hover:text-binance-yellow transition-colors duration-300" />
+                  <span className="group-hover:text-binance-yellow transition-colors duration-300">About</span>
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-binance-yellow scale-y-0 group-hover:scale-y-100 transition-transform duration-300 ease-in-out origin-top"></div>
                 </a>
                 
                 {currentUser && (

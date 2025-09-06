@@ -1,5 +1,90 @@
 import axios from 'axios';
 
+// Currency detection function
+function detectCurrencyFromSymbol(symbol: string): string {
+  const symbolUpper = symbol.toUpperCase();
+  
+  // Indian stocks (NSE/BSE)
+  if (symbolUpper.endsWith('.NS') || symbolUpper.endsWith('.BO')) {
+    return 'INR';
+  }
+  
+  // Japanese stocks (Tokyo Stock Exchange)
+  if (symbolUpper.endsWith('.T') || symbolUpper.endsWith('.TO')) {
+    return 'JPY';
+  }
+  
+  // European stocks
+  if (symbolUpper.endsWith('.L')) return 'GBP';  // London
+  if (symbolUpper.endsWith('.PA')) return 'EUR'; // Paris
+  if (symbolUpper.endsWith('.DE')) return 'EUR'; // Frankfurt
+  if (symbolUpper.endsWith('.AS')) return 'EUR'; // Amsterdam
+  if (symbolUpper.endsWith('.BR')) return 'EUR'; // Brussels
+  if (symbolUpper.endsWith('.MI')) return 'EUR'; // Milan
+  if (symbolUpper.endsWith('.MC')) return 'EUR'; // Madrid
+  
+  // Canadian stocks
+  if (symbolUpper.endsWith('.TO') || symbolUpper.endsWith('.V')) {
+    return 'CAD';
+  }
+  
+  // Australian stocks
+  if (symbolUpper.endsWith('.AX')) return 'AUD';
+  
+  // Hong Kong stocks
+  if (symbolUpper.endsWith('.HK')) return 'HKD';
+  
+  // Singapore stocks
+  if (symbolUpper.endsWith('.SI')) return 'SGD';
+  
+  // Swiss stocks
+  if (symbolUpper.endsWith('.SW')) return 'CHF';
+  
+  // South Korean stocks
+  if (symbolUpper.endsWith('.KS')) return 'KRW';
+  
+  // Brazilian stocks
+  if (symbolUpper.endsWith('.SA')) return 'BRL';
+  
+  // Mexican stocks
+  if (symbolUpper.endsWith('.MX')) return 'MXN';
+  
+  // Russian stocks
+  if (symbolUpper.endsWith('.ME')) return 'RUB';
+  
+  // Chinese stocks
+  if (symbolUpper.endsWith('.SS') || symbolUpper.endsWith('.SZ')) {
+    return 'CNY';
+  }
+  
+  // Turkish stocks
+  if (symbolUpper.endsWith('.IS')) return 'TRY';
+  
+  // South African stocks
+  if (symbolUpper.endsWith('.JO')) return 'ZAR';
+  
+  // Israeli stocks
+  if (symbolUpper.endsWith('.TA')) return 'ILS';
+  
+  // Thai stocks
+  if (symbolUpper.endsWith('.BK')) return 'THB';
+  
+  // Malaysian stocks
+  if (symbolUpper.endsWith('.KL')) return 'MYR';
+  
+  // Indonesian stocks
+  if (symbolUpper.endsWith('.JK')) return 'IDR';
+  
+  // Philippine stocks
+  if (symbolUpper.endsWith('.PS')) return 'PHP';
+  
+  // Vietnamese stocks
+  if (symbolUpper.endsWith('.VN')) return 'VND';
+  
+  // Default to USD for US stocks and unknown
+  return 'USD';
+}
+
 // Configure axios with base URL and default headers
 const api = axios.create({
   baseURL: 'http://localhost:8000', // Direct connection to Python backend
@@ -29,6 +114,7 @@ export const stockAPI = {
     } catch (error) {
       console.error('API Error in getStockData:', error);
       // Return mock data for testing if API fails
+      const currency = detectCurrencyFromSymbol(symbol);
       return {
         symbol: symbol,
         name: `${symbol} Inc.`,
@@ -45,6 +131,7 @@ export const stockAPI = {
         low: 148.20,
         open: 148.50,
         previousClose: 148.10,
+        currency: currency,
         timestamp: new Date().toISOString()
       } as StockData;
     }
