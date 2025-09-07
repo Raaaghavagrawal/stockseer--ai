@@ -15,7 +15,6 @@ import {
   Zap,
   Target,
   CheckCircle,
-  Play,
   ChevronDown,
   ChevronUp,
   Sun,
@@ -460,10 +459,13 @@ const LandingPage: React.FC = () => {
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </button>
               )}
-                <button className="inline-flex items-center justify-center px-8 py-4 border-2 border-gray-300 dark:border-binance-gray text-gray-700 dark:text-binance-text font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors">
-                  <Play className="mr-2 w-5 h-5" />
-                  Watch Demo
-                </button>
+                <Link
+                  to="/dashboard?tab=about-stockseer"
+                  className="inline-flex items-center justify-center px-8 py-4 border-2 border-gray-300 dark:border-binance-gray text-gray-700 dark:text-binance-text font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors"
+                >
+                  <Users className="mr-2 w-5 h-5" />
+                  About Us
+                </Link>
               </div>
 
               {/* Trust indicators */}
@@ -824,135 +826,199 @@ const LandingPage: React.FC = () => {
             ))}
           </div>
 
-          {/* Contact Support */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            viewport={{ once: true }}
-            className="text-center mt-12"
-          >
-            <div className="bg-gradient-to-r from-binance-yellow/10 to-binance-yellow-dark/10 dark:from-binance-yellow/5 dark:to-binance-yellow-dark/5 rounded-2xl p-8">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-binance-text mb-4">
-                Still have questions?
-              </h3>
-              <p className="text-gray-600 dark:text-binance-text-secondary mb-6">
-                Our support team is here to help you get the most out of StockSeer.ai
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button className="inline-flex items-center justify-center px-6 py-3 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-colors">
-                  <Users className="mr-2 w-4 h-4" />
-                  Contact Support
-                </button>
-                <button className="inline-flex items-center justify-center px-6 py-3 border-2 border-gray-300 dark:border-binance-gray text-gray-700 dark:text-binance-text font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors">
-                  <Brain className="mr-2 w-4 h-4" />
-                  View Documentation
-                </button>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-binance-text mb-6">
-              Ready to Transform Your Trading?
-            </h2>
-            <p className="text-xl text-gray-600 dark:text-binance-text-secondary mb-8">
-              Join thousands of investors who are already using AI-powered insights 
-              to make better investment decisions.
-            </p>
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center justify-center px-8 py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
-            >
-              <Target className="mr-2 w-5 h-5" />
-              Get Started Now
-              <Zap className="ml-2 w-5 h-5" />
-            </Link>
-          </motion.div>
-        </div>
-      </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-20 bg-gray-50 dark:bg-[hsl(0,0%,6%)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Get in Touch
+      <section id="contact" className="py-24 bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-[hsl(0,0%,6%)] dark:via-[hsl(0,0%,8%)] dark:to-[hsl(0,0%,10%)] relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-5 dark:opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }}></div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          {/* Header */}
+          <div className="text-center mb-20">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-2xl mb-6 shadow-lg">
+              <Mail className="w-8 h-8 text-black" />
+            </div>
+            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+              Get in <span className="bg-gradient-to-r from-binance-yellow to-binance-yellow-dark bg-clip-text text-transparent">Touch</span>
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Have questions about StockSeer.ai? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
+              Have questions about StockSeer.ai? We'd love to hear from you. Our team of experts is here to help you make the most of our platform.
             </p>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            {/* Contact Information Cards */}
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-200 dark:border-gray-800 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mr-4">
+                    <Mail className="w-6 h-6 text-white" />
+                  </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Contact Information</h3>
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <Mail className="w-6 h-6 text-binance-yellow mr-4" />
-                  <div>
-                    <p className="text-gray-900 dark:text-white font-semibold">Email</p>
-                    <p className="text-gray-600 dark:text-gray-400">support@stockseer.ai</p>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Email Support</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Get help via email</p>
                   </div>
                 </div>
-                <div className="flex items-center">
-                  <Users className="w-6 h-6 text-binance-yellow mr-4" />
+                <p className="text-gray-600 dark:text-gray-400 mb-4">Send us your questions and we'll respond within 24 hours.</p>
+                <a href="mailto:support@stockseer.ai" className="text-binance-yellow hover:text-binance-yellow-dark font-semibold transition-colors">
+                  support@stockseer.ai →
+                </a>
+              </div>
+
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-200 dark:border-gray-800 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center mr-4">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
                   <div>
-                    <p className="text-gray-900 dark:text-white font-semibold">Support</p>
-                    <p className="text-gray-600 dark:text-gray-400">24/7 Customer Support</p>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Live Chat</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">24/7 Customer Support</p>
                   </div>
                 </div>
-                <div className="flex items-center">
-                  <Globe className="w-6 h-6 text-binance-yellow mr-4" />
+                <p className="text-gray-600 dark:text-gray-400 mb-4">Chat with our support team in real-time for instant help.</p>
+                <button className="text-binance-yellow hover:text-binance-yellow-dark font-semibold transition-colors">
+                  Start Chat →
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-200 dark:border-gray-800 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mr-4">
+                    <Globe className="w-6 h-6 text-white" />
+                  </div>
                   <div>
-                    <p className="text-gray-900 dark:text-white font-semibold">Website</p>
-                    <p className="text-gray-600 dark:text-gray-400">www.stockseer.ai</p>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Documentation</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Comprehensive guides</p>
                   </div>
                 </div>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">Browse our extensive documentation and tutorials.</p>
+                <a href="#" className="text-binance-yellow hover:text-binance-yellow-dark font-semibold transition-colors">
+                  View Docs →
+                </a>
               </div>
             </div>
             
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Send us a Message</h3>
+            {/* Contact Form */}
+            <div className="lg:col-span-2">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-200 dark:border-gray-800">
+                <div className="mb-8">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Send us a Message</h3>
+                  <p className="text-gray-600 dark:text-gray-400">Fill out the form below and we'll get back to you as soon as possible.</p>
+                </div>
+                
               <form className="space-y-6">
-                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Full Name</label>
                   <input
                     type="text"
-                    placeholder="Your Name"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        placeholder="Enter your full name"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
                   />
                 </div>
-                <div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Email Address</label>
                   <input
                     type="email"
-                    placeholder="Your Email"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        placeholder="Enter your email"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
                   />
                 </div>
-                <div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Subject</label>
+                    <select className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200">
+                      <option value="">Select a subject</option>
+                      <option value="general">General Inquiry</option>
+                      <option value="technical">Technical Support</option>
+                      <option value="billing">Billing Question</option>
+                      <option value="feature">Feature Request</option>
+                      <option value="bug">Bug Report</option>
+                      <option value="partnership">Partnership</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Message</label>
                   <textarea
-                    rows={4}
-                    placeholder="Your Message"
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent resize-none"
+                      rows={6}
+                      placeholder="Tell us how we can help you..."
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent resize-none transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
                   ></textarea>
                 </div>
+                  
+                  <div className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      id="newsletter"
+                      className="mt-1 w-4 h-4 text-binance-yellow bg-gray-100 border-gray-300 rounded focus:ring-binance-yellow focus:ring-2"
+                    />
+                    <label htmlFor="newsletter" className="text-sm text-gray-600 dark:text-gray-400">
+                      I'd like to receive updates about new features and market insights
+                    </label>
+                  </div>
+                  
                 <button
                   type="submit"
-                  className="w-full bg-binance-yellow hover:bg-binance-yellow-dark text-black font-semibold py-3 px-6 rounded-lg transition-colors"
+                    className="w-full bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-black font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:ring-offset-2"
                 >
+                    <span className="flex items-center justify-center">
+                      <Mail className="w-5 h-5 mr-2" />
                   Send Message
+                    </span>
                 </button>
               </form>
+              </div>
+            </div>
+          </div>
+          
+          {/* Additional Contact Options */}
+          <div className="mt-20 text-center">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Other Ways to Connect</h3>
+            <div className="flex flex-wrap justify-center gap-6">
+              <a href="#" className="flex items-center space-x-3 bg-white dark:bg-gray-900 px-6 py-3 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                  </svg>
+                </div>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">Twitter</span>
+              </a>
+              
+              <a href="#" className="flex items-center space-x-3 bg-white dark:bg-gray-900 px-6 py-3 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-800 to-blue-900 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  </svg>
+                </div>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">LinkedIn</span>
+              </a>
+              
+              <a href="#" className="flex items-center space-x-3 bg-white dark:bg-gray-900 px-6 py-3 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="w-8 h-8 bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                </div>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">GitHub</span>
+              </a>
+              
+              <a href="#" className="flex items-center space-x-3 bg-white dark:bg-gray-900 px-6 py-3 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                </div>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">YouTube</span>
+              </a>
             </div>
           </div>
         </div>

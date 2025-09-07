@@ -275,31 +275,207 @@ export default function AboutStockSeerTab() {
         </CardContent>
       </Card>
 
-      {/* Team */}
+      {/* Company Story */}
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-white">📖 Our Story</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-slate-300 text-lg leading-relaxed mb-4">
+            StockSeer.AI was born from a simple yet powerful vision: to democratize sophisticated financial 
+            analysis and make institutional-grade investment tools accessible to individual investors worldwide. 
+            Founded in 2024 by two passionate entrepreneurs, our platform combines cutting-edge artificial 
+            intelligence with comprehensive market data to empower investors with actionable insights.
+          </p>
+          <p className="text-slate-300 text-lg leading-relaxed">
+            We believe that every investor, regardless of their experience level, deserves access to the same 
+            quality of analysis that institutional investors use. Our mission is to level the playing field 
+            and help individuals make more informed, data-driven investment decisions.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Founders */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <div className="flex items-center space-x-2">
             <Users className="w-6 h-6 text-blue-400" />
-            <CardTitle className="text-white">👥 Our Team</CardTitle>
+            <CardTitle className="text-white">👥 Meet Our Founders</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-slate-300 mb-4">
-            StockSeer.AI is built by a team of passionate developers, data scientists, and financial experts 
-            who believe in making sophisticated investment tools accessible to everyone.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-slate-700/50 rounded-lg">
-              <h4 className="font-semibold text-white mb-2">Development Team</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Ranijay Singh */}
+            <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">RS</span>
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-white">Ranijay Singh</h4>
+                  <p className="text-blue-400 font-semibold">Co-Founder & CEO</p>
+                </div>
+              </div>
+              <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                Ranijay brings extensive experience in financial technology and product development. 
+                With a background in computer science and a passion for fintech innovation, he leads 
+                the strategic vision and product roadmap for StockSeer.AI.
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span className="text-slate-300 text-sm">Product Strategy & Vision</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span className="text-slate-300 text-sm">Financial Technology Expertise</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span className="text-slate-300 text-sm">Business Development</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Raghav Agrawal */}
+            <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">RA</span>
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-white">Raghav Agrawal</h4>
+                  <p className="text-green-400 font-semibold">Co-Founder & CTO</p>
+                </div>
+              </div>
+              <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                Raghav is a seasoned software engineer and AI enthusiast with deep expertise in machine learning 
+                and financial data analysis. He oversees the technical architecture and leads the development 
+                of our AI-powered analytics engine.
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span className="text-slate-300 text-sm">AI & Machine Learning</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span className="text-slate-300 text-sm">Full-Stack Development</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span className="text-slate-300 text-sm">Data Science & Analytics</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Team Values */}
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-white">💎 Our Values</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-blue-400" />
+                </div>
+                <h4 className="font-semibold text-white">Transparency</h4>
+              </div>
               <p className="text-slate-300 text-sm">
-                Experienced software engineers specializing in React, Python, and financial applications
+                We believe in open, honest communication and transparent pricing with no hidden fees.
               </p>
             </div>
-            <div className="p-4 bg-slate-700/50 rounded-lg">
-              <h4 className="font-semibold text-white mb-2">Financial Experts</h4>
+
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-green-400" />
+                </div>
+                <h4 className="font-semibold text-white">Accessibility</h4>
+              </div>
               <p className="text-slate-300 text-sm">
-                Certified financial analysts and investment professionals providing domain expertise
+                Making sophisticated financial tools accessible to investors of all experience levels.
               </p>
+            </div>
+
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                  <Brain className="w-5 h-5 text-purple-400" />
+                </div>
+                <h4 className="font-semibold text-white">Innovation</h4>
+              </div>
+              <p className="text-slate-300 text-sm">
+                Continuously pushing the boundaries of what's possible with AI and financial technology.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                  <Star className="w-5 h-5 text-yellow-400" />
+                </div>
+                <h4 className="font-semibold text-white">Excellence</h4>
+              </div>
+              <p className="text-slate-300 text-sm">
+                Committed to delivering the highest quality tools and user experience.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-red-400" />
+                </div>
+                <h4 className="font-semibold text-white">Speed</h4>
+              </div>
+              <p className="text-slate-300 text-sm">
+                Real-time data and lightning-fast analysis to help you stay ahead of the market.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-emerald-400" />
+                </div>
+                <h4 className="font-semibold text-white">Global Reach</h4>
+              </div>
+              <p className="text-slate-300 text-sm">
+                Serving investors worldwide with support for multiple markets and currencies.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Company Stats */}
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-white">📈 By the Numbers</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-400 mb-2">10,000+</div>
+              <div className="text-slate-300 text-sm">Stocks Tracked</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-400 mb-2">50+</div>
+              <div className="text-slate-300 text-sm">AI Models</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-400 mb-2">85%</div>
+              <div className="text-slate-300 text-sm">Accuracy Rate</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-yellow-400 mb-2">24/7</div>
+              <div className="text-slate-300 text-sm">Market Coverage</div>
             </div>
           </div>
         </CardContent>

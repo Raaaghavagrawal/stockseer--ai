@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { 
   Search, 
   RefreshCw,
@@ -40,6 +40,7 @@ import { stockAPI, handleAPIError } from '../utils/api';
 
 export default function Dashboard() {
   const { currentPlan, isTrialActive, showFreePlanNotification, setShowFreePlanNotification, selectedContinent } = useSubscription();
+  const [searchParams] = useSearchParams();
   const [selectedStock, setSelectedStock] = useState<string>('');
   const [stockData, setStockData] = useState<StockData | null>(null);
   const [chartData, setChartData] = useState<StockChartData[]>([]);
@@ -48,6 +49,14 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Handle URL parameter for tab navigation
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // Tab configuration
   const allTabs = [
