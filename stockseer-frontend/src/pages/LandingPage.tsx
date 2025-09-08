@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, 
@@ -141,6 +141,19 @@ const LandingPage: React.FC = () => {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const location = useLocation();
+
+  // Handle hash-based scroll on navigation
+  useEffect(() => {
+    if (location.hash) {
+      const el = document.querySelector(location.hash);
+      if (el) {
+        (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [location]);
 
   // Close hamburger menu when clicking outside
   useEffect(() => {
@@ -376,7 +389,7 @@ const LandingPage: React.FC = () => {
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-binance-yellow scale-y-0 group-hover:scale-y-100 transition-transform duration-300 ease-in-out origin-top"></div>
                 </a>
                 <a 
-                  href="#about" 
+                  href="/about" 
                   onClick={() => setIsHamburgerOpen(false)} 
                   className="relative flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out group"
                 >
@@ -404,7 +417,7 @@ const LandingPage: React.FC = () => {
       </header>
 
       {/* Hero Section */}
-      <section id="home" className="relative overflow-hidden">
+      <section id="home" className="relative overflow-hidden scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left side - Content */}
@@ -460,7 +473,7 @@ const LandingPage: React.FC = () => {
                 </button>
               )}
                 <Link
-                  to="/dashboard?tab=about-stockseer"
+                  to="/about"
                   className="inline-flex items-center justify-center px-8 py-4 border-2 border-gray-300 dark:border-binance-gray text-gray-700 dark:text-binance-text font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors"
                 >
                   <Users className="mr-2 w-5 h-5" />

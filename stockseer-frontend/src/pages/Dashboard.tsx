@@ -22,7 +22,6 @@ import ChatTab from '../components/tabs/ChatTab';
 import AIRiskNewsTab from '../components/tabs/AIRiskNewsTab';
 import LifePlannerTab from '../components/tabs/LifePlannerTab';
 import AboutCompanyTab from '../components/tabs/AboutCompanyTab';
-import AboutStockSeerTab from '../components/tabs/AboutStockSeerTab';
 import TutorialTab from '../components/tabs/TutorialTab';
 import WatchlistTab from '../components/tabs/WatchlistTab';
 import MarketScreenerTab from '../components/tabs/MarketScreenerTab';
@@ -68,7 +67,6 @@ export default function Dashboard() {
     { id: 'ai-risk', label: '🧠 AI & Risk' },
     { id: 'life-planner', label: '🎯 Life Planner' },
     { id: 'about-company', label: '🏢 Company' },
-    { id: 'about-stockseer', label: 'ℹ️ About' },
     { id: 'tutorial', label: '📚 Tutorial' },
     { id: 'watchlist', label: '👀 Watchlist' },
     { id: 'market-screener', label: '🔍 Screener' },
@@ -109,10 +107,22 @@ export default function Dashboard() {
     }
   };
 
+  // Debounced search
+  useEffect(() => {
+    const q = searchQuery.trim().toUpperCase();
+    if (!q) return;
+    const handle = setTimeout(async () => {
+      await fetchStockData(q);
+      setSelectedStock(q);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
   const handleStockSearch = async () => {
-    if (searchQuery.trim()) {
-      await fetchStockData(searchQuery.trim().toUpperCase());
-      setSelectedStock(searchQuery.trim().toUpperCase());
+    const q = searchQuery.trim().toUpperCase();
+    if (q) {
+      await fetchStockData(q);
+      setSelectedStock(q);
     }
   };
 
@@ -154,8 +164,6 @@ export default function Dashboard() {
         return <LifePlannerTab />;
       case 'about-company':
         return <AboutCompanyTab selectedStock={selectedStock} stockData={stockData} />;
-      case 'about-stockseer':
-        return <AboutStockSeerTab />;
       case 'tutorial':
         return <TutorialTab />;
       case 'watchlist':
@@ -185,9 +193,9 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-white flex">
+    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-black text-gray-900 dark:text-white flex">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex flex-col shadow-lg`}>
+      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 flex flex-col shadow-lg overflow-hidden`}>
         {/* Sidebar Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between">
@@ -284,7 +292,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-4 shadow-sm">
           <div className="flex items-center justify-between">
@@ -347,8 +355,8 @@ export default function Dashboard() {
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 p-6 overflow-y-auto bg-gray-50 dark:bg-black">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 h-full shadow-lg">
+        <div className="flex-1 p-6 overflow-y-auto bg-gray-50 dark:bg-black will-change-transform [backface-visibility:hidden]">
+          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-xl p-6 shadow-lg">
             {!selectedStock ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="w-24 h-24 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-full flex items-center justify-center mb-6 shadow-lg">

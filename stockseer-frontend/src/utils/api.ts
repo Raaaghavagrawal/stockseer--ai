@@ -1,5 +1,34 @@
 import axios from 'axios';
 
+// Simple in-memory cache with TTL
+type CacheEntry<T> = { data: T; timestamp: number };
+const STOCK_TTL_MS = 60_000; // 1 minute
+const CHART_TTL_MS = 60_000; // 1 minute
+const stockDataCache: Map<string, CacheEntry<any>> = new Map();
+const chartDataCache: Map<string, CacheEntry<any>> = new Map();
+
+// Retry helper for transient errors (e.g., 429/503)
+async function requestWithRetry(fn: () => any, maxRetries = 3, baseDelayMs = 300): Promise<any> {
+  let attempt = 0;
+  let lastError: any;
+  while (attempt <= maxRetries) {
+    try {
+      // Support both promise-returning and value-returning functions
+      return await Promise.resolve(fn());
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.response?.status;
+      if (status !== 429 && status !== 503) break;
+      const retryAfterHeader = error?.response?.headers?.['retry-after'];
+      const retryAfter = retryAfterHeader ? Number(retryAfterHeader) * 1000 : null;
+      const delayMs = retryAfter ?? baseDelayMs * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delayMs));
+      attempt += 1;
+    }
+  }
+  throw lastError;
+}
+
 // Currency detection function
 function detectCurrencyFromSymbol(symbol: string): string {
   const symbolUpper = symbol.toUpperCase();
@@ -109,8 +138,17 @@ export const stockAPI = {
   // Get real-time stock data
   getStockData: async (symbol: string): Promise<StockData> => {
     try {
-      const response = await api.get(`/stocks/${symbol}`);
-      return response.data as StockData;
+      const cacheKey = symbol.toUpperCase();
+      const cached = stockDataCache.get(cacheKey);
+      const now = Date.now();
+      if (cached && now - cached.timestamp < STOCK_TTL_MS) {
+        return cached.data as StockData;
+      }
+
+      const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}`));
+      const data = response.data as StockData;
+      stockDataCache.set(cacheKey, { data, timestamp: now });
+      return data;
     } catch (error) {
       console.error('API Error in getStockData:', error);
       // Return mock data for testing if API fails
@@ -140,10 +178,17 @@ export const stockAPI = {
   // Get historical chart data
   getStockChartData: async (symbol: string, period: string = '3mo', interval: string = '1d'): Promise<StockChartData[]> => {
     try {
-      const response = await api.get(`/stocks/${symbol}/chart`, {
-        params: { period, interval }
-      });
-      return (response.data as any).data as StockChartData[]; // Backend returns {data: [...]}
+      const cacheKey = `${symbol.toUpperCase()}|${period}|${interval}`;
+      const cached = chartDataCache.get(cacheKey);
+      const now = Date.now();
+      if (cached && now - cached.timestamp < CHART_TTL_MS) {
+        return cached.data as StockChartData[];
+      }
+
+      const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/chart`, { params: { period, interval } }));
+      const data = (response.data as { data: StockChartData[] }).data;
+      chartDataCache.set(cacheKey, { data, timestamp: now });
+      return data;
     } catch (error) {
       console.error('API Error in getStockChartData:', error);
       // Return mock chart data for testing if API fails
@@ -167,29 +212,25 @@ export const stockAPI = {
 
   // Get technical indicators
   getTechnicalIndicators: async (symbol: string): Promise<TechnicalIndicators> => {
-    const response = await api.get(`/stocks/${symbol}/technical`);
+    const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/technical`));
     return response.data as TechnicalIndicators;
   },
 
   // Search stocks
   searchStocks: async (query: string): Promise<{ symbol: string; name: string }[]> => {
-    const response = await api.get('/stocks/search-simple', {
-      params: { q: query }
-    });
+    const response: any = await requestWithRetry(() => api.get('/stocks/search-simple', { params: { q: query } }));
     return response.data as { symbol: string; name: string }[];
   },
 
   // Get company info
   getCompanyInfo: async (symbol: string): Promise<any> => {
-    const response = await api.get(`/stocks/${symbol}/info`);
+    const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/info`));
     return response.data;
   },
 
   // Get advanced metrics
   getAdvancedMetrics: async (symbol: string, period: string = '1y', riskFreeRate: number = 0.03): Promise<any> => {
-    const response = await api.get(`/stocks/${symbol}/advanced-metrics`, {
-      params: { period, risk_free_rate: riskFreeRate }
-    });
+    const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/advanced-metrics`, { params: { period, risk_free_rate: riskFreeRate } }));
     return response.data;
   },
 };
@@ -198,25 +239,25 @@ export const stockAPI = {
 export const lifePlannerAPI = {
   // Get all goals
   getGoals: async (): Promise<any> => {
-    const response = await api.get('/life-planner/goals');
+    const response: any = await requestWithRetry(() => api.get('/life-planner/goals'));
     return response.data;
   },
 
   // Create a new goal
   createGoal: async (goalData: any): Promise<any> => {
-    const response = await api.post('/life-planner/goals', goalData);
+    const response: any = await requestWithRetry(() => api.post('/life-planner/goals', goalData));
     return response.data;
   },
 
   // Update an existing goal
   updateGoal: async (goalId: string, goalData: any): Promise<any> => {
-    const response = await api.put(`/life-planner/goals/${goalId}`, goalData);
+    const response: any = await requestWithRetry(() => api.put(`/life-planner/goals/${goalId}`, goalData));
     return response.data;
   },
 
   // Delete a goal
   deleteGoal: async (goalId: string): Promise<any> => {
-    const response = await api.delete(`/life-planner/goals/${goalId}`);
+    const response: any = await requestWithRetry(() => api.delete(`/life-planner/goals/${goalId}`));
     return response.data;
   },
 };
@@ -225,25 +266,25 @@ export const lifePlannerAPI = {
 export const notesAPI = {
   // Get all notes
   getNotes: async (): Promise<any> => {
-    const response = await api.get('/notes');
+    const response: any = await requestWithRetry(() => api.get('/notes'));
     return response.data;
   },
 
   // Create a new note
   createNote: async (noteData: any): Promise<any> => {
-    const response = await api.post('/notes', noteData);
+    const response: any = await requestWithRetry(() => api.post('/notes', noteData));
     return response.data;
   },
 
   // Update an existing note
   updateNote: async (noteId: string, noteData: any): Promise<any> => {
-    const response = await api.put(`/notes/${noteId}`, noteData);
+    const response: any = await requestWithRetry(() => api.put(`/notes/${noteId}`, noteData));
     return response.data;
   },
 
   // Delete a note
   deleteNote: async (noteId: string): Promise<any> => {
-    const response = await api.delete(`/notes/${noteId}`);
+    const response: any = await requestWithRetry(() => api.delete(`/notes/${noteId}`));
     return response.data;
   },
 };
@@ -252,19 +293,19 @@ export const notesAPI = {
 export const predictionsAPI = {
   // Get AI predictions for a stock
   getStockPrediction: async (symbol: string): Promise<StockPrediction> => {
-    const response = await api.get(`/predictions/${symbol}`);
+    const response: any = await requestWithRetry(() => api.get(`/predictions/${symbol}`));
     return response.data as StockPrediction;
   },
 
   // Get all predictions
   getAllPredictions: async (): Promise<StockPrediction[]> => {
-    const response = await api.get('/predictions');
+    const response: any = await requestWithRetry(() => api.get('/predictions'));
     return response.data as StockPrediction[];
   },
 
   // Get trending predictions
   getTrendingPredictions: async (): Promise<StockPrediction[]> => {
-    const response = await api.get('/predictions/trending');
+    const response: any = await requestWithRetry(() => api.get('/predictions/trending'));
     return response.data as StockPrediction[];
   },
 };
@@ -297,19 +338,19 @@ export const portfolioAPI = {
 export const newsAPI = {
   // Get stock-specific news
   getStockNews: async (symbol: string): Promise<any> => {
-    const response = await api.get(`/stocks/${symbol}/news`);
+    const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/news`));
     return response.data;
   },
 
   // Get market news (using Google news scraping)
   getMarketNews: async (): Promise<NewsItem[]> => {
-    const response = await api.get('/news/scrape/google');
+    const response: any = await requestWithRetry(() => api.get('/news/scrape/google'));
     return response.data as NewsItem[];
   },
 
   // Get trending news (using Yahoo Finance for a default stock)
   getTrendingNews: async (): Promise<NewsItem[]> => {
-    const response = await api.get('/news/scrape/yahoo/AAPL');
+    const response: any = await requestWithRetry(() => api.get('/news/scrape/yahoo/AAPL'));
     return response.data as NewsItem[];
   },
 };

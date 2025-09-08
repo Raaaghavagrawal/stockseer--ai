@@ -1,7 +1,6 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { 
   Info, 
   Zap,
@@ -14,57 +13,55 @@ import {
   Star,
   CheckCircle,
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  Home
 } from 'lucide-react';
 
 export default function AboutStockSeerTab() {
   return (
     <React.Fragment>
-      <div className="space-y-6">
+      {/* Home button */}
+      <div className="flex justify-end mb-4">
+        <Link
+          to="/#home"
+          className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-binance-gray-dark rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold"
+          title="Go to Home"
+        >
+          <Home className="w-4 h-4" />
+          <span className="text-sm">Home</span>
+        </Link>
+      </div>
       {/* Header */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
-            <TrendingUp className="w-10 h-10 text-white" />
-          </div>
-          <CardTitle className="text-3xl text-white">
-            StockSeer.AI
-          </CardTitle>
-          <CardDescription className="text-xl text-slate-300">
-            Your Intelligent Stock Analysis Platform
-          </CardDescription>
-          <div className="mt-4">
-            <Badge className="bg-green-600 text-white">
-              Version 1.0.0
-            </Badge>
-          </div>
-        </CardHeader>
-      </Card>
+      <div className="text-center mb-6">
+        <div className="mx-auto w-20 h-20 bg-gradient-to-br from-yellow-500 via-orange-500 to-pink-500 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-yellow-500/20">
+          <TrendingUp className="w-10 h-10 text-white" />
+        </div>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 bg-clip-text text-transparent">
+          StockSeer.AI
+        </h1>
+        <p className="text-xl text-slate-300">Your Intelligent Stock Analysis Platform</p>
+        <div className="mt-4">
+          <Badge className="bg-green-600 text-white">Version 1.0.0</Badge>
+        </div>
+      </div>
 
       {/* Mission Statement */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">🚀 Our Mission</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-slate-300 text-lg leading-relaxed">
-            StockSeer.AI is dedicated to democratizing sophisticated stock analysis by providing 
-            institutional-grade tools and insights to individual investors. We combine cutting-edge 
-            artificial intelligence with comprehensive financial data to help you make informed 
-            investment decisions.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-slate-700 bg-gradient-to-br from-slate-800/60 to-slate-900/50 p-6">
+        <h2 className="text-white font-semibold text-xl mb-3">🚀 Our Mission</h2>
+        <p className="text-slate-300 text-lg leading-relaxed">
+          StockSeer.AI is dedicated to democratizing sophisticated stock analysis by providing 
+          institutional-grade tools and insights to individual investors. We combine cutting-edge 
+          artificial intelligence with comprehensive financial data to help you make informed 
+          investment decisions.
+        </p>
+      </div>
 
-      <Separator className="bg-slate-700" />
+      
 
       {/* Key Features */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">✨ Key Features</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+        <h2 className="text-white font-semibold text-xl mb-4">✨ Key Features</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
@@ -136,17 +133,13 @@ export default function AboutStockSeerTab() {
                 Enterprise-grade security and data protection
               </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Technology Stack */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">🛠️ Technology Stack</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+        <h2 className="text-white font-semibold text-xl mb-4">🛠️ Technology Stack</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h4 className="font-semibold text-white mb-3">Frontend</h4>
               <div className="space-y-2">
@@ -189,17 +182,13 @@ export default function AboutStockSeerTab() {
                 </div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Data Sources */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">📊 Data Sources</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+        <h2 className="text-white font-semibold text-xl mb-4">📊 Data Sources</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-slate-700/50 rounded-lg text-center">
               <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
                 <TrendingUp className="w-6 h-6 text-blue-400" />
@@ -227,17 +216,13 @@ export default function AboutStockSeerTab() {
                 Market news and AI-powered sentiment analysis
               </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Roadmap */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">🗺️ Development Roadmap</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+        <h2 className="text-white font-semibold text-xl mb-4">🗺️ Development Roadmap</h2>
+        <div className="space-y-4">
             <div className="flex items-start space-x-4">
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                 <CheckCircle className="w-5 h-5 text-white" />
@@ -271,114 +256,134 @@ export default function AboutStockSeerTab() {
                 </p>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Company Story */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">📖 Our Story</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-slate-300 text-lg leading-relaxed mb-4">
+      <div className="rounded-xl border border-slate-700 bg-gradient-to-br from-slate-800/60 to-slate-900/50 p-6">
+        <h2 className="text-white font-semibold text-xl mb-3">📖 Our Story</h2>
+        <p className="text-slate-300 text-lg leading-relaxed mb-4">
             StockSeer.AI was born from a simple yet powerful vision: to democratize sophisticated financial 
             analysis and make institutional-grade investment tools accessible to individual investors worldwide. 
             Founded in 2024 by two passionate entrepreneurs, our platform combines cutting-edge artificial 
             intelligence with comprehensive market data to empower investors with actionable insights.
-          </p>
-          <p className="text-slate-300 text-lg leading-relaxed">
+        </p>
+        <p className="text-slate-300 text-lg leading-relaxed">
             We believe that every investor, regardless of their experience level, deserves access to the same 
             quality of analysis that institutional investors use. Our mission is to level the playing field 
             and help individuals make more informed, data-driven investment decisions.
-          </p>
-        </CardContent>
-      </Card>
+        </p>
+      </div>
 
-      {/* Founders */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <div className="flex items-center space-x-2">
-            <Users className="w-6 h-6 text-blue-400" />
-            <CardTitle className="text-white">👥 Meet Our Founders</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Ranijay Singh */}
-            <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">RS</span>
-                </div>
-                <div>
-                  <h4 className="text-xl font-bold text-white">Ranijay Singh</h4>
-                  <p className="text-blue-400 font-semibold">Co-Founder & CEO</p>
-                </div>
+      {/* Team */}
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+        <div className="flex items-center space-x-2 mb-4">
+          <Users className="w-6 h-6 text-blue-400" />
+          <h2 className="text-white font-semibold text-xl">👥 Our Team</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Ranvijay Singh */}
+          <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">RS</span>
               </div>
-              <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                Ranijay brings extensive experience in financial technology and product development. 
-                With a background in computer science and a passion for fintech innovation, he leads 
-                the strategic vision and product roadmap for StockSeer.AI.
-              </p>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-slate-300 text-sm">Product Strategy & Vision</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-slate-300 text-sm">Financial Technology Expertise</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-slate-300 text-sm">Business Development</span>
-                </div>
+              <div>
+                <h4 className="text-xl font-bold text-white">Ranvijay Singh</h4>
+                <p className="text-blue-400 font-semibold">CEO</p>
               </div>
             </div>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Product strategy, partnerships, and company vision.
+            </p>
+          </div>
 
-            {/* Raghav Agrawal */}
-            <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">RA</span>
-                </div>
-                <div>
-                  <h4 className="text-xl font-bold text-white">Raghav Agrawal</h4>
-                  <p className="text-green-400 font-semibold">Co-Founder & CTO</p>
-                </div>
+          {/* Raghav Agrawal */}
+          <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">RA</span>
               </div>
-              <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                Raghav is a seasoned software engineer and AI enthusiast with deep expertise in machine learning 
-                and financial data analysis. He oversees the technical architecture and leads the development 
-                of our AI-powered analytics engine.
-              </p>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-slate-300 text-sm">AI & Machine Learning</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-slate-300 text-sm">Full-Stack Development</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-slate-300 text-sm">Data Science & Analytics</span>
-                </div>
+              <div>
+                <h4 className="text-xl font-bold text-white">Raghav Agrawal</h4>
+                <p className="text-green-400 font-semibold">CTO & Lead Backend Engineer</p>
               </div>
             </div>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Platform architecture, AI systems, and engineering leadership.
+            </p>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Ravi Gupta */}
+          <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">RG</span>
+              </div>
+              <div>
+                <h4 className="text-xl font-bold text-white">Ravi Gupta</h4>
+                <p className="text-cyan-300 font-semibold">Lead Frontend Engineer</p>
+              </div>
+            </div>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              UI engineering, performance, and design systems.
+            </p>
+          </div>
+
+          {/* Raza ur Rehman */}
+          <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-fuchsia-500 to-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">RR</span>
+              </div>
+              <div>
+                <h4 className="text-xl font-bold text-white">Razaur Rehman</h4>
+                <p className="text-fuchsia-300 font-semibold">Debugger & Bug Hunter</p>
+              </div>
+            </div>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Data pipelines, APIs, and platform reliability.
+            </p>
+          </div>
+
+          {/* Puja Kumari */}
+          <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-rose-500 to-orange-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">PK</span>
+              </div>
+              <div>
+                <h4 className="text-xl font-bold text-white">Puja Kumari</h4>
+                <p className="text-rose-300 font-semibold">DataBase Manager</p>
+              </div>
+            </div>
+            <p className="text-slate-300 text-sm leading-relaxed">
+            Modeling, experimentation, and insights generation.
+            </p>
+          </div>
+
+          {/* Prakhar Gupta */}
+          <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">PG</span>
+              </div>
+              <div>
+                <h4 className="text-xl font-bold text-white">Prakhar Gupta</h4>
+                <p className="text-amber-300 font-semibold">Frontend & Product Designer</p>
+              </div>
+            </div>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Product UX, visual identity, and research.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Team Values */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">💎 Our Values</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+        <h2 className="text-white font-semibold text-xl mb-4">💎 Our Values</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
@@ -450,47 +455,17 @@ export default function AboutStockSeerTab() {
                 Serving investors worldwide with support for multiple markets and currencies.
               </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Company Stats */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">📈 By the Numbers</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-400 mb-2">10,000+</div>
-              <div className="text-slate-300 text-sm">Stocks Tracked</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-400 mb-2">50+</div>
-              <div className="text-slate-300 text-sm">AI Models</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-purple-400 mb-2">85%</div>
-              <div className="text-slate-300 text-sm">Accuracy Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-400 mb-2">24/7</div>
-              <div className="text-slate-300 text-sm">Market Coverage</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Contact & Support */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <div className="flex items-center space-x-2">
-            <Info className="w-6 h-6 text-blue-400" />
-            <CardTitle className="text-white">📞 Contact & Support</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+        <div className="flex items-center space-x-2 mb-4">
+          <Info className="w-6 h-6 text-blue-400" />
+          <h2 className="text-white font-semibold text-xl">📞 Contact & Support</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-slate-700/50 rounded-lg">
               <h4 className="font-semibold text-white mb-3">Get in Touch</h4>
               <div className="space-y-2 text-sm text-slate-300">
@@ -498,7 +473,7 @@ export default function AboutStockSeerTab() {
                 <p>• Documentation: docs.stockseer.ai</p>
                 <p className="flex items-center space-x-2">
                   <span>• GitHub:</span>
-                  <a href="https://github.com/stockseer-ai" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center space-x-1">
+                  <a href="https://github.com/Raaaghavagrawal/stockseer--ai" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center space-x-1">
                     <span>github.com/stockseer-ai</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
@@ -513,17 +488,13 @@ export default function AboutStockSeerTab() {
                 <p>• Community Forum</p>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Disclaimer */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">📋 Important Disclaimers</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm text-slate-300">
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+        <h2 className="text-white font-semibold text-xl mb-3">📋 Important Disclaimers</h2>
+        <div className="space-y-3 text-sm text-slate-300">
             <p>
               <strong>Investment Risk:</strong> StockSeer.AI is a financial analysis platform and does not 
               provide investment advice. All investments carry risk, including the potential loss of principal.
@@ -536,9 +507,7 @@ export default function AboutStockSeerTab() {
               <strong>Professional Advice:</strong> Consult with qualified financial professionals before 
               making investment decisions. Past performance does not guarantee future results.
             </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
       </div>
     </React.Fragment>
   );

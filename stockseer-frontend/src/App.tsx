@@ -8,6 +8,7 @@ import PricingPage from './pages/PricingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ContinentSelectionModal from './components/ContinentSelectionModal';
 import './App.css';
+import About from './pages/About';
 
 // Component to handle continent selection modal
 function AppContent() {
@@ -40,6 +41,7 @@ function AppContent() {
       <div className="min-h-screen bg-gray-50 dark:bg-background transition-colors duration-200">
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/about" element={<About />} />
           <Route 
             path="/dashboard" 
             element={
