@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import PricingPage from './pages/PricingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ContinentSelectionModal from './components/ContinentSelectionModal';
+import ChatWidget from './components/ChatWidget';
 import './App.css';
 import About from './pages/About';
 
@@ -58,6 +59,7 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
+      <ChatWidget />
       
       {/* Continent Selection Modal */}
       <ContinentSelectionModal

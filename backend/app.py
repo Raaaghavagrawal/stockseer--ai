@@ -54,6 +54,12 @@ from logo_utils import (
 from about_tab import (
     render_about_tab
 )
+import os
+from dotenv import load_dotenv
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
 
 # --- MARKET CONFIGURATIONS ---
 market_options = {
@@ -578,6 +584,57 @@ class StockSearchResult(BaseModel):
 
 # In-memory storage for portfolio (replace with database in production)
 portfolio_holdings: Dict[str, PortfolioHolding] = {}
+
+# --- Chatbot (Gemini) ---
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    message: str
+    history: List[ChatMessage] = []
+
+class ChatResponse(BaseModel):
+    reply: str
+
+def _get_gemini_model():
+    if genai is None:
+        raise HTTPException(status_code=500, detail="google-generativeai not installed. Add to requirements.")
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Missing GEMINI_API_KEY in environment. Please set it in your .env file.")
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel("gemini-1.5-flash")
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(req: ChatRequest) -> ChatResponse:
+    try:
+        model = _get_gemini_model()
+        system_preamble = (
+            "You are StockSeer AI, the assistant for the StockSeer stock analytics platform. "
+            "Your scope is strictly limited to: stocks, markets, tickers, charts, indicators, risk metrics, portfolio/alerts/news within the app, and questions about using StockSeer (features, plans, onboarding). "
+            "Do not answer general or unrelated questions. If a request is out of scope, reply: 'I can help with stock analysis and StockSeer-related questions only.' "
+            "Be concise, accurate, and friendly. This is not financial advice."
+        )
+        history_text = "\n\n".join([
+            ("User: " + m.content) if m.role == "user" else ("Assistant: " + m.content)
+            for m in req.history[-12:]
+        ])
+        prompt = f"""{system_preamble}
+
+{history_text}
+
+User: {req.message}
+Assistant:"""
+        result = model.generate_content(prompt)
+        text = (getattr(result, "text", "") or "").strip()
+        if not text:
+            text = "I'm sorry, I couldn't generate a response right now. Please try again."
+        return ChatResponse(reply=text)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
 
 # --- HELPER FUNCTIONS ---
 def get_currency_symbol(currency_code):

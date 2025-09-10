@@ -18,7 +18,6 @@ import OverviewTab from '../components/tabs/OverviewTab';
 import FinancialsTab from '../components/tabs/FinancialsTab';
 import NewsTab from '../components/tabs/NewsTab';
 import PerformanceTab from '../components/tabs/PerformanceTab';
-import ChatTab from '../components/tabs/ChatTab';
 import AIRiskNewsTab from '../components/tabs/AIRiskNewsTab';
 import LifePlannerTab from '../components/tabs/LifePlannerTab';
 import AboutCompanyTab from '../components/tabs/AboutCompanyTab';
@@ -63,7 +62,6 @@ export default function Dashboard() {
     { id: 'financials', label: '💰 Financials' },
     { id: 'news', label: '📰 News' },
     { id: 'performance', label: '📈 Performance' },
-    { id: 'chat', label: '🤖 Chat' },
     { id: 'ai-risk', label: '🧠 AI & Risk' },
     { id: 'life-planner', label: '🎯 Life Planner' },
     { id: 'about-company', label: '🏢 Company' },
@@ -156,8 +154,6 @@ export default function Dashboard() {
         return <NewsTab selectedStock={selectedStock} />;
       case 'performance':
         return <PerformanceTab stockData={stockData} selectedStock={selectedStock} />;
-      case 'chat':
-        return <ChatTab selectedStock={selectedStock} />;
       case 'ai-risk':
         return <AIRiskNewsTab selectedStock={selectedStock} stockData={stockData} />;
       case 'life-planner':
