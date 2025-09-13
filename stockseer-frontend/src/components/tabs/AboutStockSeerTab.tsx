@@ -290,7 +290,7 @@ export default function AboutStockSeerTab() {
               </div>
               <div>
                 <h4 className="text-xl font-bold text-white">Ranvijay Singh</h4>
-                <p className="text-blue-400 font-semibold">CEO</p>
+                <p className="text-blue-400 font-semibold">CEO,Founder & Backend Developer</p>
               </div>
             </div>
             <p className="text-slate-300 text-sm leading-relaxed">
@@ -330,7 +330,7 @@ export default function AboutStockSeerTab() {
             </p>
           </div>
 
-          {/* Raza ur Rehman */}
+          {/* Raza ur Rehman
           <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
             <div className="flex items-center space-x-4 mb-4">
               <div className="w-16 h-16 bg-gradient-to-br from-fuchsia-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -344,7 +344,7 @@ export default function AboutStockSeerTab() {
             <p className="text-slate-300 text-sm leading-relaxed">
               Data pipelines, APIs, and platform reliability.
             </p>
-          </div>
+          </div> */}
 
           {/* Puja Kumari */}
           <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
@@ -363,7 +363,7 @@ export default function AboutStockSeerTab() {
           </div>
 
           {/* Prakhar Gupta */}
-          <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+          {/* <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
             <div className="flex items-center space-x-4 mb-4">
               <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">PG</span>
@@ -376,7 +376,7 @@ export default function AboutStockSeerTab() {
             <p className="text-slate-300 text-sm leading-relaxed">
               Product UX, visual identity, and research.
             </p>
-          </div>
+          </div> */}
         </div>
       </div>
 
