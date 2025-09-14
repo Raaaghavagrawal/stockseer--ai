@@ -56,7 +56,7 @@ export default function NotesTab() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-hidden">
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div>

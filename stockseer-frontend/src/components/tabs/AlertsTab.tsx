@@ -164,7 +164,7 @@ export default function AlertsTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-hidden">
       {/* Header */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>

@@ -82,7 +82,7 @@ export default function AboutCompanyTab({ selectedStock, stockData }: AboutCompa
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-hidden">
       {/* Header */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
         <h2 className="text-2xl font-bold text-white mb-2">🏢 Company Overview</h2>

@@ -149,25 +149,25 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
   const isInWatchlist = watchlist.includes(stockData.symbol);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
       {/* Stock Header */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-        <div className="flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-white">{stockData.symbol}</h2>
-            <p className="text-slate-400">{stockData.name}</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{stockData.symbol}</h2>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">{stockData.name}</p>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <div className="text-2xl font-bold text-white">{formatPrice(stockData.price || 0, stockData.currency)}</div>
-              <div className={`flex items-center ${stockData.change && stockData.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          <div className="flex items-center justify-between sm:justify-end space-x-4">
+            <div className="text-left sm:text-right">
+              <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{formatPrice(stockData.price || 0, stockData.currency)}</div>
+              <div className={`flex items-center text-sm sm:text-base ${stockData.change && stockData.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {stockData.change && stockData.change >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
                 {formatChange(stockData.change || 0, stockData.currency)} ({formatChangePercent(stockData.changePercent || 0)}%)
               </div>
             </div>
             <button
               onClick={() => isInWatchlist ? onRemoveFromWatchlist(stockData.symbol) : onAddToWatchlist(stockData.symbol)}
-              className={`p-2 rounded ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              className={`p-2 sm:p-3 rounded-lg transition-all duration-200 ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
               {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
             </button>
@@ -176,58 +176,58 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="text-slate-400 text-sm">Market Cap</div>
-          <div className="text-white font-semibold">${stockData.marketCap ? (stockData.marketCap / 1e9).toFixed(2) : 'N/A'}B</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
+          <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Market Cap</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">${stockData.marketCap ? (stockData.marketCap / 1e9).toFixed(2) : 'N/A'}B</div>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="text-slate-400 text-sm">Volume</div>
-          <div className="text-white font-semibold">{(stockData.volume / 1e6).toFixed(1)}M</div>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
+          <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Volume</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{(stockData.volume / 1e6).toFixed(1)}M</div>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="text-slate-400 text-sm">P/E Ratio</div>
-          <div className="text-white font-semibold">{stockData.pe?.toFixed(2)}</div>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
+          <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">P/E Ratio</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.pe?.toFixed(2)}</div>
         </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-          <div className="text-slate-400 text-sm">52W High</div>
-          <div className="text-white font-semibold">${stockData.high?.toFixed(2)}</div>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
+          <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">52W High</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">${stockData.high?.toFixed(2)}</div>
         </div>
       </div>
 
       {/* Chart Controls */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">Price Chart</h3>
-          <div className="flex items-center space-x-4">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
             {/* Chart Type Selection */}
             <div className="flex space-x-2">
               <button
                 onClick={() => setChartType('line')}
-                className={`px-3 py-1 rounded text-sm flex items-center space-x-1 ${
+                className={`px-3 py-2 rounded-lg text-sm flex items-center space-x-1 transition-all duration-200 ${
                   chartType === 'line' 
                     ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
                 <LineChart className="w-4 h-4" />
-                <span>Line</span>
+                <span className="hidden sm:inline">Line</span>
               </button>
               <button
                 onClick={() => setChartType('candlestick')}
-                className={`px-3 py-1 rounded text-sm flex items-center space-x-1 ${
+                className={`px-3 py-2 rounded-lg text-sm flex items-center space-x-1 transition-all duration-200 ${
                   chartType === 'candlestick' 
                     ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
                 <BarChart className="w-4 h-4" />
-                <span>Candlestick</span>
+                <span className="hidden sm:inline">Candlestick</span>
               </button>
             </div>
             
             {/* Period Selection */}
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               {['1D', '1W', '1M', '3M', '1Y'].map(period => (
                 <button
                   key={period}
@@ -235,10 +235,10 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
                     setChartPeriod(period);
                     resetZoom(); // Reset zoom when changing period
                   }}
-                  className={`px-3 py-1 rounded text-sm ${
+                  className={`px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
                     chartPeriod === period 
                       ? 'bg-blue-600 text-white' 
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                   }`}
                 >
                   {period}
@@ -249,10 +249,10 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
             {/* Zoom Controls */}
             {zoomState.isZoomed && (
               <div className="flex items-center space-x-2">
-                <span className="text-slate-400 text-sm">Zoomed</span>
+                <span className="text-gray-600 dark:text-gray-400 text-sm">Zoomed</span>
                 <button
                   onClick={resetZoom}
-                  className="px-3 py-1 rounded text-sm bg-orange-600 text-white hover:bg-orange-700 flex items-center space-x-1"
+                  className="px-3 py-2 rounded-lg text-sm bg-orange-600 text-white hover:bg-orange-700 flex items-center space-x-1 transition-all duration-200"
                 >
                   <span>Reset Zoom</span>
                 </button>
@@ -261,24 +261,24 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           </div>
         </div>
         
-                 {/* Chart Display */}
-         <div className="h-96 bg-slate-700/50 rounded p-4 relative">
-           {chartData && chartData.length > 10 && (
-             <div className="absolute top-2 left-2 bg-blue-600/80 text-white text-xs px-2 py-1 rounded z-10">
-               {zoomState.isZoomed ? 'Double-click to zoom out' : 'Click to zoom'}
-             </div>
-           )}
+        {/* Chart Display */}
+        <div className="h-80 sm:h-96 bg-gray-50 dark:bg-gray-700 rounded-lg p-3 sm:p-4 relative w-full overflow-hidden">
+          {chartData && chartData.length > 10 && (
+            <div className="absolute top-2 left-2 bg-blue-600/80 text-white text-xs px-2 py-1 rounded z-10">
+              {zoomState.isZoomed ? 'Double-click to zoom out' : 'Click to zoom'}
+            </div>
+          )}
           {!chartData || chartData.length === 0 ? (
             <div className="h-full flex items-center justify-center">
-              <div className="text-center text-slate-400">
+              <div className="text-center text-gray-600 dark:text-gray-400">
                 <LineChart className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No chart data available</p>
-                <p className="text-sm">Search for a stock to view charts</p>
+                <p className="text-sm sm:text-base">No chart data available</p>
+                <p className="text-xs sm:text-sm">Search for a stock to view charts</p>
               </div>
             </div>
           ) : (
             <div 
-              className={`h-full ${chartData && chartData.length > 10 ? 'cursor-pointer' : ''}`}
+              className={`h-full w-full ${chartData && chartData.length > 10 ? 'cursor-pointer' : ''}`}
               onDoubleClick={() => {
                 if (zoomState.isZoomed) {
                   resetZoom();
@@ -630,12 +630,12 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
       </div>
 
       {/* Historical Data */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">Historical Data</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Historical Data</h3>
           <button
             onClick={() => setShowHistoricalData(!showHistoricalData)}
-            className="text-blue-400 hover:text-blue-300"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200"
           >
             {showHistoricalData ? 'Hide' : 'Show'}
           </button>
@@ -644,48 +644,50 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         {showHistoricalData && (
           <div className="overflow-x-auto">
             {!chartData || chartData.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
-                <p>No historical data available</p>
-                <p className="text-sm">Search for a stock to view historical data</p>
+              <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                <p className="text-sm sm:text-base">No historical data available</p>
+                <p className="text-xs sm:text-sm">Search for a stock to view historical data</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-600">
-                    <th className="text-left py-2 text-slate-400">Date</th>
-                    <th className="text-right py-2 text-slate-400">Open</th>
-                    <th className="text-right py-2 text-slate-400">High</th>
-                    <th className="text-right py-2 text-slate-400">Low</th>
-                    <th className="text-right py-2 text-slate-400">Close</th>
-                    <th className="text-right py-2 text-slate-400">Volume</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {chartData.slice(-10).map((item, index) => (
-                    <tr key={index} className="border-b border-slate-700">
-                      <td className="py-2 text-slate-300">{item.date}</td>
-                      <td className="py-2 text-right text-slate-300">${item.open.toFixed(2)}</td>
-                      <td className="py-2 text-right text-slate-300">${item.high.toFixed(2)}</td>
-                      <td className="py-2 text-right text-slate-300">${item.low.toFixed(2)}</td>
-                      <td className="py-2 text-right text-slate-300">${item.close.toFixed(2)}</td>
-                      <td className="py-2 text-right text-slate-300">{(item.volume / 1e6).toFixed(1)}M</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-300 dark:border-gray-600">
+                      <th className="text-left py-2 text-gray-600 dark:text-gray-400">Date</th>
+                      <th className="text-right py-2 text-gray-600 dark:text-gray-400">Open</th>
+                      <th className="text-right py-2 text-gray-600 dark:text-gray-400">High</th>
+                      <th className="text-right py-2 text-gray-600 dark:text-gray-400">Low</th>
+                      <th className="text-right py-2 text-gray-600 dark:text-gray-400">Close</th>
+                      <th className="text-right py-2 text-gray-600 dark:text-gray-400">Volume</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {chartData.slice(-10).map((item, index) => (
+                      <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
+                        <td className="py-2 text-gray-700 dark:text-gray-300">{item.date}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">${item.open.toFixed(2)}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">${item.high.toFixed(2)}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">${item.low.toFixed(2)}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">${item.close.toFixed(2)}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">{(item.volume / 1e6).toFixed(1)}M</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
       </div>
 
       {/* Download Data */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h3 className="text-lg font-semibold text-white">Export Data</h3>
-            <p className="text-slate-400">Download stock data for analysis</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Export Data</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Download stock data for analysis</p>
           </div>
-          <button className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white flex items-center">
+          <button className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-white flex items-center justify-center transition-all duration-200">
             <Download className="w-4 h-4 mr-2" />
             Download CSV
           </button>

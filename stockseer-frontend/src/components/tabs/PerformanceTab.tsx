@@ -83,7 +83,7 @@ export default function PerformanceTab({ selectedStock, stockData }: Performance
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-hidden">
       {/* Header */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
         <div className="flex items-center space-x-3 mb-2">

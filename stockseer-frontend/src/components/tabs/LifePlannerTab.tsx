@@ -101,7 +101,7 @@ export default function LifePlannerTab() {
   const totalProgress = totalTargetAmount > 0 ? (totalCurrentAmount / totalTargetAmount) * 100 : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-hidden">
       {/* Header */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
         <div className="flex items-center justify-between">

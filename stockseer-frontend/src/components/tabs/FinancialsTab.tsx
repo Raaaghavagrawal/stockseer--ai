@@ -189,7 +189,7 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in w-full max-w-full overflow-hidden">
       {/* Header */}
       <Card className="glass-effect-dark border-blue-500/20 card-glow">
         <CardHeader>
@@ -388,7 +388,7 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
                           {/* Revenue Chart */}
                           <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl p-6 border border-blue-500/20">
                             <h4 className="text-xl font-bold text-white mb-6 text-center">Quarterly Revenue</h4>
-                            <div className="h-80">
+                            <div className="h-80 w-full">
                               <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={processFinancialData(financialData?.financials?.quarterly || {}, 'Total Revenue')}>
                                   <defs>
@@ -430,7 +430,7 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
                           {/* Earnings Chart */}
                           <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-6 border border-green-500/20">
                             <h4 className="text-xl font-bold text-white mb-6 text-center">Quarterly Earnings</h4>
-                            <div className="h-80">
+                            <div className="h-80 w-full">
                               <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={processFinancialData(financialData?.earnings?.quarterly || {}, 'Earnings')}>
                                   <defs>

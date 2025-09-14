@@ -419,7 +419,7 @@ const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <section id="home" className="relative overflow-hidden scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left side - Content */}
           <motion.div
               initial={{ opacity: 0, x: -50 }}
@@ -432,7 +432,7 @@ const LandingPage: React.FC = () => {
                 AI-Powered Stock Analytics
               </div>
               
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight font-orbitron">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 leading-tight font-orbitron">
                 <AnimatedText 
                   text="The Future of" 
                   className="block"
@@ -446,19 +446,19 @@ const LandingPage: React.FC = () => {
                 />
             </h1>
               
-              <p className="text-xl text-gray-600 dark:text-binance-text-secondary mb-8 max-w-2xl">
+              <p className="text-lg sm:text-xl text-gray-600 dark:text-binance-text-secondary mb-6 sm:mb-8 max-w-2xl">
               Leverage advanced artificial intelligence to make informed investment decisions. 
               Get real-time insights, technical analysis, and predictive analytics.
             </p>
             
-              <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
               {currentUser ? (
                 <Link
                   to="/dashboard"
-                  className="inline-flex items-center justify-center px-8 py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
+                  className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg text-sm sm:text-base"
                 >
                   Start Trading Now
-                  <ArrowRight className="ml-2 w-5 h-5" />
+                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
                 </Link>
               ) : (
                 <button
@@ -466,34 +466,37 @@ const LandingPage: React.FC = () => {
                     setAuthMode('login');
                     setAuthModalOpen(true);
                   }}
-                  className="inline-flex items-center justify-center px-8 py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
+                  className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg text-sm sm:text-base"
                 >
                   Start Trading Now
-                  <ArrowRight className="ml-2 w-5 h-5" />
+                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               )}
                 <Link
                   to="/about"
-                  className="inline-flex items-center justify-center px-8 py-4 border-2 border-gray-300 dark:border-binance-gray text-gray-700 dark:text-binance-text font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors"
+                  className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 border-2 border-gray-300 dark:border-binance-gray text-gray-700 dark:text-binance-text font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors text-sm sm:text-base"
                 >
-                  <Users className="mr-2 w-5 h-5" />
+                  <Users className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
                   About Us
                 </Link>
               </div>
 
               {/* Trust indicators */}
-              <div className="flex items-center justify-center lg:justify-start space-x-8 text-sm text-gray-500 dark:text-binance-text-secondary">
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 sm:gap-6 lg:gap-8 text-xs sm:text-sm text-gray-500 dark:text-binance-text-secondary">
                 <div className="flex items-center">
                   <Shield className="w-4 h-4 mr-2" />
-                  Secure Platform
+                  <span className="hidden sm:inline">Secure Platform</span>
+                  <span className="sm:hidden">Secure</span>
                 </div>
                 <div className="flex items-center">
                   <Users className="w-4 h-4 mr-2" />
-                  100K+ Users
+                  <span className="hidden sm:inline">100K+ Users</span>
+                  <span className="sm:hidden">100K+</span>
                 </div>
                 <div className="flex items-center">
                   <Zap className="w-4 h-4 mr-2" />
-                  Real-time Data
+                  <span className="hidden sm:inline">Real-time Data</span>
+                  <span className="sm:hidden">Live Data</span>
                 </div>
               </div>
             </motion.div>
@@ -658,7 +661,7 @@ const LandingPage: React.FC = () => {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -666,15 +669,15 @@ const LandingPage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-white dark:bg-binance-gray-light rounded-2xl p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+                className="bg-white dark:bg-binance-gray-light rounded-2xl p-4 sm:p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
               >
-                <div className={`w-16 h-16 bg-gradient-to-r ${feature.color} rounded-2xl flex items-center justify-center mb-6`}>
-                  <feature.icon className="w-8 h-8 text-white" />
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r ${feature.color} rounded-2xl flex items-center justify-center mb-4 sm:mb-6`}>
+                  <feature.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-binance-text mb-3">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-binance-text mb-2 sm:mb-3">
                   {feature.title}
                 </h3>
-                <p className="text-gray-600 dark:text-binance-text-secondary">
+                <p className="text-sm sm:text-base text-gray-600 dark:text-binance-text-secondary">
                   {feature.description}
                 </p>
               </motion.div>
@@ -684,9 +687,9 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Stats Section */}
-      <section id="stats" className="py-20">
+      <section id="stats" className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {stats.map((stat, index) => (
               <motion.div
                 key={stat.label}
@@ -696,17 +699,17 @@ const LandingPage: React.FC = () => {
                 viewport={{ once: true }}
                 className="text-center"
               >
-                <div className="w-16 h-16 bg-binance-yellow/10 dark:bg-binance-yellow/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <stat.icon className="w-8 h-8 text-binance-yellow" />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-binance-yellow/10 dark:bg-binance-yellow/20 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <stat.icon className="w-6 h-6 sm:w-8 sm:h-8 text-binance-yellow" />
                 </div>
-                <div className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-binance-text mb-2">
+                <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-binance-text mb-1 sm:mb-2">
                   <AnimatedCounter 
                     end={stat.value} 
                     suffix={stat.suffix}
                     duration={2000}
                   />
                 </div>
-                <div className="text-gray-600 dark:text-binance-text-secondary">
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-binance-text-secondary">
                   {stat.label}
                 </div>
               </motion.div>
@@ -716,23 +719,23 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* Benefits Section */}
-      <section className="py-20 bg-gray-50 dark:bg-binance-gray">
+      <section className="py-16 sm:py-20 bg-gray-50 dark:bg-binance-gray">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-binance-text mb-6">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-binance-text mb-4 sm:mb-6">
                 Everything you need to succeed in trading
               </h2>
-              <p className="text-xl text-gray-600 dark:text-binance-text-secondary mb-8">
+              <p className="text-lg sm:text-xl text-gray-600 dark:text-binance-text-secondary mb-6 sm:mb-8">
                 Our comprehensive platform provides all the tools and insights you need 
                 to make informed trading decisions and maximize your returns.
               </p>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {benefits.map((benefit, index) => (
                   <motion.div
                     key={benefit}
@@ -740,10 +743,10 @@ const LandingPage: React.FC = () => {
                     whileInView={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                     viewport={{ once: true }}
-                    className="flex items-center"
+                    className="flex items-start"
                   >
-                    <CheckCircle className="w-6 h-6 text-binance-yellow mr-3 flex-shrink-0" />
-                    <span className="text-gray-700 dark:text-binance-text">{benefit}</span>
+                    <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-binance-yellow mr-3 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm sm:text-base text-gray-700 dark:text-binance-text">{benefit}</span>
                   </motion.div>
                 ))}
               </div>
@@ -777,19 +780,19 @@ const LandingPage: React.FC = () => {
       </section>
 
       {/* FAQs Section */}
-      <section id="faq" className="py-20">
+      <section id="faq" className="py-16 sm:py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-12 sm:mb-16"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-binance-text mb-4">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-binance-text mb-3 sm:mb-4">
               Frequently Asked Questions
             </h2>
-            <p className="text-xl text-gray-600 dark:text-binance-text-secondary">
+            <p className="text-lg sm:text-xl text-gray-600 dark:text-binance-text-secondary">
               Everything you need to know about StockSeer.ai
             </p>
           </motion.div>
@@ -806,16 +809,16 @@ const LandingPage: React.FC = () => {
               >
                 <button
                   onClick={() => setOpenFAQ(openFAQ === index ? null : index)}
-                  className="w-full px-6 py-6 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors"
+                  className="w-full px-4 sm:px-6 py-4 sm:py-6 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-binance-gray transition-colors"
                 >
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-binance-text pr-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-binance-text pr-4">
                     {faq.question}
                   </h3>
                   <div className="flex-shrink-0">
                     {openFAQ === index ? (
-                      <ChevronUp className="w-5 h-5 text-binance-yellow" />
+                      <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-binance-yellow" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-400 dark:text-binance-text-secondary" />
+                      <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-binance-text-secondary" />
                     )}
                   </div>
                 </button>
@@ -829,8 +832,8 @@ const LandingPage: React.FC = () => {
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="px-6 pb-6">
-                    <p className="text-gray-600 dark:text-binance-text-secondary leading-relaxed">
+                  <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-binance-text-secondary leading-relaxed">
                       {faq.answer}
                     </p>
                   </div>
@@ -844,7 +847,7 @@ const LandingPage: React.FC = () => {
 
 
       {/* Contact Section */}
-      <section id="contact" className="py-24 bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-[hsl(0,0%,6%)] dark:via-[hsl(0,0%,8%)] dark:to-[hsl(0,0%,10%)] relative overflow-hidden">
+      <section id="contact" className="py-16 sm:py-24 bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-[hsl(0,0%,6%)] dark:via-[hsl(0,0%,8%)] dark:to-[hsl(0,0%,10%)] relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-5 dark:opacity-10">
           <div className="absolute inset-0" style={{
@@ -854,22 +857,22 @@ const LandingPage: React.FC = () => {
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           {/* Header */}
-          <div className="text-center mb-20">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-2xl mb-6 shadow-lg">
-              <Mail className="w-8 h-8 text-black" />
+          <div className="text-center mb-12 sm:mb-20">
+            <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-2xl mb-4 sm:mb-6 shadow-lg">
+              <Mail className="w-6 h-6 sm:w-8 sm:h-8 text-black" />
             </div>
-            <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">
               Get in <span className="bg-gradient-to-r from-binance-yellow to-binance-yellow-dark bg-clip-text text-transparent">Touch</span>
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed px-4">
               Have questions about StockSeer.ai? We'd love to hear from you. Our team of experts is here to help you make the most of our platform.
             </p>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-12">
             {/* Contact Information Cards */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-200 dark:border-gray-800 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <div className="lg:col-span-1 space-y-4 sm:space-y-6">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl border border-gray-200 dark:border-gray-800 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
                 <div className="flex items-center mb-4">
                   <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mr-4">
                     <Mail className="w-6 h-6 text-white" />
@@ -920,20 +923,20 @@ const LandingPage: React.FC = () => {
             
             {/* Contact Form */}
             <div className="lg:col-span-2">
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-200 dark:border-gray-800">
-                <div className="mb-8">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Send us a Message</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Fill out the form below and we'll get back to you as soon as possible.</p>
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl border border-gray-200 dark:border-gray-800">
+                <div className="mb-6 sm:mb-8">
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">Send us a Message</h3>
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Fill out the form below and we'll get back to you as soon as possible.</p>
                 </div>
                 
-              <form className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form className="space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Full Name</label>
                   <input
                     type="text"
                         placeholder="Enter your full name"
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
                   />
                 </div>
                     <div className="space-y-2">
@@ -941,14 +944,14 @@ const LandingPage: React.FC = () => {
                   <input
                     type="email"
                         placeholder="Enter your email"
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
                   />
                 </div>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Subject</label>
-                    <select className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200">
+                    <select className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 text-sm sm:text-base">
                       <option value="">Select a subject</option>
                       <option value="general">General Inquiry</option>
                       <option value="technical">Technical Support</option>
@@ -962,9 +965,9 @@ const LandingPage: React.FC = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Message</label>
                   <textarea
-                      rows={6}
+                      rows={4}
                       placeholder="Tell us how we can help you..."
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent resize-none transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent resize-none transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
                   ></textarea>
                 </div>
                   
@@ -981,10 +984,10 @@ const LandingPage: React.FC = () => {
                   
                 <button
                   type="submit"
-                    className="w-full bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-black font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:ring-offset-2"
+                    className="w-full bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-black font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:ring-offset-2 text-sm sm:text-base"
                 >
                     <span className="flex items-center justify-center">
-                      <Mail className="w-5 h-5 mr-2" />
+                      <Mail className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Send Message
                     </span>
                 </button>
@@ -1039,55 +1042,55 @@ const LandingPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="bg-gray-900 dark:bg-binance-gray-dark border-t border-gray-200 dark:border-binance-gray">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="col-span-1 md:col-span-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            <div className="col-span-1 sm:col-span-2">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-binance-gray-dark" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-binance-gray-dark" />
                 </div>
-                <span className="text-2xl font-bold text-white">StockSeer.ai</span>
+                <span className="text-xl sm:text-2xl font-bold text-white">StockSeer.ai</span>
               </div>
-              <p className="text-gray-400 mb-4 max-w-md">
+              <p className="text-sm sm:text-base text-gray-400 mb-4 max-w-md">
                 The world's leading AI-powered stock market analytics platform. 
                 Make informed investment decisions with cutting-edge technology.
               </p>
-              <div className="flex space-x-4">
-                <div className="w-10 h-10 bg-binance-gray rounded-lg flex items-center justify-center hover:bg-binance-gray-light transition-colors cursor-pointer">
-                  <span className="text-white font-semibold">f</span>
+              <div className="flex space-x-3 sm:space-x-4">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-binance-gray rounded-lg flex items-center justify-center hover:bg-binance-gray-light transition-colors cursor-pointer">
+                  <span className="text-white font-semibold text-sm sm:text-base">f</span>
                 </div>
-                <div className="w-10 h-10 bg-binance-gray rounded-lg flex items-center justify-center hover:bg-binance-gray-light transition-colors cursor-pointer">
-                  <span className="text-white font-semibold">t</span>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-binance-gray rounded-lg flex items-center justify-center hover:bg-binance-gray-light transition-colors cursor-pointer">
+                  <span className="text-white font-semibold text-sm sm:text-base">t</span>
                 </div>
-                <div className="w-10 h-10 bg-binance-gray rounded-lg flex items-center justify-center hover:bg-binance-gray-light transition-colors cursor-pointer">
-                  <span className="text-white font-semibold">in</span>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-binance-gray rounded-lg flex items-center justify-center hover:bg-binance-gray-light transition-colors cursor-pointer">
+                  <span className="text-white font-semibold text-sm sm:text-base">in</span>
                 </div>
               </div>
             </div>
             
             <div>
-              <h3 className="text-white font-semibold mb-4">Product</h3>
+              <h3 className="text-white font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Product</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Features</a></li>
-                <li><Link to="/pricing" className="text-gray-400 hover:text-binance-yellow transition-colors">Pricing</Link></li>
-                <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">API</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Documentation</a></li>
+                <li><a href="#" className="text-sm sm:text-base text-gray-400 hover:text-binance-yellow transition-colors">Features</a></li>
+                <li><Link to="/pricing" className="text-sm sm:text-base text-gray-400 hover:text-binance-yellow transition-colors">Pricing</Link></li>
+                <li><a href="#" className="text-sm sm:text-base text-gray-400 hover:text-binance-yellow transition-colors">API</a></li>
+                <li><a href="#" className="text-sm sm:text-base text-gray-400 hover:text-binance-yellow transition-colors">Documentation</a></li>
               </ul>
             </div>
             
             <div>
-              <h3 className="text-white font-semibold mb-4">Support</h3>
+              <h3 className="text-white font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Support</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Help Center</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Contact Us</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Status</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-binance-yellow transition-colors">Community</a></li>
+                <li><a href="#" className="text-sm sm:text-base text-gray-400 hover:text-binance-yellow transition-colors">Help Center</a></li>
+                <li><a href="#" className="text-sm sm:text-base text-gray-400 hover:text-binance-yellow transition-colors">Contact Us</a></li>
+                <li><a href="#" className="text-sm sm:text-base text-gray-400 hover:text-binance-yellow transition-colors">Status</a></li>
+                <li><a href="#" className="text-sm sm:text-base text-gray-400 hover:text-binance-yellow transition-colors">Community</a></li>
               </ul>
             </div>
           </div>
           
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center">
-            <p className="text-gray-400">
+          <div className="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center">
+            <p className="text-xs sm:text-sm text-gray-400">
             © 2024 StockSeer.ai. All rights reserved. AI-powered stock market analytics.
           </p>
           </div>
