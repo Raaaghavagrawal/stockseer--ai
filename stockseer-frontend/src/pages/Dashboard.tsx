@@ -10,7 +10,10 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useDummyAccount } from '../contexts/DummyAccountContext';
 import FreePlanNotification from '../components/FreePlanNotification';
+import ZolosBalance from '../components/ZolosBalance';
+import DummyAccountUpgradeModal from '../components/DummyAccountUpgradeModal';
 import { formatPrice, formatChange, formatChangePercent } from '../utils/currency';
 
 // Import all tab components
@@ -38,6 +41,7 @@ import { stockAPI, handleAPIError } from '../utils/api';
 
 export default function Dashboard() {
   const { currentPlan, isTrialActive, showFreePlanNotification, setShowFreePlanNotification, selectedContinent } = useSubscription();
+  const { isDummyAccount, showUpgradePrompt, setShowUpgradePrompt } = useDummyAccount();
   const [searchParams] = useSearchParams();
   const [selectedStock, setSelectedStock] = useState<string>('');
   const [stockData, setStockData] = useState<StockData | null>(null);
@@ -48,6 +52,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarHidden, setMobileSidebarHidden] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Handle URL parameter for tab navigation
   useEffect(() => {
@@ -379,6 +384,16 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Zolos Balance Display for Dummy Accounts */}
+        {isDummyAccount && (
+          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <ZolosBalance 
+              showUpgradeButton={true}
+              onUpgradeClick={() => setShowUpgradeModal(true)}
+            />
+          </div>
+        )}
+
         {/* Tab Content */}
         <div className={`flex-1 p-3 sm:p-6 overflow-y-auto bg-gray-50 dark:bg-black will-change-transform [backface-visibility:hidden] ${mobileSidebarHidden ? 'w-full' : ''}`}>
           <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-6 shadow-lg min-h-full max-w-full overflow-hidden">
@@ -417,6 +432,19 @@ export default function Dashboard() {
         isVisible={showFreePlanNotification}
         onClose={() => setShowFreePlanNotification(false)}
         continent={selectedContinent === 'asia' ? 'Asia' : 'Selected Region'}
+      />
+
+      {/* Dummy Account Upgrade Modal */}
+      <DummyAccountUpgradeModal
+        isOpen={showUpgradeModal || showUpgradePrompt}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          setShowUpgradePrompt(false);
+        }}
+        onUpgrade={() => {
+          // Handle upgrade logic here
+          console.log('User upgraded to live account');
+        }}
       />
     </div>
   );
