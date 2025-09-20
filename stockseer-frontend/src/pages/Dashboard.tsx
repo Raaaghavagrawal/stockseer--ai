@@ -15,6 +15,7 @@ import { useLiveAccount } from '../contexts/LiveAccountContext';
 import FreePlanNotification from '../components/FreePlanNotification';
 import ZolosBalance from '../components/ZolosBalance';
 import DummyAccountUpgradeModal from '../components/DummyAccountUpgradeModal';
+import UserProfileButton from '../components/UserProfileButton';
 import { formatPrice, formatChange, formatChangePercent } from '../utils/currency';
 
 // Import all tab components
@@ -407,6 +408,9 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+              
+              {/* User Profile Button */}
+              <UserProfileButton />
             </div>
           </div>
         </div>
