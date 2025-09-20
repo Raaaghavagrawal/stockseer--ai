@@ -27,6 +27,7 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from '../components/AuthModal';
+import ContactForm from '../components/ContactForm';
 
 // Animated Text Component
 const AnimatedText: React.FC<{ 
@@ -923,76 +924,7 @@ const LandingPage: React.FC = () => {
             
             {/* Contact Form */}
             <div className="lg:col-span-2">
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl border border-gray-200 dark:border-gray-800">
-                <div className="mb-6 sm:mb-8">
-                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">Send us a Message</h3>
-                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Fill out the form below and we'll get back to you as soon as possible.</p>
-                </div>
-                
-              <form className="space-y-4 sm:space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Full Name</label>
-                  <input
-                    type="text"
-                        placeholder="Enter your full name"
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
-                  />
-                </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Email Address</label>
-                  <input
-                    type="email"
-                        placeholder="Enter your email"
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
-                  />
-                </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Subject</label>
-                    <select className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 text-sm sm:text-base">
-                      <option value="">Select a subject</option>
-                      <option value="general">General Inquiry</option>
-                      <option value="technical">Technical Support</option>
-                      <option value="billing">Billing Question</option>
-                      <option value="feature">Feature Request</option>
-                      <option value="bug">Bug Report</option>
-                      <option value="partnership">Partnership</option>
-                    </select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Message</label>
-                  <textarea
-                      rows={4}
-                      placeholder="Tell us how we can help you..."
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent resize-none transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
-                  ></textarea>
-                </div>
-                  
-                  <div className="flex items-start space-x-3">
-                    <input
-                      type="checkbox"
-                      id="newsletter"
-                      className="mt-1 w-4 h-4 text-binance-yellow bg-gray-100 border-gray-300 rounded focus:ring-binance-yellow focus:ring-2"
-                    />
-                    <label htmlFor="newsletter" className="text-sm text-gray-600 dark:text-gray-400">
-                      I'd like to receive updates about new features and market insights
-                    </label>
-                  </div>
-                  
-                <button
-                  type="submit"
-                    className="w-full bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-black font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:ring-offset-2 text-sm sm:text-base"
-                >
-                    <span className="flex items-center justify-center">
-                      <Mail className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                  Send Message
-                    </span>
-                </button>
-              </form>
-              </div>
+              <ContactForm />
             </div>
           </div>
           
