@@ -7,12 +7,14 @@ import {
   X,
   Home,
   Crown,
-  TrendingUp
+  TrendingUp,
+  Play
 } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useMarketRestriction } from '../contexts/MarketRestrictionContext';
 import FreePlanNotification from '../components/FreePlanNotification';
 import MarketRestrictionModal from '../components/MarketRestrictionModal';
+import DemoModal from '../components/DemoModal';
 import { formatPrice, formatChange, formatChangePercent } from '../utils/currency';
 
 // Import all tab components
@@ -27,6 +29,7 @@ const WelcomeScreen: React.FC<{
   onSearch: () => void;
   loading: boolean;
 }> = ({ searchQuery, onSearchChange, onSearch, loading }) => {
+  const [showDemo, setShowDemo] = useState(false);
   const tabCards = [
     {
       id: 'overview',
@@ -89,15 +92,6 @@ const WelcomeScreen: React.FC<{
       icon: '🏢',
       color: 'from-teal-500 to-teal-600',
       features: ['Company Profile', 'Business Model', 'Leadership Team', 'Corporate Governance'],
-      status: 'active'
-    },
-    {
-      id: 'tutorial',
-      title: 'Tutorial',
-      description: 'Learn how to use StockSeer effectively',
-      icon: '🎓',
-      color: 'from-pink-500 to-pink-600',
-      features: ['Interactive Guides', 'Video Tutorials', 'Best Practices', 'Tips & Tricks'],
       status: 'active'
     },
     {
@@ -226,6 +220,20 @@ const WelcomeScreen: React.FC<{
               </button>
             </div>
           </div>
+          
+          {/* Watch Demo Button */}
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => setShowDemo(true)}
+              className="inline-flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <Play className="w-5 h-5" />
+              <span>Watch Demo</span>
+            </button>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              New to StockSeer? Take a guided tour of our features
+            </p>
+          </div>
         </div>
       </div>
 
@@ -300,6 +308,12 @@ const WelcomeScreen: React.FC<{
           ))}
         </div>
       </div>
+      
+      {/* Demo Modal */}
+      <DemoModal 
+        isOpen={showDemo} 
+        onClose={() => setShowDemo(false)} 
+      />
       </div>
     </>
   );
@@ -308,7 +322,6 @@ import PerformanceTab from '../components/tabs/PerformanceTab';
 import AIRiskNewsTab from '../components/tabs/AIRiskNewsTab';
 import LifePlannerTab from '../components/tabs/LifePlannerTab';
 import AboutCompanyTab from '../components/tabs/AboutCompanyTab';
-import TutorialTab from '../components/tabs/TutorialTab';
 import WatchlistTab from '../components/tabs/WatchlistTab';
 import MarketScreenerTab from '../components/tabs/MarketScreenerTab';
 import AlertsTab from '../components/tabs/AlertsTab';
@@ -327,6 +340,7 @@ export default function Dashboard() {
   const { currentPlan, isTrialActive, showFreePlanNotification, setShowFreePlanNotification, selectedContinent } = useSubscription();
   const { showRestrictionModal, restrictionDetails, hideMarketRestriction, handleUpgrade, showMarketRestriction } = useMarketRestriction();
   const [searchParams] = useSearchParams();
+  const [showDemo, setShowDemo] = useState(false);
   const [selectedStock, setSelectedStock] = useState<string>('');
   const [stockData, setStockData] = useState<StockData | null>(null);
   const [chartData, setChartData] = useState<StockChartData[]>([]);
@@ -354,7 +368,6 @@ export default function Dashboard() {
     { id: 'ai-risk', label: '🧠 AI & Risk' },
     { id: 'life-planner', label: '🎯 Life Planner' },
     { id: 'about-company', label: '🏢 Company' },
-    { id: 'tutorial', label: '📚 Tutorial' },
     { id: 'watchlist', label: '👀 Watchlist' },
     { id: 'market-screener', label: '🔍 Screener' },
     { id: 'alerts', label: '🔔 Alerts' },
@@ -545,8 +558,6 @@ export default function Dashboard() {
         return <LifePlannerTab />;
       case 'about-company':
         return <AboutCompanyTab selectedStock={selectedStock} stockData={stockData} />;
-      case 'tutorial':
-        return <TutorialTab />;
       case 'watchlist':
         return (
           <WatchlistTab 
@@ -808,6 +819,12 @@ export default function Dashboard() {
         onClose={hideMarketRestriction}
         onUpgrade={handleUpgrade}
         restrictionDetails={restrictionDetails}
+      />
+      
+      {/* Demo Modal */}
+      <DemoModal 
+        isOpen={showDemo} 
+        onClose={() => setShowDemo(false)} 
       />
     </div>
   );
