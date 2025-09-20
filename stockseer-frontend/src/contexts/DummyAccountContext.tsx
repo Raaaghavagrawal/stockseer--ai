@@ -179,8 +179,16 @@ export const DummyAccountProvider: React.FC<DummyAccountProviderProps> = ({ chil
 
       if (response.ok) {
         const result = await response.json();
+        // Update local state immediately
         setZolosBalance(result.newZolosBalance);
-        await loadPortfolio();
+        setPortfolio(result.portfolio);
+        setHoldings(result.portfolio.holdings || []);
+        
+        // Update Firestore
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          zolosBalance: result.newZolosBalance
+        });
+        
         return true;
       }
       return false;
@@ -208,8 +216,16 @@ export const DummyAccountProvider: React.FC<DummyAccountProviderProps> = ({ chil
 
       if (response.ok) {
         const result = await response.json();
+        // Update local state immediately
         setZolosBalance(result.newZolosBalance);
-        await loadPortfolio();
+        setPortfolio(result.portfolio);
+        setHoldings(result.portfolio.holdings || []);
+        
+        // Update Firestore
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          zolosBalance: result.newZolosBalance
+        });
+        
         return true;
       }
       return false;
