@@ -3,6 +3,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
 import { DummyAccountProvider } from './contexts/DummyAccountContext';
+import { LiveAccountProvider } from './contexts/LiveAccountContext';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import PricingPage from './pages/PricingPage';
@@ -78,7 +79,9 @@ function App() {
       <ThemeProvider>
         <SubscriptionProvider>
           <DummyAccountProvider>
-            <AppContent />
+            <LiveAccountProvider>
+              <AppContent />
+            </LiveAccountProvider>
           </DummyAccountProvider>
         </SubscriptionProvider>
       </ThemeProvider>
