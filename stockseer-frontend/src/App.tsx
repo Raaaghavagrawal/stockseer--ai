@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
+import { DummyAccountProvider } from './contexts/DummyAccountContext';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import PricingPage from './pages/PricingPage';
@@ -76,7 +77,9 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <SubscriptionProvider>
-          <AppContent />
+          <DummyAccountProvider>
+            <AppContent />
+          </DummyAccountProvider>
         </SubscriptionProvider>
       </ThemeProvider>
     </AuthProvider>
