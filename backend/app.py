@@ -582,6 +582,29 @@ class StockSearchResult(BaseModel):
     sector: Optional[str] = None
     relevance: Optional[int] = None
 
+# Dummy Account Models
+class UserAccount(BaseModel):
+    uid: str
+    email: str
+    displayName: str
+    accountType: str  # 'live' or 'dummy'
+    zolosBalance: Optional[int] = None
+    createdAt: str
+    watchlist: List[str] = []
+    preferences: Dict[str, Any] = {}
+
+class ZolosTransaction(BaseModel):
+    userId: str
+    amount: int
+    transactionType: str  # 'deduct', 'add', 'reset'
+    description: str
+    timestamp: str
+
+class AccountUpgradeRequest(BaseModel):
+    userId: str
+    newAccountType: str  # 'live'
+    subscriptionPlan: str  # 'premium' or 'premium-plus'
+
 # In-memory storage for portfolio (replace with database in production)
 portfolio_holdings: Dict[str, PortfolioHolding] = {}
 
@@ -4376,6 +4399,10 @@ life_planner_goals = []  # In-memory storage for life planner goals (replace wit
 # Notes Storage
 notes_storage = []  # In-memory storage for notes (replace with database in production)
 
+# User Account Storage
+user_accounts = {}  # In-memory storage for user accounts (replace with database in production)
+zolos_transactions = []  # In-memory storage for Zolos transactions (replace with database in production)
+
 @app.get("/alerts")
 async def get_alerts():
     """Get all active alerts"""
@@ -4724,6 +4751,178 @@ async def delete_note(note_id: str):
         return {
             "message": "Note deleted successfully",
             "note": deleted_note
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Dummy Account Management Endpoints
+
+@app.get("/users/{user_id}")
+async def get_user_account(user_id: str):
+    """Get user account information"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return user_accounts[user_id]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/users")
+async def create_user_account(user: UserAccount):
+    """Create a new user account"""
+    try:
+        user_accounts[user.uid] = user.dict()
+        return {
+            "message": "User account created successfully",
+            "user": user.dict()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/users/{user_id}")
+async def update_user_account(user_id: str, user_data: dict):
+    """Update user account information"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Update only provided fields
+        for key, value in user_data.items():
+            if key in user_accounts[user_id]:
+                user_accounts[user_id][key] = value
+        
+        return {
+            "message": "User account updated successfully",
+            "user": user_accounts[user_id]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/users/{user_id}/zolos-balance")
+async def get_zolos_balance(user_id: str):
+    """Get user's Zolos balance"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = user_accounts[user_id]
+        if user.get('accountType') != 'dummy':
+            raise HTTPException(status_code=400, detail="User is not a dummy account")
+        
+        return {
+            "userId": user_id,
+            "zolosBalance": user.get('zolosBalance', 0),
+            "accountType": user.get('accountType')
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/users/{user_id}/zolos-transaction")
+async def process_zolos_transaction(user_id: str, transaction: ZolosTransaction):
+    """Process a Zolos transaction (deduct, add, or reset)"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = user_accounts[user_id]
+        if user.get('accountType') != 'dummy':
+            raise HTTPException(status_code=400, detail="User is not a dummy account")
+        
+        current_balance = user.get('zolosBalance', 0)
+        new_balance = current_balance
+        
+        if transaction.transactionType == 'deduct':
+            if current_balance < transaction.amount:
+                raise HTTPException(status_code=400, detail="Insufficient Zolos balance")
+            new_balance = current_balance - transaction.amount
+        elif transaction.transactionType == 'add':
+            new_balance = current_balance + transaction.amount
+        elif transaction.transactionType == 'reset':
+            new_balance = 2000  # Reset to initial balance
+        else:
+            raise HTTPException(status_code=400, detail="Invalid transaction type")
+        
+        # Update user balance
+        user_accounts[user_id]['zolosBalance'] = new_balance
+        
+        # Record transaction
+        transaction_record = transaction.dict()
+        transaction_record['timestamp'] = datetime.now().isoformat()
+        zolos_transactions.append(transaction_record)
+        
+        return {
+            "message": "Transaction processed successfully",
+            "newBalance": new_balance,
+            "transaction": transaction_record
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/users/{user_id}/upgrade-account")
+async def upgrade_account(user_id: str, upgrade_request: AccountUpgradeRequest):
+    """Upgrade dummy account to live account"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = user_accounts[user_id]
+        if user.get('accountType') != 'dummy':
+            raise HTTPException(status_code=400, detail="User is not a dummy account")
+        
+        # Update account type and reset Zolos balance
+        user_accounts[user_id]['accountType'] = upgrade_request.newAccountType
+        user_accounts[user_id]['zolosBalance'] = 0
+        
+        # Record the upgrade transaction
+        upgrade_transaction = ZolosTransaction(
+            userId=user_id,
+            amount=0,
+            transactionType='reset',
+            description=f'Account upgraded to {upgrade_request.subscriptionPlan}',
+            timestamp=datetime.now().isoformat()
+        )
+        zolos_transactions.append(upgrade_transaction.dict())
+        
+        return {
+            "message": "Account upgraded successfully",
+            "user": user_accounts[user_id],
+            "subscriptionPlan": upgrade_request.subscriptionPlan
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/users/{user_id}/zolos-transactions")
+async def get_zolos_transactions(user_id: str, limit: int = 50):
+    """Get user's Zolos transaction history"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_transactions = [
+            tx for tx in zolos_transactions 
+            if tx['userId'] == user_id
+        ]
+        
+        # Sort by timestamp (newest first) and limit results
+        user_transactions.sort(key=lambda x: x['timestamp'], reverse=True)
+        user_transactions = user_transactions[:limit]
+        
+        return {
+            "transactions": user_transactions,
+            "count": len(user_transactions)
         }
     except HTTPException:
         raise
