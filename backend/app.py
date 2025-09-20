@@ -5096,5 +5096,101 @@ async def get_dummy_transactions(user_id: str, limit: int = 50):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/dummy-sell/{user_id}")
+async def sell_dummy_stock(user_id: str, sell_data: dict):
+    """Sell stock in dummy account"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = user_accounts[user_id]
+        if user.get('accountType') != 'dummy':
+            raise HTTPException(status_code=400, detail="User is not a dummy account")
+        
+        symbol = sell_data.get('symbol')
+        shares_to_sell = sell_data.get('shares')
+        price = sell_data.get('price')
+        
+        if not all([symbol, shares_to_sell, price]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Get user's portfolio
+        if user_id not in virtual_portfolios:
+            raise HTTPException(status_code=400, detail="No portfolio found")
+        
+        portfolio = virtual_portfolios[user_id]
+        
+        # Find the holding
+        holding = None
+        for h in portfolio['holdings']:
+            if h['symbol'] == symbol:
+                holding = h
+                break
+        
+        if not holding:
+            raise HTTPException(status_code=400, detail="Stock not found in portfolio")
+        
+        if holding['shares'] < shares_to_sell:
+            raise HTTPException(status_code=400, detail="Insufficient shares to sell")
+        
+        # Calculate sale proceeds
+        sale_proceeds = shares_to_sell * price
+        zolos_gained = sale_proceeds  # 1:1 ratio for simplicity
+        
+        # Update holding
+        holding['shares'] -= shares_to_sell
+        if holding['shares'] == 0:
+            # Remove holding if no shares left
+            portfolio['holdings'] = [h for h in portfolio['holdings'] if h['symbol'] != symbol]
+        else:
+            # Update holding values
+            holding['currentPrice'] = price
+            holding['totalValue'] = holding['shares'] * price
+            holding['gainLoss'] = holding['totalValue'] - holding['totalCost']
+            holding['gainLossPercent'] = (holding['gainLoss'] / holding['totalCost']) * 100
+            holding['lastUpdated'] = datetime.now().isoformat()
+        
+        # Update Zolos balance
+        current_zolos = user.get('zolosBalance', 0)
+        new_zolos_balance = current_zolos + zolos_gained
+        user_accounts[user_id]['zolosBalance'] = new_zolos_balance
+        
+        # Update portfolio totals
+        total_value = sum(h['totalValue'] for h in portfolio['holdings'])
+        total_cost = sum(h['totalCost'] for h in portfolio['holdings'])
+        total_gain_loss = total_value - total_cost
+        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
+        
+        portfolio['totalValue'] = total_value
+        portfolio['totalCost'] = total_cost
+        portfolio['totalGainLoss'] = total_gain_loss
+        portfolio['totalGainLossPercent'] = total_gain_loss_percent
+        portfolio['zolosBalance'] = new_zolos_balance
+        portfolio['lastUpdated'] = datetime.now().isoformat()
+        
+        # Record transaction
+        transaction = {
+            'id': f"tx_{user_id}_{datetime.now().timestamp()}",
+            'userId': user_id,
+            'symbol': symbol,
+            'transactionType': 'sell',
+            'shares': shares_to_sell,
+            'price': price,
+            'totalValue': sale_proceeds,
+            'zolosUsed': -zolos_gained,  # Negative to indicate gain
+            'timestamp': datetime.now().isoformat()
+        }
+        virtual_transactions.append(transaction)
+        
+        return {
+            "message": "Sale successful",
+            "newZolosBalance": new_zolos_balance,
+            "portfolio": portfolio
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
