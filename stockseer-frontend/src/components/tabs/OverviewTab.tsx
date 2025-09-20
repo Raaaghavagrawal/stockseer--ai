@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { TrendingUp, TrendingDown, Plus, Minus, Download, BarChart3, LineChart, BarChart } from 'lucide-react';
 import type { StockData, StockChartData } from '../../types/stock';
 import { formatPrice, formatChange, formatChangePercent } from '../../utils/currency';
+import FeatureAccessGuard from '../FeatureAccessGuard';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -196,9 +197,13 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
       </div>
 
       {/* Chart Controls */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
+      <FeatureAccessGuard 
+        feature="stockAnalysis"
+        onFeatureUse={() => console.log('Chart accessed - Zolos deducted')}
+      >
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
             {/* Chart Type Selection */}
             <div className="flex space-x-2">
@@ -628,6 +633,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           )}
         </div>
       </div>
+      </FeatureAccessGuard>
 
       {/* Historical Data */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
