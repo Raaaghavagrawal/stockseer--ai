@@ -19,7 +19,6 @@ import DemoModal from '../components/DemoModal';
 
 import { useDummyAccount } from '../contexts/DummyAccountContext';
 import { useLiveAccount } from '../contexts/LiveAccountContext';
-import FreePlanNotification from '../components/FreePlanNotification';
 import ZolosBalance from '../components/ZolosBalance';
 import DummyAccountUpgradeModal from '../components/DummyAccountUpgradeModal';
 import UserProfileButton from '../components/UserProfileButton';
@@ -879,7 +878,8 @@ export default function Dashboard() {
       <DemoModal 
         isOpen={showDemo} 
         onClose={() => setShowDemo(false)} 
-
+      />
+      
       {/* Dummy Account Upgrade Modal */}
       <DummyAccountUpgradeModal
         isOpen={showUpgradeModal || showUpgradePrompt}
