@@ -108,7 +108,62 @@ export const DummyAccountProvider: React.FC<DummyAccountProviderProps> = ({ chil
             setZolosBalance(userData.zolosBalance || 0);
             
             if (accountType === 'dummy') {
-              await loadPortfolio();
+              // Load portfolio data directly here to ensure proper initialization
+              const currentZolosBalance = userData.zolosBalance || 0;
+              
+              // Load portfolio data from Firestore
+              if (userData.portfolio && userData.portfolio.holdings) {
+                setPortfolio(userData.portfolio);
+                setHoldings(userData.portfolio.holdings);
+                console.log('Loaded portfolio with holdings from Firestore:', userData.portfolio.holdings);
+              } else {
+                // Try to load from localStorage as backup
+                const backupData = localStorage.getItem(`portfolio_${currentUser.uid}`);
+                if (backupData) {
+                  try {
+                    const parsedData = JSON.parse(backupData);
+                    if (parsedData.holdings && parsedData.holdings.length > 0) {
+                      setPortfolio(parsedData.portfolio);
+                      setHoldings(parsedData.holdings);
+                      setTransactions(parsedData.transactions || []);
+                      console.log('Loaded portfolio with holdings from localStorage:', parsedData.holdings);
+                      
+                      // Save back to Firestore
+                      await updateDoc(doc(db, 'users', currentUser.uid), {
+                        portfolio: parsedData.portfolio,
+                        transactions: parsedData.transactions || []
+                      });
+                      return; // Exit early since we loaded from backup
+                    }
+                  } catch (error) {
+                    console.error('Error parsing localStorage backup:', error);
+                  }
+                }
+                
+                // Initialize portfolio if it doesn't exist anywhere
+                const initialPortfolio = {
+                  totalValue: 0,
+                  totalCost: 0,
+                  totalGainLoss: 0,
+                  totalGainLossPercent: 0,
+                  zolosBalance: currentZolosBalance,
+                  holdings: [],
+                  lastUpdated: new Date().toISOString()
+                };
+                setPortfolio(initialPortfolio);
+                setHoldings([]);
+                console.log('Initialized new portfolio');
+              }
+              
+              // Load transactions if they exist
+              if (userData.transactions) {
+                setTransactions(userData.transactions);
+              }
+              
+              // Ensure portfolio is properly initialized
+              setTimeout(() => {
+                ensurePortfolioExists();
+              }, 1000); // Small delay to ensure state is set
             }
           }
         } catch (error) {
@@ -127,23 +182,54 @@ export const DummyAccountProvider: React.FC<DummyAccountProviderProps> = ({ chil
     loadUserData();
   }, [currentUser]);
 
+  // Additional effect to ensure portfolio persistence
+  useEffect(() => {
+    if (isDummyAccount && currentUser && holdings.length > 0) {
+      // Save holdings to localStorage as backup
+      localStorage.setItem(`portfolio_${currentUser.uid}`, JSON.stringify({
+        portfolio,
+        holdings,
+        transactions
+      }));
+    }
+  }, [holdings, portfolio, transactions, isDummyAccount, currentUser]);
+
   const loadPortfolio = async () => {
     if (!currentUser || !isDummyAccount) return;
 
     try {
-      // Load portfolio from backend
-      const response = await fetch(`http://localhost:8000/dummy-portfolio/${currentUser.uid}`);
-      if (response.ok) {
-        const portfolioData = await response.json();
-        setPortfolio(portfolioData);
-        setHoldings(portfolioData.holdings || []);
-      }
-
-      // Load transactions
-      const transactionsResponse = await fetch(`http://localhost:8000/dummy-transactions/${currentUser.uid}`);
-      if (transactionsResponse.ok) {
-        const transactionsData = await transactionsResponse.json();
-        setTransactions(transactionsData);
+      // Frontend-only implementation - load from Firestore
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const currentZolosBalance = userData.zolosBalance || 0;
+        setZolosBalance(currentZolosBalance);
+        
+        // Load portfolio data from Firestore
+        if (userData.portfolio && userData.portfolio.holdings) {
+          setPortfolio(userData.portfolio);
+          setHoldings(userData.portfolio.holdings);
+          console.log('Reloaded portfolio with holdings:', userData.portfolio.holdings);
+        } else {
+          // Initialize portfolio if it doesn't exist
+          const initialPortfolio = {
+            totalValue: 0,
+            totalCost: 0,
+            totalGainLoss: 0,
+            totalGainLossPercent: 0,
+            zolosBalance: currentZolosBalance,
+            holdings: [],
+            lastUpdated: new Date().toISOString()
+          };
+          setPortfolio(initialPortfolio);
+          setHoldings([]);
+          console.log('Reloaded - initialized new portfolio');
+        }
+        
+        // Load transactions if they exist
+        if (userData.transactions) {
+          setTransactions(userData.transactions);
+        }
       }
     } catch (error) {
       console.error('Error loading portfolio:', error);
@@ -154,44 +240,158 @@ export const DummyAccountProvider: React.FC<DummyAccountProviderProps> = ({ chil
     await loadPortfolio();
   };
 
+  // Ensure portfolio is properly initialized and saved
+  const ensurePortfolioExists = async () => {
+    if (!currentUser || !isDummyAccount) return;
+
+    try {
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // If portfolio doesn't exist or is incomplete, create it
+        if (!userData.portfolio || !userData.portfolio.holdings) {
+          const currentZolosBalance = userData.zolosBalance || 0;
+          const initialPortfolio = {
+            totalValue: 0,
+            totalCost: 0,
+            totalGainLoss: 0,
+            totalGainLossPercent: 0,
+            zolosBalance: currentZolosBalance,
+            holdings: [],
+            lastUpdated: new Date().toISOString()
+          };
+          
+          // Save to Firestore
+          await updateDoc(doc(db, 'users', currentUser.uid), {
+            portfolio: initialPortfolio,
+            transactions: userData.transactions || []
+          });
+          
+          // Update local state
+          setPortfolio(initialPortfolio);
+          setHoldings([]);
+          setTransactions(userData.transactions || []);
+          
+          console.log('Created and saved initial portfolio to Firestore');
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring portfolio exists:', error);
+    }
+  };
+
   const makeInvestment = async (symbol: string, zolosAmount: number, currentPrice: number, aiPrediction?: any): Promise<boolean> => {
     if (!currentUser || !isDummyAccount || !canAfford(zolosAmount)) {
       return false;
     }
 
     try {
-      const shares = Math.floor(zolosAmount / currentPrice);
+      // Convert Zolos to currency first, then calculate shares
+      const currencyValue = getZolosToCurrency(zolosAmount);
+      const shares = Math.floor(currencyValue / currentPrice);
       if (shares <= 0) return false;
 
-      const response = await fetch(`http://localhost:8000/dummy-invest/${currentUser.uid}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Frontend-only implementation - no backend calls
+      const newZolosBalance = zolosBalance - zolosAmount;
+      
+      // Update Zolos balance immediately
+      setZolosBalance(newZolosBalance);
+      
+      // Create new transaction
+      const newTransaction = {
+        id: `tx_${currentUser.uid}_${Date.now()}`,
+        userId: currentUser.uid,
           symbol,
-          zolosAmount,
+        transactionType: 'buy' as const,
           shares,
           price: currentPrice,
+        totalValue: shares * currentPrice,
+        zolosUsed: zolosAmount,
+        timestamp: new Date().toISOString(),
           aiPrediction
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        // Update local state immediately
-        setZolosBalance(result.newZolosBalance);
-        setPortfolio(result.portfolio);
-        setHoldings(result.portfolio.holdings || []);
+      };
+      
+      // Update transactions list
+      const updatedTransactions = [newTransaction, ...transactions];
+      setTransactions(updatedTransactions);
+      
+      // Update or create portfolio
+      const currentPortfolio = portfolio || {
+        totalValue: 0,
+        totalCost: 0,
+        totalGainLoss: 0,
+        totalGainLossPercent: 0,
+        zolosBalance: newZolosBalance,
+        holdings: [],
+        lastUpdated: new Date().toISOString()
+      };
+      
+      // Check if user already has this stock
+      const existingHoldingIndex = currentPortfolio.holdings.findIndex(h => h.symbol === symbol);
+      
+      if (existingHoldingIndex >= 0) {
+        // Update existing holding
+        const existingHolding = currentPortfolio.holdings[existingHoldingIndex];
+        const totalShares = existingHolding.shares + shares;
+        const totalCost = existingHolding.totalCost + (shares * currentPrice);
+        const avgPrice = totalCost / totalShares;
         
-        // Update Firestore
+        currentPortfolio.holdings[existingHoldingIndex] = {
+          ...existingHolding,
+          shares: totalShares,
+          avgPrice: avgPrice,
+          currentPrice: currentPrice,
+          totalValue: totalShares * currentPrice,
+          totalCost: totalCost,
+          gainLoss: (totalShares * currentPrice) - totalCost,
+          gainLossPercent: ((totalShares * currentPrice) - totalCost) / totalCost * 100,
+          lastUpdated: new Date().toISOString()
+        };
+      } else {
+        // Create new holding
+        const newHolding = {
+          symbol: symbol,
+          shares: shares,
+          avgPrice: currentPrice,
+          currentPrice: currentPrice,
+          totalValue: shares * currentPrice,
+          totalCost: shares * currentPrice,
+          gainLoss: 0,
+          gainLossPercent: 0,
+          lastUpdated: new Date().toISOString()
+        };
+        currentPortfolio.holdings.push(newHolding);
+      }
+      
+      // Update portfolio totals
+      const totalValue = currentPortfolio.holdings.reduce((sum, h) => sum + h.totalValue, 0);
+      const totalCost = currentPortfolio.holdings.reduce((sum, h) => sum + h.totalCost, 0);
+      const totalGainLoss = totalValue - totalCost;
+      const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+      
+      const updatedPortfolio = {
+        ...currentPortfolio,
+        totalValue,
+        totalCost,
+        totalGainLoss,
+        totalGainLossPercent,
+        zolosBalance: newZolosBalance,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      // Update portfolio and holdings state
+      setPortfolio(updatedPortfolio);
+      setHoldings(updatedPortfolio.holdings);
+      
+      // Update Firestore for persistence
         await updateDoc(doc(db, 'users', currentUser.uid), {
-          zolosBalance: result.newZolosBalance
+        zolosBalance: newZolosBalance,
+        portfolio: updatedPortfolio,
+        transactions: updatedTransactions
         });
         
         return true;
-      }
-      return false;
     } catch (error) {
       console.error('Error making investment:', error);
       return false;
@@ -202,33 +402,101 @@ export const DummyAccountProvider: React.FC<DummyAccountProviderProps> = ({ chil
     if (!currentUser || !isDummyAccount) return false;
 
     try {
-      const response = await fetch(`http://localhost:8000/dummy-sell/${currentUser.uid}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          symbol,
-          shares,
-          price: currentPrice
-        })
-      });
+      // Check if user has enough shares to sell
+      const holding = holdings.find(h => h.symbol === symbol);
+      if (!holding || holding.shares < shares) {
+        return false;
+      }
 
-      if (response.ok) {
-        const result = await response.json();
-        // Update local state immediately
-        setZolosBalance(result.newZolosBalance);
-        setPortfolio(result.portfolio);
-        setHoldings(result.portfolio.holdings || []);
+      // Frontend-only implementation - no backend calls
+      const zolosGained = getCurrencyToZolos(shares * currentPrice);
+      const newZolosBalance = zolosBalance + zolosGained;
+      
+      // Update Zolos balance immediately
+      setZolosBalance(newZolosBalance);
+      
+      // Create new transaction
+      const newTransaction = {
+        id: `tx_${currentUser.uid}_${Date.now()}`,
+        userId: currentUser.uid,
+          symbol,
+        transactionType: 'sell' as const,
+          shares,
+        price: currentPrice,
+        totalValue: shares * currentPrice,
+        zolosUsed: zolosGained, // Zolos gained from sale
+        timestamp: new Date().toISOString()
+      };
+      
+      // Update transactions list
+      const updatedTransactions = [newTransaction, ...transactions];
+      setTransactions(updatedTransactions);
+      
+      // Update portfolio
+      const currentPortfolio = portfolio || {
+        totalValue: 0,
+        totalCost: 0,
+        totalGainLoss: 0,
+        totalGainLossPercent: 0,
+        zolosBalance: newZolosBalance,
+        holdings: [],
+        lastUpdated: new Date().toISOString()
+      };
+      
+      // Update or remove holding
+      const holdingIndex = currentPortfolio.holdings.findIndex(h => h.symbol === symbol);
+      
+      if (holdingIndex >= 0) {
+        const holding = currentPortfolio.holdings[holdingIndex];
+        const remainingShares = holding.shares - shares;
         
-        // Update Firestore
+        if (remainingShares <= 0) {
+          // Remove holding completely
+          currentPortfolio.holdings.splice(holdingIndex, 1);
+        } else {
+          // Update holding
+          const remainingCost = holding.totalCost * (remainingShares / holding.shares);
+          currentPortfolio.holdings[holdingIndex] = {
+            ...holding,
+            shares: remainingShares,
+            totalCost: remainingCost,
+            currentPrice: currentPrice,
+            totalValue: remainingShares * currentPrice,
+            gainLoss: (remainingShares * currentPrice) - remainingCost,
+            gainLossPercent: ((remainingShares * currentPrice) - remainingCost) / remainingCost * 100,
+            lastUpdated: new Date().toISOString()
+          };
+        }
+      }
+      
+      // Update portfolio totals
+      const totalValue = currentPortfolio.holdings.reduce((sum, h) => sum + h.totalValue, 0);
+      const totalCost = currentPortfolio.holdings.reduce((sum, h) => sum + h.totalCost, 0);
+      const totalGainLoss = totalValue - totalCost;
+      const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+      
+      const updatedPortfolio = {
+        ...currentPortfolio,
+        totalValue,
+        totalCost,
+        totalGainLoss,
+        totalGainLossPercent,
+        zolosBalance: newZolosBalance,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      // Update portfolio and holdings state
+      setPortfolio(updatedPortfolio);
+      setHoldings(updatedPortfolio.holdings);
+      
+      // Update Firestore for persistence
         await updateDoc(doc(db, 'users', currentUser.uid), {
-          zolosBalance: result.newZolosBalance
+        zolosBalance: newZolosBalance,
+        portfolio: updatedPortfolio,
+        transactions: updatedTransactions
         });
         
         return true;
-      }
-      return false;
     } catch (error) {
       console.error('Error selling stock:', error);
       return false;
