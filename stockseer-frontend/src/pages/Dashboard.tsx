@@ -11,17 +11,13 @@ import {
 } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useDummyAccount } from '../contexts/DummyAccountContext';
-import { useLiveAccount } from '../contexts/LiveAccountContext';
 import FreePlanNotification from '../components/FreePlanNotification';
 import ZolosBalance from '../components/ZolosBalance';
 import DummyAccountUpgradeModal from '../components/DummyAccountUpgradeModal';
-import UserProfileButton from '../components/UserProfileButton';
 import { formatPrice, formatChange, formatChangePercent } from '../utils/currency';
 
 // Import all tab components
 import OverviewTab from '../components/tabs/OverviewTab';
-import DummyOverviewTab from '../components/tabs/DummyOverviewTab';
-import LiveOverviewTab from '../components/tabs/LiveOverviewTab';
 import FinancialsTab from '../components/tabs/FinancialsTab';
 import NewsTab from '../components/tabs/NewsTab';
 import PerformanceTab from '../components/tabs/PerformanceTab';
@@ -46,7 +42,6 @@ import { stockAPI, handleAPIError } from '../utils/api';
 export default function Dashboard() {
   const { currentPlan, isTrialActive, showFreePlanNotification, setShowFreePlanNotification, selectedContinent } = useSubscription();
   const { isDummyAccount, showUpgradePrompt, setShowUpgradePrompt } = useDummyAccount();
-  const { isLiveAccount } = useLiveAccount();
   const [searchParams] = useSearchParams();
   const [selectedStock, setSelectedStock] = useState<string>('');
   const [stockData, setStockData] = useState<StockData | null>(null);
@@ -155,38 +150,15 @@ export default function Dashboard() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        // Use different overview tabs based on account type
-        if (isDummyAccount) {
-          return (
-            <DummyOverviewTab 
-              stockData={stockData}
-              watchlist={watchlist}
-              chartData={chartData}
-              onAddToWatchlist={addToWatchlist}
-              onRemoveFromWatchlist={removeFromWatchlist}
-            />
-          );
-        } else if (isLiveAccount) {
-          return (
-            <LiveOverviewTab 
-              stockData={stockData}
-              watchlist={watchlist}
-              chartData={chartData}
-              onAddToWatchlist={addToWatchlist}
-              onRemoveFromWatchlist={removeFromWatchlist}
-            />
-          );
-        } else {
-          return (
-            <OverviewTab 
-              stockData={stockData}
-              watchlist={watchlist}
-              chartData={chartData}
-              onAddToWatchlist={addToWatchlist}
-              onRemoveFromWatchlist={removeFromWatchlist}
-            />
-          );
-        }
+        return (
+          <OverviewTab 
+            stockData={stockData}
+            watchlist={watchlist}
+            chartData={chartData}
+            onAddToWatchlist={addToWatchlist}
+            onRemoveFromWatchlist={removeFromWatchlist}
+          />
+        );
       case 'financials':
         return <FinancialsTab stockData={stockData} selectedStock={selectedStock} />;
       case 'news':
@@ -408,9 +380,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-              
-              {/* User Profile Button */}
-              <UserProfileButton />
             </div>
           </div>
         </div>
