@@ -18,7 +18,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onModeChan
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [accountType, setAccountType] = useState<'live' | 'dummy'>('live');
   
   const { login, signup } = useAuth();
   // const navigate = useNavigate();
@@ -32,7 +31,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onModeChan
       if (mode === 'login') {
         await login(email, password);
       } else {
-        await signup(email, password, displayName, accountType);
+        await signup(email, password, displayName);
       }
       onClose();
       // Reset form
@@ -41,6 +40,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onModeChan
       setDisplayName('');
       setAccountType('live');
       // Don't navigate here - let the continent selection modal handle navigation
+      navigate('/dashboard');
     } catch (error: any) {
       setError(getErrorMessage(error.code));
     } finally {
@@ -72,7 +72,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onModeChan
     setEmail('');
     setPassword('');
     setDisplayName('');
-    setAccountType('live');
     onModeChange(mode === 'login' ? 'signup' : 'login');
   };
 
@@ -114,74 +113,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onModeChan
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {mode === 'signup' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-colors"
-                        placeholder="Enter your full name"
-                        required
-                      />
-                    </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-colors"
+                      placeholder="Enter your full name"
+                      required
+                    />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Account Type
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setAccountType('live')}
-                        className={`p-4 rounded-lg border-2 transition-all ${
-                          accountType === 'live'
-                            ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                        }`}
-                      >
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                            Live Account
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            Full access to all features
-                          </div>
-                        </div>
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={() => setAccountType('dummy')}
-                        className={`p-4 rounded-lg border-2 transition-all ${
-                          accountType === 'dummy'
-                            ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                        }`}
-                      >
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                            Dummy Account
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            Try with 2000 Zolos
-                          </div>
-                        </div>
-                      </button>
-                    </div>
-                    {accountType === 'dummy' && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        Experience premium features with virtual currency. Upgrade anytime to a live account.
-                      </p>
-                    )}
-                  </div>
-                </>
+                </div>
               )}
 
               <div>
