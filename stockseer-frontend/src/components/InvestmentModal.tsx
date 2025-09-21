@@ -32,6 +32,7 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
   const [zolosAmount, setZolosAmount] = useState<number>(0);
   const [isInvesting, setIsInvesting] = useState(false);
   const [investmentSuccess, setInvestmentSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -39,31 +40,52 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
       setZolosAmount(0);
       setIsInvesting(false);
       setInvestmentSuccess(false);
+      setErrorMessage('');
     }
   }, [isOpen]);
 
   const handleInvestment = async () => {
-    if (zolosAmount <= 0 || zolosAmount > zolosBalance) return;
+    if (zolosAmount <= 0 || zolosAmount > zolosBalance) {
+      setErrorMessage('Invalid investment amount');
+      return;
+    }
+
+    // Check if investment would result in at least 1 share
+    const currencyValue = getZolosToCurrency(zolosAmount);
+    const shares = Math.floor(currencyValue / currentPrice);
+    
+    if (shares <= 0) {
+      setErrorMessage(`Minimum investment required: ${Math.ceil(currentPrice / 10)} Zolos (1 share)`);
+      return;
+    }
 
     setIsInvesting(true);
+    setErrorMessage('');
+    
     try {
       const success = await makeInvestment(symbol, zolosAmount, currentPrice, aiPrediction);
       if (success) {
         setInvestmentSuccess(true);
+        // Show success message for 2 seconds then close
         setTimeout(() => {
           onClose();
         }, 2000);
+      } else {
+        // Handle investment failure
+        setErrorMessage('Investment failed. Please check your balance and try again.');
       }
     } catch (error) {
       console.error('Investment failed:', error);
+      setErrorMessage('An error occurred. Please try again.');
     } finally {
       setIsInvesting(false);
     }
   };
 
   const quickAmounts = [100, 500, 1000, 2000];
-  const shares = Math.floor(zolosAmount / currentPrice);
+  // Convert Zolos to currency first, then calculate shares
   const currencyValue = getZolosToCurrency(zolosAmount);
+  const shares = currencyValue > 0 ? Math.floor(currencyValue / currentPrice) : 0;
 
   const getPredictionColor = (prediction: string) => {
     switch (prediction) {
@@ -168,6 +190,9 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                         {zolosBalance.toLocaleString()} Z
                       </span>
                     </div>
+                    <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                      1 Zolo = 10 {currency} • ≈ {formatPrice(zolosBalance * 10, currency)} available
+                    </div>
                   </div>
 
                   {/* Investment Amount */}
@@ -219,15 +244,33 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-blue-700 dark:text-blue-300">Shares:</span>
-                          <span className="font-medium text-blue-800 dark:text-blue-200">{shares}</span>
-                        </div>
-                        <div className="flex justify-between">
                           <span className="text-blue-700 dark:text-blue-300">Price per Share:</span>
                           <span className="font-medium text-blue-800 dark:text-blue-200">
                             {formatPrice(currentPrice, currency)}
                           </span>
                         </div>
+                        <div className="flex justify-between border-t border-blue-200 dark:border-blue-600 pt-1 mt-2">
+                          <span className="text-blue-700 dark:text-blue-300 font-medium">Shares to Purchase:</span>
+                          <span className="font-bold text-blue-800 dark:text-blue-200">{shares}</span>
+                        </div>
+                        {shares > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-blue-700 dark:text-blue-300">Total Investment Value:</span>
+                            <span className="font-medium text-blue-800 dark:text-blue-200">
+                              {formatPrice(shares * currentPrice, currency)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error Message */}
+                  {errorMessage && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 mb-4">
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <span className="text-sm text-red-700 dark:text-red-400">{errorMessage}</span>
                       </div>
                     </div>
                   )}
@@ -236,7 +279,7 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
                   <div className="space-y-3">
                     <button
                       onClick={handleInvestment}
-                      disabled={zolosAmount <= 0 || zolosAmount > zolosBalance || isInvesting}
+                      disabled={zolosAmount <= 0 || zolosAmount > zolosBalance || shares <= 0 || isInvesting}
                       className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-300 disabled:to-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                     >
                       {isInvesting ? (
