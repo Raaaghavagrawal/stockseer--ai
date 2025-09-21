@@ -5,7 +5,7 @@ import { auth, db } from '../config/firebase';
 interface AuthContextType {
   currentUser: any | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, displayName: string, accountType?: 'live' | 'dummy') => Promise<void>;
+  signup: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
   showContinentModal: boolean;
@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [showContinentModal, setShowContinentModal] = useState(false);
 
-  const signup = async (email: string, password: string, displayName: string, accountType: 'live' | 'dummy' = 'live') => {
+  const signup = async (email: string, password: string, displayName: string) => {
     try {
       const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
       const { doc, setDoc } = await import('firebase/firestore');
@@ -42,25 +42,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await updateProfile(user, { displayName });
       
       // Create user document in Firestore
-      const userData: any = {
+      await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
         displayName: displayName,
         createdAt: new Date().toISOString(),
-        accountType: accountType,
         watchlist: [],
         preferences: {
           theme: 'dark',
           notifications: true
         }
-      };
-
-      // Add Zolos balance for dummy accounts
-      if (accountType === 'dummy') {
-        userData.zolosBalance = 2000;
-      }
-      
-      await setDoc(doc(db, 'users', user.uid), userData);
+      });
       
       // Show continent selection modal after successful signup
       setShowContinentModal(true);
