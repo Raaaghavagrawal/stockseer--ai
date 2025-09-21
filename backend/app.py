@@ -20,7 +20,7 @@ import random
 import re
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, Depends, Request, Header
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -60,124 +60,6 @@ try:
     import google.generativeai as genai
 except Exception:
     genai = None
-
-# --- SUBSCRIPTION AND MARKET RESTRICTIONS ---
-SUBSCRIPTION_PLANS = {
-    "free": {
-        "name": "Free",
-        "allowed_markets": ["Indian", "Chinese", "Japanese", "Korean", "Singaporean", "Thai", "Indonesian", "Malaysian", "Philippine", "Vietnamese"],
-        "max_watchlist_items": 5,
-        "max_portfolios": 0,
-        "has_api_access": False,
-        "has_advanced_ai": False,
-        "has_custom_alerts": False,
-        "has_data_export": False
-    },
-    "premium": {
-        "name": "Premium",
-        "allowed_markets": ["Indian", "Chinese", "Japanese", "Korean", "Singaporean", "Thai", "Indonesian", "Malaysian", "Philippine", "Vietnamese", "US", "Canadian", "British", "German", "French", "Australian", "Brazilian", "Mexican", "South African", "Swiss", "Dutch", "Spanish", "Italian", "Swedish", "Norwegian", "Danish", "Finnish", "Belgian", "Austrian", "Portuguese", "Irish", "Polish", "Czech", "Hungarian", "Greek", "Turkish", "Russian", "Israeli", "UAE", "Saudi", "Egyptian", "Nigerian", "Kenyan", "Moroccan", "Chilean", "Argentine", "Colombian", "Peruvian", "Venezuelan", "Uruguayan", "Paraguayan", "Bolivian", "Ecuadorian", "Costa Rican", "Panamanian", "Guatemalan", "Honduran", "Nicaraguan", "El Salvadorian", "Dominican", "Cuban", "Jamaican", "Trinidadian", "Barbadian", "Bahamian", "Bermudian", "Caymanian", "Virgin Islander", "Puerto Rican", "Haitian", "Belizean", "Guyanese", "Surinamese", "French Guianese", "Falkland Islander", "Greenlandic", "Icelandic", "Faroe Islander", "Gibraltarian", "Andorran", "Monacan", "San Marinese", "Vatican", "Liechtensteinian", "Luxembourgian", "Maltese", "Cypriot", "Estonian", "Latvian", "Lithuanian", "Slovakian", "Slovenian", "Croatian", "Bosnian", "Serbian", "Montenegrin", "Macedonian", "Albanian", "Kosovar", "Moldovan", "Ukrainian", "Belarusian", "Georgian", "Armenian", "Azerbaijani", "Kazakhstani", "Uzbekistani", "Kyrgyzstani", "Tajikistani", "Turkmenistani", "Afghanistani", "Pakistani", "Bangladeshi", "Sri Lankan", "Maldivian", "Nepalese", "Bhutanese", "Myanmarian", "Laotian", "Cambodian", "Bruneian", "Timorese", "Papua New Guinean", "Fijian", "Tongan", "Samoan", "Vanuatuan", "Solomon Islander", "Kiribati", "Tuvaluan", "Nauruan", "Palauan", "Marshallese", "Micronesian", "Guamanian", "Northern Mariana Islander", "American Samoan", "Cook Islander", "Niuean", "Tokelauan", "Pitcairn Islander", "Norfolk Islander", "Christmas Islander", "Cocos Islander", "Heard Islander", "McDonald Islander", "Ashmore Islander", "Cartier Islander", "Coral Sea Islander", "Lord Howe Islander", "Macquarie Islander", "Tasmanian", "Norfolk Islander", "Christmas Islander", "Cocos Islander", "Heard Islander", "McDonald Islander", "Ashmore Islander", "Cartier Islander", "Coral Sea Islander", "Lord Howe Islander", "Macquarie Islander", "Tasmanian"],
-        "max_watchlist_items": -1,  # unlimited
-        "max_portfolios": 3,
-        "has_api_access": False,
-        "has_advanced_ai": True,
-        "has_custom_alerts": True,
-        "has_data_export": True
-    },
-    "premium-plus": {
-        "name": "Premium Plus",
-        "allowed_markets": "all",  # Access to all markets
-        "max_watchlist_items": -1,  # unlimited
-        "max_portfolios": -1,  # unlimited
-        "has_api_access": True,
-        "has_advanced_ai": True,
-        "has_custom_alerts": True,
-        "has_data_export": True
-    }
-}
-
-# Market to continent mapping
-MARKET_TO_CONTINENT = {
-    "Indian": "asia",
-    "Chinese": "asia", 
-    "Japanese": "asia",
-    "Korean": "asia",
-    "Singaporean": "asia",
-    "Thai": "asia",
-    "Indonesian": "asia",
-    "Malaysian": "asia",
-    "Philippine": "asia",
-    "Vietnamese": "asia",
-    "US": "americas",
-    "Canadian": "americas",
-    "Brazilian": "americas",
-    "Mexican": "americas",
-    "South African": "africa",
-    "British": "europe",
-    "German": "europe",
-    "French": "europe",
-    "Australian": "oceania"
-}
-
-# User session storage (in production, use a proper database)
-user_sessions = {}
-
-def get_user_subscription(user_id: str = None, subscription_plan: str = "free", selected_continent: str = None):
-    """Get user subscription details from headers or default to free"""
-    return {
-        "user_id": user_id,
-        "plan": subscription_plan,
-        "continent": selected_continent,
-        "allowed_markets": SUBSCRIPTION_PLANS.get(subscription_plan, SUBSCRIPTION_PLANS["free"])["allowed_markets"],
-        "plan_limits": SUBSCRIPTION_PLANS.get(subscription_plan, SUBSCRIPTION_PLANS["free"])
-    }
-
-def check_market_access(user_subscription: dict, market: str) -> bool:
-    """Check if user can access a specific market based on their subscription"""
-    plan = user_subscription["plan"]
-    allowed_markets = user_subscription["allowed_markets"]
-    
-    # Premium Plus has access to all markets
-    if plan == "premium-plus" or allowed_markets == "all":
-        return True
-    
-    # Check if market is in allowed markets
-    return market in allowed_markets
-
-def get_market_restriction_error(market: str, user_subscription: dict) -> dict:
-    """Generate market restriction error message"""
-    plan = user_subscription["plan"]
-    continent = user_subscription.get("continent", "unknown")
-    
-    if plan == "free":
-        return {
-            "error": "market_restricted",
-            "message": f"Access to {market} market is restricted on the Free plan.",
-            "details": "Free plan only includes Asian markets. Upgrade to Premium or Premium Plus to access global markets.",
-            "required_plan": "premium",
-            "current_plan": "free",
-            "available_markets": user_subscription["allowed_markets"],
-            "upgrade_url": "/pricing"
-        }
-    elif plan == "premium":
-        return {
-            "error": "market_restricted", 
-            "message": f"Access to {market} market requires Premium Plus subscription.",
-            "details": "Premium plan includes most global markets. Upgrade to Premium Plus for access to all markets including crypto, forex, and commodities.",
-            "required_plan": "premium-plus",
-            "current_plan": "premium",
-            "available_markets": user_subscription["allowed_markets"],
-            "upgrade_url": "/pricing"
-        }
-    else:
-        return {
-            "error": "market_restricted",
-            "message": f"Access to {market} market is not available.",
-            "details": "This market is not currently supported.",
-            "required_plan": None,
-            "current_plan": plan,
-            "available_markets": user_subscription["allowed_markets"],
-            "upgrade_url": "/pricing"
-        }
 
 # --- MARKET CONFIGURATIONS ---
 market_options = {
@@ -635,363 +517,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency to get user subscription from headers
-def get_user_subscription_from_headers(
-    x_subscription_plan: str = Header(default="free"),
-    x_user_id: str = Header(default=None),
-    x_selected_continent: str = Header(default=None)
-):
-    """Extract user subscription information from request headers"""
-    return get_user_subscription(
-        user_id=x_user_id,
-        subscription_plan=x_subscription_plan,
-        selected_continent=x_selected_continent
-    )
-
-# Dependency to validate market access
-def get_market_from_symbol(symbol: str) -> str:
-    """Determine market from stock symbol"""
-    symbol_upper = symbol.upper()
-    
-    # Check for specific market suffixes
-    if symbol_upper.endswith('.NS') or symbol_upper.endswith('.BO'):
-        return "Indian"
-    elif symbol_upper.endswith('.SS') or symbol_upper.endswith('.SZ'):
-        return "Chinese"
-    elif symbol_upper.endswith('.T'):
-        return "Japanese"
-    elif symbol_upper.endswith('.KS'):
-        return "Korean"
-    elif symbol_upper.endswith('.SI'):
-        return "Singaporean"
-    elif symbol_upper.endswith('.BK'):
-        return "Thai"
-    elif symbol_upper.endswith('.JK'):
-        return "Indonesian"
-    elif symbol_upper.endswith('.KL'):
-        return "Malaysian"
-    elif symbol_upper.endswith('.PS'):
-        return "Philippine"
-    elif symbol_upper.endswith('.VN'):
-        return "Vietnamese"
-    elif symbol_upper.endswith('.TO'):
-        return "Canadian"
-    elif symbol_upper.endswith('.L'):
-        return "British"
-    elif symbol_upper.endswith('.DE'):
-        return "German"
-    elif symbol_upper.endswith('.PA'):
-        return "French"
-    elif symbol_upper.endswith('.AX'):
-        return "Australian"
-    elif symbol_upper.endswith('.SA'):
-        return "Brazilian"
-    elif symbol_upper.endswith('.MX'):
-        return "Mexican"
-    elif symbol_upper.endswith('.JO'):
-        return "South African"
-    elif symbol_upper.endswith('.SW'):
-        return "Swiss"
-    elif symbol_upper.endswith('.AS'):
-        return "Dutch"
-    elif symbol_upper.endswith('.MC'):
-        return "Spanish"
-    elif symbol_upper.endswith('.MI'):
-        return "Italian"
-    elif symbol_upper.endswith('.ST'):
-        return "Swedish"
-    elif symbol_upper.endswith('.OL'):
-        return "Norwegian"
-    elif symbol_upper.endswith('.CO'):
-        return "Danish"
-    elif symbol_upper.endswith('.HE'):
-        return "Finnish"
-    elif symbol_upper.endswith('.BR'):
-        return "Belgian"
-    elif symbol_upper.endswith('.VI'):
-        return "Austrian"
-    elif symbol_upper.endswith('.LS'):
-        return "Portuguese"
-    elif symbol_upper.endswith('.IR'):
-        return "Irish"
-    elif symbol_upper.endswith('.WA'):
-        return "Polish"
-    elif symbol_upper.endswith('.PR'):
-        return "Czech"
-    elif symbol_upper.endswith('.BD'):
-        return "Hungarian"
-    elif symbol_upper.endswith('.AT'):
-        return "Greek"
-    elif symbol_upper.endswith('.IS'):
-        return "Turkish"
-    elif symbol_upper.endswith('.ME'):
-        return "Russian"
-    elif symbol_upper.endswith('.TA'):
-        return "Israeli"
-    elif symbol_upper.endswith('.AD'):
-        return "UAE"
-    elif symbol_upper.endswith('.SR'):
-        return "Saudi"
-    elif symbol_upper.endswith('.CA'):
-        return "Egyptian"
-    elif symbol_upper.endswith('.NG'):
-        return "Nigerian"
-    elif symbol_upper.endswith('.KE'):
-        return "Kenyan"
-    elif symbol_upper.endswith('.MA'):
-        return "Moroccan"
-    elif symbol_upper.endswith('.SN'):
-        return "Chilean"
-    elif symbol_upper.endswith('.BA'):
-        return "Argentine"
-    elif symbol_upper.endswith('.CB'):
-        return "Colombian"
-    elif symbol_upper.endswith('.LM'):
-        return "Peruvian"
-    elif symbol_upper.endswith('.VZ'):
-        return "Venezuelan"
-    elif symbol_upper.endswith('.UY'):
-        return "Uruguayan"
-    elif symbol_upper.endswith('.PY'):
-        return "Paraguayan"
-    elif symbol_upper.endswith('.BO'):
-        return "Bolivian"
-    elif symbol_upper.endswith('.EC'):
-        return "Ecuadorian"
-    elif symbol_upper.endswith('.CR'):
-        return "Costa Rican"
-    elif symbol_upper.endswith('.PA'):
-        return "Panamanian"
-    elif symbol_upper.endswith('.GT'):
-        return "Guatemalan"
-    elif symbol_upper.endswith('.HN'):
-        return "Honduran"
-    elif symbol_upper.endswith('.NI'):
-        return "Nicaraguan"
-    elif symbol_upper.endswith('.SV'):
-        return "El Salvadorian"
-    elif symbol_upper.endswith('.DO'):
-        return "Dominican"
-    elif symbol_upper.endswith('.CU'):
-        return "Cuban"
-    elif symbol_upper.endswith('.JM'):
-        return "Jamaican"
-    elif symbol_upper.endswith('.TT'):
-        return "Trinidadian"
-    elif symbol_upper.endswith('.BB'):
-        return "Barbadian"
-    elif symbol_upper.endswith('.BS'):
-        return "Bahamian"
-    elif symbol_upper.endswith('.BM'):
-        return "Bermudian"
-    elif symbol_upper.endswith('.KY'):
-        return "Caymanian"
-    elif symbol_upper.endswith('.VG'):
-        return "Virgin Islander"
-    elif symbol_upper.endswith('.PR'):
-        return "Puerto Rican"
-    elif symbol_upper.endswith('.HT'):
-        return "Haitian"
-    elif symbol_upper.endswith('.BZ'):
-        return "Belizean"
-    elif symbol_upper.endswith('.GY'):
-        return "Guyanese"
-    elif symbol_upper.endswith('.SR'):
-        return "Surinamese"
-    elif symbol_upper.endswith('.GF'):
-        return "French Guianese"
-    elif symbol_upper.endswith('.FK'):
-        return "Falkland Islander"
-    elif symbol_upper.endswith('.GL'):
-        return "Greenlandic"
-    elif symbol_upper.endswith('.IS'):
-        return "Icelandic"
-    elif symbol_upper.endswith('.FO'):
-        return "Faroe Islander"
-    elif symbol_upper.endswith('.GI'):
-        return "Gibraltarian"
-    elif symbol_upper.endswith('.AD'):
-        return "Andorran"
-    elif symbol_upper.endswith('.MC'):
-        return "Monacan"
-    elif symbol_upper.endswith('.SM'):
-        return "San Marinese"
-    elif symbol_upper.endswith('.VA'):
-        return "Vatican"
-    elif symbol_upper.endswith('.LI'):
-        return "Liechtensteinian"
-    elif symbol_upper.endswith('.LU'):
-        return "Luxembourgian"
-    elif symbol_upper.endswith('.MT'):
-        return "Maltese"
-    elif symbol_upper.endswith('.CY'):
-        return "Cypriot"
-    elif symbol_upper.endswith('.EE'):
-        return "Estonian"
-    elif symbol_upper.endswith('.LV'):
-        return "Latvian"
-    elif symbol_upper.endswith('.LT'):
-        return "Lithuanian"
-    elif symbol_upper.endswith('.SK'):
-        return "Slovakian"
-    elif symbol_upper.endswith('.SI'):
-        return "Slovenian"
-    elif symbol_upper.endswith('.HR'):
-        return "Croatian"
-    elif symbol_upper.endswith('.BA'):
-        return "Bosnian"
-    elif symbol_upper.endswith('.RS'):
-        return "Serbian"
-    elif symbol_upper.endswith('.ME'):
-        return "Montenegrin"
-    elif symbol_upper.endswith('.MK'):
-        return "Macedonian"
-    elif symbol_upper.endswith('.AL'):
-        return "Albanian"
-    elif symbol_upper.endswith('.XK'):
-        return "Kosovar"
-    elif symbol_upper.endswith('.MD'):
-        return "Moldovan"
-    elif symbol_upper.endswith('.UA'):
-        return "Ukrainian"
-    elif symbol_upper.endswith('.BY'):
-        return "Belarusian"
-    elif symbol_upper.endswith('.GE'):
-        return "Georgian"
-    elif symbol_upper.endswith('.AM'):
-        return "Armenian"
-    elif symbol_upper.endswith('.AZ'):
-        return "Azerbaijani"
-    elif symbol_upper.endswith('.KZ'):
-        return "Kazakhstani"
-    elif symbol_upper.endswith('.UZ'):
-        return "Uzbekistani"
-    elif symbol_upper.endswith('.KG'):
-        return "Kyrgyzstani"
-    elif symbol_upper.endswith('.TJ'):
-        return "Tajikistani"
-    elif symbol_upper.endswith('.TM'):
-        return "Turkmenistani"
-    elif symbol_upper.endswith('.AF'):
-        return "Afghanistani"
-    elif symbol_upper.endswith('.PK'):
-        return "Pakistani"
-    elif symbol_upper.endswith('.BD'):
-        return "Bangladeshi"
-    elif symbol_upper.endswith('.LK'):
-        return "Sri Lankan"
-    elif symbol_upper.endswith('.MV'):
-        return "Maldivian"
-    elif symbol_upper.endswith('.NP'):
-        return "Nepalese"
-    elif symbol_upper.endswith('.BT'):
-        return "Bhutanese"
-    elif symbol_upper.endswith('.MM'):
-        return "Myanmarian"
-    elif symbol_upper.endswith('.LA'):
-        return "Laotian"
-    elif symbol_upper.endswith('.KH'):
-        return "Cambodian"
-    elif symbol_upper.endswith('.BN'):
-        return "Bruneian"
-    elif symbol_upper.endswith('.TL'):
-        return "Timorese"
-    elif symbol_upper.endswith('.PG'):
-        return "Papua New Guinean"
-    elif symbol_upper.endswith('.FJ'):
-        return "Fijian"
-    elif symbol_upper.endswith('.TO'):
-        return "Tongan"
-    elif symbol_upper.endswith('.WS'):
-        return "Samoan"
-    elif symbol_upper.endswith('.VU'):
-        return "Vanuatuan"
-    elif symbol_upper.endswith('.SB'):
-        return "Solomon Islander"
-    elif symbol_upper.endswith('.KI'):
-        return "Kiribati"
-    elif symbol_upper.endswith('.TV'):
-        return "Tuvaluan"
-    elif symbol_upper.endswith('.NR'):
-        return "Nauruan"
-    elif symbol_upper.endswith('.PW'):
-        return "Palauan"
-    elif symbol_upper.endswith('.MH'):
-        return "Marshallese"
-    elif symbol_upper.endswith('.FM'):
-        return "Micronesian"
-    elif symbol_upper.endswith('.GU'):
-        return "Guamanian"
-    elif symbol_upper.endswith('.MP'):
-        return "Northern Mariana Islander"
-    elif symbol_upper.endswith('.AS'):
-        return "American Samoan"
-    elif symbol_upper.endswith('.CK'):
-        return "Cook Islander"
-    elif symbol_upper.endswith('.NU'):
-        return "Niuean"
-    elif symbol_upper.endswith('.TK'):
-        return "Tokelauan"
-    elif symbol_upper.endswith('.PN'):
-        return "Pitcairn Islander"
-    elif symbol_upper.endswith('.NF'):
-        return "Norfolk Islander"
-    elif symbol_upper.endswith('.CX'):
-        return "Christmas Islander"
-    elif symbol_upper.endswith('.CC'):
-        return "Cocos Islander"
-    elif symbol_upper.endswith('.HM'):
-        return "Heard Islander"
-    elif symbol_upper.endswith('.CC'):
-        return "McDonald Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Ashmore Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Cartier Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Coral Sea Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Lord Howe Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Macquarie Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Tasmanian"
-    elif symbol_upper.endswith('.AU'):
-        return "Norfolk Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Christmas Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Cocos Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Heard Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "McDonald Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Ashmore Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Cartier Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Coral Sea Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Lord Howe Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Macquarie Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Tasmanian"
-    # Default to US market for symbols without specific suffixes
-    else:
-        return "US"
-
-def validate_market_access(market: str, user_subscription: dict = Depends(get_user_subscription_from_headers)):
-    """Validate if user can access the requested market"""
-    if not check_market_access(user_subscription, market):
-        error_details = get_market_restriction_error(market, user_subscription)
-        raise HTTPException(
-            status_code=403,
-            detail=error_details
-        )
-    return user_subscription
-
 # Pydantic models for API requests/responses
 class StockData(BaseModel):
     symbol: str
@@ -1056,29 +581,6 @@ class StockSearchResult(BaseModel):
     change: Optional[float] = None
     sector: Optional[str] = None
     relevance: Optional[int] = None
-
-# Dummy Account Models
-class UserAccount(BaseModel):
-    uid: str
-    email: str
-    displayName: str
-    accountType: str  # 'live' or 'dummy'
-    zolosBalance: Optional[int] = None
-    createdAt: str
-    watchlist: List[str] = []
-    preferences: Dict[str, Any] = {}
-
-class ZolosTransaction(BaseModel):
-    userId: str
-    amount: int
-    transactionType: str  # 'deduct', 'add', 'reset'
-    description: str
-    timestamp: str
-
-class AccountUpgradeRequest(BaseModel):
-    userId: str
-    newAccountType: str  # 'live'
-    subscriptionPlan: str  # 'premium' or 'premium-plus'
 
 # In-memory storage for portfolio (replace with database in production)
 portfolio_holdings: Dict[str, PortfolioHolding] = {}
@@ -1470,7 +972,7 @@ def get_stock_info(ticker_symbol, max_retries=3):
             today_change_percent = None
             if current_price and previous_close and previous_close != 0:
                 today_change = current_price - previous_close
-                today_change_percent = calculate_percentage_change(current_price, previous_close)
+                today_change_percent = (today_change / previous_close) * 100
             
             result = {
                 'symbol': ticker_symbol,
@@ -1492,7 +994,7 @@ def get_stock_info(ticker_symbol, max_retries=3):
                 'currency': detect_currency_from_symbol(ticker_symbol, info),
                 'high52Week': info.get('fiftyTwoWeekHigh'),
                 'low52Week': info.get('fiftyTwoWeekLow'),
-                'timestamp': format_timestamp(datetime.now())
+                'timestamp': datetime.now().isoformat()
             }
             
             # Cache the result
@@ -1640,7 +1142,7 @@ def get_stock_news(ticker_symbol, max_articles=8):
                         revenue = info.get('totalRevenue', 0)
                 except:
                     pass
-                revenue_formatted = format_fundamentals(revenue, "currency", "$")
+                revenue_formatted = f"${(revenue / 1e9):.1f}B" if revenue > 0 else "N/A"
                 
                 sample_news = [
                     {
@@ -1653,7 +1155,7 @@ def get_stock_news(ticker_symbol, max_articles=8):
                     },
                     {
                         'title': f"{company_name} Financial Results and Outlook",
-                        'summary': f"Recent financial performance and future outlook for {company_name}. Industry: {info.get('industry', 'N/A')}, Revenue: {revenue_formatted}, Dividend Yield: {format_percentage_change(dividend_yield * 100)}. The company shows strong financial health with consistent growth prospects.",
+                        'summary': f"Recent financial performance and future outlook for {company_name}. Industry: {info.get('industry', 'N/A')}, Revenue: {revenue_formatted}, Dividend Yield: {(dividend_yield * 100):.2f}%. The company shows strong financial health with consistent growth prospects.",
                         'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
                         'publishedAt': (datetime.now() - timedelta(days=1)).isoformat(),
                         'source': 'Financial News',
@@ -2216,9 +1718,6 @@ def calculate_advanced_metrics(df, risk_free_rate=0.03):
         excess_returns = returns - (risk_free_rate / 252)
         sharpe_ratio = (excess_returns.mean() / returns.std()) * np.sqrt(252) if returns.std() > 0 else 0
         
-        # Calculate additional risk metrics
-        risk_metrics = {}  # Temporarily disabled to fix 500 error
-        
         # Sortino ratio (downside deviation)
         downside_returns = returns[returns < 0]
         downside_deviation = downside_returns.std() * np.sqrt(252) if len(downside_returns) > 0 else 0
@@ -2246,8 +1745,7 @@ def calculate_advanced_metrics(df, risk_free_rate=0.03):
             'var_95': var_95,
             'calmar_ratio': calmar_ratio,
             'skewness': returns.skew(),
-            'kurtosis': returns.kurtosis(),
-            **risk_metrics  # Include additional risk metrics
+            'kurtosis': returns.kurtosis()
         }
         
     except Exception as e:
@@ -2540,7 +2038,7 @@ def scrape_google_news(query_term):
         for article_tag in articles_tags:
             link_tag = article_tag.find('a', href=True)
             if link_tag and link_tag['href'].startswith('./articles/'):
-                title_text = sanitize_text(link_tag.get_text(strip=True) or (article_tag.find(['h3', 'h4']) and article_tag.find(['h3', 'h4']).get_text(strip=True)) or article_tag.get_text(separator=' ', strip=True).split(' temporally ')[0])
+                title_text = link_tag.get_text(strip=True) or (article_tag.find(['h3', 'h4']) and article_tag.find(['h3', 'h4']).get_text(strip=True)) or article_tag.get_text(separator=' ', strip=True).split(' temporally ')[0]
                 full_link = "https://news.google.com" + link_tag['href'][1:]
                 
                 # Try to get image from article
@@ -2573,7 +2071,7 @@ def scrape_google_news(query_term):
         if not news_items:
             potential_links = soup.find_all('a', href=lambda href: href and href.startswith('./articles/'), limit=50)
             for link_tag in potential_links:
-                title_text = sanitize_text(link_tag.get_text(strip=True) or (link_tag.find(['h3','h4','div'], recursive=False) and link_tag.find(['h3','h4','div'], recursive=False).get_text(strip=True)) or (link_tag.img and link_tag.img.get('alt')))
+                title_text = link_tag.get_text(strip=True) or (link_tag.find(['h3','h4','div'], recursive=False) and link_tag.find(['h3','h4','div'], recursive=False).get_text(strip=True)) or (link_tag.img and link_tag.img.get('alt'))
                 full_link = "https://news.google.com" + link_tag['href'][1:]
                 
                 # Try to get image from article
@@ -2753,7 +2251,7 @@ def get_chatbot_response(user_query, stock_data_bundle_local, current_ticker_sym
         response = f"The trailing Earnings Per Share (EPS) for {ticker_name_chat} is **{stock_currency_sym}{eps:.2f}**." if eps else "EPS data is not available."
     elif "dividend" in query:
         div_yield = s_info_chat.get('dividendYield')
-        response = f"The dividend yield for {ticker_name_chat} is **{format_percentage_change(div_yield*100)}**." if div_yield else f"{ticker_name_chat} does not currently pay a dividend."
+        response = f"The dividend yield for {ticker_name_chat} is **{div_yield*100:.2f}%**." if div_yield else f"{ticker_name_chat} does not currently pay a dividend."
     elif "sector" in query:
         sec_chat = s_info_chat.get('sector')
         response = f"{ticker_name_chat} belongs to the **{sec_chat}** sector." if sec_chat and sec_chat != 'N/A' else "Sector data is not available."
@@ -2992,17 +2490,9 @@ async def health_check():
     }
 
 @app.get("/stocks/{symbol}", response_model=StockData)
-async def get_stock_data(symbol: str, user_subscription: dict = Depends(get_user_subscription_from_headers)):
+async def get_stock_data(symbol: str):
     """Get current stock data for a symbol"""
     try:
-        # Validate ticker symbol format
-        if not validate_ticker_symbol(symbol):
-            raise HTTPException(status_code=400, detail="Invalid ticker symbol format")
-        
-        # Determine market from symbol and validate access
-        market = get_market_from_symbol(symbol)
-        validate_market_access(market, user_subscription)
-        
         # Apply rate limiting
         rate_limiter.acquire()
         return get_stock_info(symbol.upper())
@@ -3012,12 +2502,9 @@ async def get_stock_data(symbol: str, user_subscription: dict = Depends(get_user
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/stocks/{symbol}/chart")
-async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d", user_subscription: dict = Depends(get_user_subscription_from_headers)):
+async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d"):
     """Get historical chart data for a stock"""
     try:
-        # Determine market from symbol and validate access
-        market = get_market_from_symbol(symbol)
-        validate_market_access(market, user_subscription)
         # Handle different period formats and intervals
         period_mapping = {
             '1D': ('1d', '5m'),  # 1 day with 5-minute intervals
@@ -3118,12 +2605,9 @@ async def get_technical_indicators(symbol: str, period: str = "1y"):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/stocks/{symbol}/news")
-async def get_stock_news_endpoint(symbol: str, max_articles: int = 8, user_subscription: dict = Depends(get_user_subscription_from_headers)):
+async def get_stock_news_endpoint(symbol: str, max_articles: int = 8):
     """Get comprehensive news for a stock from multiple sources with sentiment analysis"""
     try:
-        # Determine market from symbol and validate access
-        market = get_market_from_symbol(symbol)
-        validate_market_access(market, user_subscription)
         ticker = symbol.upper()
         
         # Get news from multiple sources
@@ -4308,11 +3792,7 @@ async def get_advanced_metrics(symbol: str, period: str = "1y", risk_free_rate: 
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data available for {symbol}")
         
-        try:
-            metrics = calculate_advanced_metrics(df, risk_free_rate)
-        except Exception as e:
-            print(f"Error in calculate_advanced_metrics: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error calculating metrics: {str(e)}")
+        metrics = calculate_advanced_metrics(df, risk_free_rate)
         
         if not metrics:
             raise HTTPException(status_code=500, detail="Failed to calculate advanced metrics")
@@ -4896,10 +4376,6 @@ life_planner_goals = []  # In-memory storage for life planner goals (replace wit
 # Notes Storage
 notes_storage = []  # In-memory storage for notes (replace with database in production)
 
-# User Account Storage
-user_accounts = {}  # In-memory storage for user accounts (replace with database in production)
-zolos_transactions = []  # In-memory storage for Zolos transactions (replace with database in production)
-
 @app.get("/alerts")
 async def get_alerts():
     """Get all active alerts"""
@@ -5056,41 +4532,6 @@ class CreateGoalRequest(BaseModel):
     monthly_contribution: float = 0
     risk_tolerance: str = 'Medium'
     investment_strategy: str = 'Diversified'
-
-@app.get("/subscription/info")
-async def get_subscription_info(user_subscription: dict = Depends(get_user_subscription_from_headers)):
-    """Get user subscription information and available markets"""
-    return {
-        "user_id": user_subscription.get("user_id"),
-        "plan": user_subscription["plan"],
-        "continent": user_subscription.get("continent"),
-        "plan_details": user_subscription["plan_limits"],
-        "allowed_markets": user_subscription["allowed_markets"],
-        "market_count": len(user_subscription["allowed_markets"]) if user_subscription["allowed_markets"] != "all" else "unlimited"
-    }
-
-@app.get("/subscription/markets")
-async def get_available_markets(user_subscription: dict = Depends(get_user_subscription_from_headers)):
-    """Get available markets for the user's subscription plan"""
-    return {
-        "plan": user_subscription["plan"],
-        "available_markets": user_subscription["allowed_markets"],
-        "market_count": len(user_subscription["allowed_markets"]) if user_subscription["allowed_markets"] != "all" else "unlimited",
-        "upgrade_required": user_subscription["plan"] == "free"
-    }
-
-@app.post("/subscription/validate-market")
-async def validate_market_access_endpoint(market: str, user_subscription: dict = Depends(get_user_subscription_from_headers)):
-    """Validate if user can access a specific market"""
-    try:
-        validate_market_access(market, user_subscription)
-        return {
-            "market": market,
-            "access": True,
-            "message": f"Access to {market} market is allowed"
-        }
-    except HTTPException as e:
-        return e.detail
 
 @app.get("/life-planner/goals")
 async def get_life_planner_goals():
@@ -5283,441 +4724,6 @@ async def delete_note(note_id: str):
         return {
             "message": "Note deleted successfully",
             "note": deleted_note
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Dummy Account Management Endpoints
-
-@app.get("/users/{user_id}")
-async def get_user_account(user_id: str):
-    """Get user account information"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        return user_accounts[user_id]
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/users")
-async def create_user_account(user: UserAccount):
-    """Create a new user account"""
-    try:
-        user_accounts[user.uid] = user.dict()
-        return {
-            "message": "User account created successfully",
-            "user": user.dict()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.put("/users/{user_id}")
-async def update_user_account(user_id: str, user_data: dict):
-    """Update user account information"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Update only provided fields
-        for key, value in user_data.items():
-            if key in user_accounts[user_id]:
-                user_accounts[user_id][key] = value
-        
-        return {
-            "message": "User account updated successfully",
-            "user": user_accounts[user_id]
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/users/{user_id}/zolos-balance")
-async def get_zolos_balance(user_id: str):
-    """Get user's Zolos balance"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user = user_accounts[user_id]
-        if user.get('accountType') != 'dummy':
-            raise HTTPException(status_code=400, detail="User is not a dummy account")
-        
-        return {
-            "userId": user_id,
-            "zolosBalance": user.get('zolosBalance', 0),
-            "accountType": user.get('accountType')
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/users/{user_id}/zolos-transaction")
-async def process_zolos_transaction(user_id: str, transaction: ZolosTransaction):
-    """Process a Zolos transaction (deduct, add, or reset)"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user = user_accounts[user_id]
-        if user.get('accountType') != 'dummy':
-            raise HTTPException(status_code=400, detail="User is not a dummy account")
-        
-        current_balance = user.get('zolosBalance', 0)
-        new_balance = current_balance
-        
-        if transaction.transactionType == 'deduct':
-            if current_balance < transaction.amount:
-                raise HTTPException(status_code=400, detail="Insufficient Zolos balance")
-            new_balance = current_balance - transaction.amount
-        elif transaction.transactionType == 'add':
-            new_balance = current_balance + transaction.amount
-        elif transaction.transactionType == 'reset':
-            new_balance = 2000  # Reset to initial balance
-        else:
-            raise HTTPException(status_code=400, detail="Invalid transaction type")
-        
-        # Update user balance
-        user_accounts[user_id]['zolosBalance'] = new_balance
-        
-        # Record transaction
-        transaction_record = transaction.dict()
-        transaction_record['timestamp'] = datetime.now().isoformat()
-        zolos_transactions.append(transaction_record)
-        
-        return {
-            "message": "Transaction processed successfully",
-            "newBalance": new_balance,
-            "transaction": transaction_record
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/users/{user_id}/upgrade-account")
-async def upgrade_account(user_id: str, upgrade_request: AccountUpgradeRequest):
-    """Upgrade dummy account to live account"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user = user_accounts[user_id]
-        if user.get('accountType') != 'dummy':
-            raise HTTPException(status_code=400, detail="User is not a dummy account")
-        
-        # Update account type and reset Zolos balance
-        user_accounts[user_id]['accountType'] = upgrade_request.newAccountType
-        user_accounts[user_id]['zolosBalance'] = 0
-        
-        # Record the upgrade transaction
-        upgrade_transaction = ZolosTransaction(
-            userId=user_id,
-            amount=0,
-            transactionType='reset',
-            description=f'Account upgraded to {upgrade_request.subscriptionPlan}',
-            timestamp=datetime.now().isoformat()
-        )
-        zolos_transactions.append(upgrade_transaction.dict())
-        
-        return {
-            "message": "Account upgraded successfully",
-            "user": user_accounts[user_id],
-            "subscriptionPlan": upgrade_request.subscriptionPlan
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/users/{user_id}/zolos-transactions")
-async def get_zolos_transactions(user_id: str, limit: int = 50):
-    """Get user's Zolos transaction history"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user_transactions = [
-            tx for tx in zolos_transactions 
-            if tx['userId'] == user_id
-        ]
-        
-        # Sort by timestamp (newest first) and limit results
-        user_transactions.sort(key=lambda x: x['timestamp'], reverse=True)
-        user_transactions = user_transactions[:limit]
-        
-        return {
-            "transactions": user_transactions,
-            "count": len(user_transactions)
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Dummy Account Investment System
-@app.get("/dummy-portfolio/{user_id}")
-async def get_dummy_portfolio(user_id: str):
-    """Get user's dummy portfolio"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user = user_accounts[user_id]
-        if user.get('accountType') != 'dummy':
-            raise HTTPException(status_code=400, detail="User is not a dummy account")
-        
-        # Get user's portfolio
-        portfolio = virtual_portfolios.get(user_id, {
-            'totalValue': 0,
-            'totalCost': 0,
-            'totalGainLoss': 0,
-            'totalGainLossPercent': 0,
-            'zolosBalance': user.get('zolosBalance', 0),
-            'holdings': [],
-            'lastUpdated': datetime.now().isoformat()
-        })
-        
-        return portfolio
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/dummy-invest/{user_id}")
-async def make_dummy_investment(user_id: str, investment_data: dict):
-    """Make an investment in dummy account"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user = user_accounts[user_id]
-        if user.get('accountType') != 'dummy':
-            raise HTTPException(status_code=400, detail="User is not a dummy account")
-        
-        symbol = investment_data.get('symbol')
-        zolos_amount = investment_data.get('zolosAmount')
-        shares = investment_data.get('shares')
-        price = investment_data.get('price')
-        ai_prediction = investment_data.get('aiPrediction')
-        
-        if not all([symbol, zolos_amount, shares, price]):
-            raise HTTPException(status_code=400, detail="Missing required fields")
-        
-        current_zolos = user.get('zolosBalance', 0)
-        if current_zolos < zolos_amount:
-            raise HTTPException(status_code=400, detail="Insufficient Zolos balance")
-        
-        # Update Zolos balance
-        new_zolos_balance = current_zolos - zolos_amount
-        user_accounts[user_id]['zolosBalance'] = new_zolos_balance
-        
-        # Get or create portfolio
-        if user_id not in virtual_portfolios:
-            virtual_portfolios[user_id] = {
-                'totalValue': 0,
-                'totalCost': 0,
-                'totalGainLoss': 0,
-                'totalGainLossPercent': 0,
-                'zolosBalance': new_zolos_balance,
-                'holdings': [],
-                'lastUpdated': datetime.now().isoformat()
-            }
-        
-        portfolio = virtual_portfolios[user_id]
-        
-        # Check if user already has this stock
-        existing_holding = None
-        for holding in portfolio['holdings']:
-            if holding['symbol'] == symbol:
-                existing_holding = holding
-                break
-        
-        if existing_holding:
-            # Update existing holding
-            total_shares = existing_holding['shares'] + shares
-            total_cost = existing_holding['totalCost'] + (shares * price)
-            avg_price = total_cost / total_shares
-            
-            existing_holding['shares'] = total_shares
-            existing_holding['avgPrice'] = avg_price
-            existing_holding['totalCost'] = total_cost
-            existing_holding['currentPrice'] = price
-            existing_holding['totalValue'] = total_shares * price
-            existing_holding['gainLoss'] = existing_holding['totalValue'] - total_cost
-            existing_holding['gainLossPercent'] = (existing_holding['gainLoss'] / total_cost) * 100
-            existing_holding['lastUpdated'] = datetime.now().isoformat()
-        else:
-            # Create new holding
-            new_holding = {
-                'symbol': symbol,
-                'shares': shares,
-                'avgPrice': price,
-                'currentPrice': price,
-                'totalValue': shares * price,
-                'totalCost': shares * price,
-                'gainLoss': 0,
-                'gainLossPercent': 0,
-                'lastUpdated': datetime.now().isoformat()
-            }
-            portfolio['holdings'].append(new_holding)
-        
-        # Update portfolio totals
-        total_value = sum(h['totalValue'] for h in portfolio['holdings'])
-        total_cost = sum(h['totalCost'] for h in portfolio['holdings'])
-        total_gain_loss = total_value - total_cost
-        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
-        
-        portfolio['totalValue'] = total_value
-        portfolio['totalCost'] = total_cost
-        portfolio['totalGainLoss'] = total_gain_loss
-        portfolio['totalGainLossPercent'] = total_gain_loss_percent
-        portfolio['zolosBalance'] = new_zolos_balance
-        portfolio['lastUpdated'] = datetime.now().isoformat()
-        
-        # Record transaction
-        transaction = {
-            'id': f"tx_{user_id}_{datetime.now().timestamp()}",
-            'userId': user_id,
-            'symbol': symbol,
-            'transactionType': 'buy',
-            'shares': shares,
-            'price': price,
-            'totalValue': shares * price,
-            'zolosUsed': zolos_amount,
-            'timestamp': datetime.now().isoformat(),
-            'aiPrediction': ai_prediction
-        }
-        virtual_transactions.append(transaction)
-        
-        return {
-            "message": "Investment successful",
-            "newZolosBalance": new_zolos_balance,
-            "portfolio": portfolio
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/dummy-transactions/{user_id}")
-async def get_dummy_transactions(user_id: str, limit: int = 50):
-    """Get user's dummy transaction history"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user_transactions = [
-            tx for tx in virtual_transactions 
-            if tx['userId'] == user_id
-        ]
-        
-        # Sort by timestamp (newest first) and limit results
-        user_transactions.sort(key=lambda x: x['timestamp'], reverse=True)
-        user_transactions = user_transactions[:limit]
-        
-        return user_transactions
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/dummy-sell/{user_id}")
-async def sell_dummy_stock(user_id: str, sell_data: dict):
-    """Sell stock in dummy account"""
-    try:
-        if user_id not in user_accounts:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user = user_accounts[user_id]
-        if user.get('accountType') != 'dummy':
-            raise HTTPException(status_code=400, detail="User is not a dummy account")
-        
-        symbol = sell_data.get('symbol')
-        shares_to_sell = sell_data.get('shares')
-        price = sell_data.get('price')
-        
-        if not all([symbol, shares_to_sell, price]):
-            raise HTTPException(status_code=400, detail="Missing required fields")
-        
-        # Get user's portfolio
-        if user_id not in virtual_portfolios:
-            raise HTTPException(status_code=400, detail="No portfolio found")
-        
-        portfolio = virtual_portfolios[user_id]
-        
-        # Find the holding
-        holding = None
-        for h in portfolio['holdings']:
-            if h['symbol'] == symbol:
-                holding = h
-                break
-        
-        if not holding:
-            raise HTTPException(status_code=400, detail="Stock not found in portfolio")
-        
-        if holding['shares'] < shares_to_sell:
-            raise HTTPException(status_code=400, detail="Insufficient shares to sell")
-        
-        # Calculate sale proceeds
-        sale_proceeds = shares_to_sell * price
-        zolos_gained = sale_proceeds  # 1:1 ratio for simplicity
-        
-        # Update holding
-        holding['shares'] -= shares_to_sell
-        if holding['shares'] == 0:
-            # Remove holding if no shares left
-            portfolio['holdings'] = [h for h in portfolio['holdings'] if h['symbol'] != symbol]
-        else:
-            # Update holding values
-            holding['currentPrice'] = price
-            holding['totalValue'] = holding['shares'] * price
-            holding['gainLoss'] = holding['totalValue'] - holding['totalCost']
-            holding['gainLossPercent'] = (holding['gainLoss'] / holding['totalCost']) * 100
-            holding['lastUpdated'] = datetime.now().isoformat()
-        
-        # Update Zolos balance
-        current_zolos = user.get('zolosBalance', 0)
-        new_zolos_balance = current_zolos + zolos_gained
-        user_accounts[user_id]['zolosBalance'] = new_zolos_balance
-        
-        # Update portfolio totals
-        total_value = sum(h['totalValue'] for h in portfolio['holdings'])
-        total_cost = sum(h['totalCost'] for h in portfolio['holdings'])
-        total_gain_loss = total_value - total_cost
-        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
-        
-        portfolio['totalValue'] = total_value
-        portfolio['totalCost'] = total_cost
-        portfolio['totalGainLoss'] = total_gain_loss
-        portfolio['totalGainLossPercent'] = total_gain_loss_percent
-        portfolio['zolosBalance'] = new_zolos_balance
-        portfolio['lastUpdated'] = datetime.now().isoformat()
-        
-        # Record transaction
-        transaction = {
-            'id': f"tx_{user_id}_{datetime.now().timestamp()}",
-            'userId': user_id,
-            'symbol': symbol,
-            'transactionType': 'sell',
-            'shares': shares_to_sell,
-            'price': price,
-            'totalValue': sale_proceeds,
-            'zolosUsed': -zolos_gained,  # Negative to indicate gain
-            'timestamp': datetime.now().isoformat()
-        }
-        virtual_transactions.append(transaction)
-        
-        return {
-            "message": "Sale successful",
-            "newZolosBalance": new_zolos_balance,
-            "portfolio": portfolio
         }
     except HTTPException:
         raise

@@ -6,7 +6,6 @@ import {
   Brain, 
   BarChart3, 
   Globe, 
-  ArrowRight,
   Menu,
   X,
   Star,
@@ -22,12 +21,17 @@ import {
   LogOut,
   Mail,
   Info,
-  Crown
+  Crown,
+  Coins,
+  DollarSign
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from '../components/AuthModal';
-import ContactForm from '../components/ContactForm';
+import { 
+  DropdownMenu, 
+  DropdownMenuItem
+} from '../components/ui/dropdown-menu';
 
 // Animated Text Component
 const AnimatedText: React.FC<{ 
@@ -141,8 +145,28 @@ const LandingPage: React.FC = () => {
   const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const location = useLocation();
+
+  // Navigation handler with error handling
+  const handleNavigation = (_path: string, sectionName: string) => {
+    setIsNavigating(true);
+    setNavigationError(null);
+    
+    try {
+      // Simulate navigation delay for better UX
+      setTimeout(() => {
+        setIsNavigating(false);
+        console.log(`Successfully navigating to ${sectionName}`);
+      }, 300);
+    } catch (error) {
+      setIsNavigating(false);
+      setNavigationError(`Failed to navigate to ${sectionName}. Please try again.`);
+      console.error('Navigation error:', error);
+    }
+  };
 
   // Handle hash-based scroll on navigation
   useEffect(() => {
@@ -454,24 +478,104 @@ const LandingPage: React.FC = () => {
             
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
               {currentUser ? (
-                <Link
-                  to="/dashboard"
-                  className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg text-sm sm:text-base"
+                <DropdownMenu 
+                  align="left" 
+                  side="bottom"
+                  trigger={
+                    <div className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg text-sm sm:text-base group">
+                      Start Trading Now
+                      <ChevronDown className="ml-2 w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-180 transition-transform duration-200" />
+                    </div>
+                  }
                 >
-                  Start Trading Now
-                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
-                </Link>
+                  <DropdownMenuItem>
+                    <Link 
+                      to="/stocks" 
+                      className={`flex items-center w-full hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200 ${isNavigating ? 'opacity-50 pointer-events-none' : ''}`}
+                      onClick={() => {
+                        handleNavigation('/stocks', 'Stocks section');
+                      }}
+                    >
+                      <TrendingUp className="w-4 h-4 mr-3 text-green-500" />
+                      <span className="font-medium">Stocks</span>
+                      {isNavigating && <div className="ml-auto w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Link 
+                      to="/gold" 
+                      className={`flex items-center w-full hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors duration-200 ${isNavigating ? 'opacity-50 pointer-events-none' : ''}`}
+                      onClick={() => {
+                        handleNavigation('/gold', 'Gold & Crypto section');
+                      }}
+                    >
+                      <Coins className="w-4 h-4 mr-3 text-yellow-500" />
+                      <span className="font-medium">Gold & Crypto</span>
+                      {isNavigating && <div className="ml-auto w-4 h-4 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Link 
+                      to="/etf-bonds-forex" 
+                      className={`flex items-center w-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 ${isNavigating ? 'opacity-50 pointer-events-none' : ''}`}
+                      onClick={() => {
+                        handleNavigation('/etf-bonds-forex', 'ETF, Bonds & Forex section');
+                      }}
+                    >
+                      <DollarSign className="w-4 h-4 mr-3 text-blue-500" />
+                      <span className="font-medium">ETF, Bonds & Forex</span>
+                      {isNavigating && <div className="ml-auto w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenu>
               ) : (
-                <button
-                  onClick={() => {
-                    setAuthMode('login');
-                    setAuthModalOpen(true);
-                  }}
-                  className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg text-sm sm:text-base"
+                <DropdownMenu 
+                  align="left" 
+                  side="bottom"
+                  trigger={
+                    <div className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-binance-yellow hover:bg-binance-yellow-dark text-binance-gray-dark font-semibold rounded-lg transition-all duration-200 hover:scale-105 shadow-lg text-sm sm:text-base group">
+                      Start Trading Now
+                      <ChevronDown className="ml-2 w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-180 transition-transform duration-200" />
+                    </div>
+                  }
                 >
-                  Start Trading Now
-                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthModalOpen(true);
+                    }}
+                    className="hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200"
+                  >
+                    <div className="flex items-center">
+                      <TrendingUp className="w-4 h-4 mr-3 text-green-500" />
+                      <span className="font-medium">Stocks</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthModalOpen(true);
+                    }}
+                    className="hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors duration-200"
+                  >
+                    <div className="flex items-center">
+                      <Coins className="w-4 h-4 mr-3 text-yellow-500" />
+                      <span className="font-medium">Gold & Crypto</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthModalOpen(true);
+                    }}
+                    className="hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200"
+                  >
+                    <div className="flex items-center">
+                      <DollarSign className="w-4 h-4 mr-3 text-blue-500" />
+                      <span className="font-medium">ETF, Bonds & Forex</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenu>
               )}
                 <Link
                   to="/about"
@@ -481,6 +585,29 @@ const LandingPage: React.FC = () => {
                   About Us
                 </Link>
               </div>
+
+              {/* Navigation Error Display */}
+              {navigationError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+                >
+                  <div className="flex items-center">
+                    <div className="w-4 h-4 bg-red-500 rounded-full mr-3"></div>
+                    <span className="text-red-700 dark:text-red-300 text-sm font-medium">
+                      {navigationError}
+                    </span>
+                    <button
+                      onClick={() => setNavigationError(null)}
+                      className="ml-auto text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Trust indicators */}
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 sm:gap-6 lg:gap-8 text-xs sm:text-sm text-gray-500 dark:text-binance-text-secondary">
@@ -924,7 +1051,76 @@ const LandingPage: React.FC = () => {
             
             {/* Contact Form */}
             <div className="lg:col-span-2">
-              <ContactForm />
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl border border-gray-200 dark:border-gray-800">
+                <div className="mb-6 sm:mb-8">
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">Send us a Message</h3>
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Fill out the form below and we'll get back to you as soon as possible.</p>
+                </div>
+                
+              <form className="space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Full Name</label>
+                  <input
+                    type="text"
+                        placeholder="Enter your full name"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
+                  />
+                </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Email Address</label>
+                  <input
+                    type="email"
+                        placeholder="Enter your email"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
+                  />
+                </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Subject</label>
+                    <select className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent transition-all duration-200 text-sm sm:text-base">
+                      <option value="">Select a subject</option>
+                      <option value="general">General Inquiry</option>
+                      <option value="technical">Technical Support</option>
+                      <option value="billing">Billing Question</option>
+                      <option value="feature">Feature Request</option>
+                      <option value="bug">Bug Report</option>
+                      <option value="partnership">Partnership</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Message</label>
+                  <textarea
+                      rows={4}
+                      placeholder="Tell us how we can help you..."
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-binance-yellow focus:border-transparent resize-none transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-sm sm:text-base"
+                  ></textarea>
+                </div>
+                  
+                  <div className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      id="newsletter"
+                      className="mt-1 w-4 h-4 text-binance-yellow bg-gray-100 border-gray-300 rounded focus:ring-binance-yellow focus:ring-2"
+                    />
+                    <label htmlFor="newsletter" className="text-sm text-gray-600 dark:text-gray-400">
+                      I'd like to receive updates about new features and market insights
+                    </label>
+                  </div>
+                  
+                <button
+                  type="submit"
+                    className="w-full bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-black font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:ring-offset-2 text-sm sm:text-base"
+                >
+                    <span className="flex items-center justify-center">
+                      <Mail className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  Send Message
+                    </span>
+                </button>
+              </form>
+              </div>
             </div>
           </div>
           
