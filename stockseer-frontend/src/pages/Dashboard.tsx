@@ -11,14 +11,25 @@ import {
   Play
 } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
+
 import { useMarketRestriction } from '../contexts/MarketRestrictionContext';
 import FreePlanNotification from '../components/FreePlanNotification';
 import MarketRestrictionModal from '../components/MarketRestrictionModal';
 import DemoModal from '../components/DemoModal';
+
+import { useDummyAccount } from '../contexts/DummyAccountContext';
+import { useLiveAccount } from '../contexts/LiveAccountContext';
+import FreePlanNotification from '../components/FreePlanNotification';
+import ZolosBalance from '../components/ZolosBalance';
+import DummyAccountUpgradeModal from '../components/DummyAccountUpgradeModal';
+import UserProfileButton from '../components/UserProfileButton';
+
 import { formatPrice, formatChange, formatChangePercent } from '../utils/currency';
 
 // Import all tab components
 import OverviewTab from '../components/tabs/OverviewTab';
+import DummyOverviewTab from '../components/tabs/DummyOverviewTab';
+import LiveOverviewTab from '../components/tabs/LiveOverviewTab';
 import FinancialsTab from '../components/tabs/FinancialsTab';
 import NewsTab from '../components/tabs/NewsTab';
 
@@ -338,7 +349,12 @@ import { stockAPI, handleAPIError, handleMarketRestrictionError } from '../utils
 
 export default function Dashboard() {
   const { currentPlan, isTrialActive, showFreePlanNotification, setShowFreePlanNotification, selectedContinent } = useSubscription();
+
   const { showRestrictionModal, restrictionDetails, hideMarketRestriction, handleUpgrade, showMarketRestriction } = useMarketRestriction();
+
+  const { isDummyAccount, showUpgradePrompt, setShowUpgradePrompt } = useDummyAccount();
+  const { isLiveAccount } = useLiveAccount();
+
   const [searchParams] = useSearchParams();
   const [showDemo, setShowDemo] = useState(false);
   const [selectedStock, setSelectedStock] = useState<string>('');
@@ -350,6 +366,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarHidden, setMobileSidebarHidden] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Handle URL parameter for tab navigation
   useEffect(() => {
@@ -537,15 +554,38 @@ export default function Dashboard() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        return (
-          <OverviewTab 
-            stockData={stockData}
-            watchlist={watchlist}
-            chartData={chartData}
-            onAddToWatchlist={addToWatchlist}
-            onRemoveFromWatchlist={removeFromWatchlist}
-          />
-        );
+        // Use different overview tabs based on account type
+        if (isDummyAccount) {
+          return (
+            <DummyOverviewTab 
+              stockData={stockData}
+              watchlist={watchlist}
+              chartData={chartData}
+              onAddToWatchlist={addToWatchlist}
+              onRemoveFromWatchlist={removeFromWatchlist}
+            />
+          );
+        } else if (isLiveAccount) {
+          return (
+            <LiveOverviewTab 
+              stockData={stockData}
+              watchlist={watchlist}
+              chartData={chartData}
+              onAddToWatchlist={addToWatchlist}
+              onRemoveFromWatchlist={removeFromWatchlist}
+            />
+          );
+        } else {
+          return (
+            <OverviewTab 
+              stockData={stockData}
+              watchlist={watchlist}
+              chartData={chartData}
+              onAddToWatchlist={addToWatchlist}
+              onRemoveFromWatchlist={removeFromWatchlist}
+            />
+          );
+        }
       case 'financials':
         return <FinancialsTab stockData={stockData} selectedStock={selectedStock} />;
       case 'news':
@@ -774,9 +814,22 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+              
+              {/* User Profile Button */}
+              <UserProfileButton />
             </div>
           </div>
         </div>
+
+        {/* Zolos Balance Display for Dummy Accounts */}
+        {isDummyAccount && (
+          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <ZolosBalance 
+              showUpgradeButton={true}
+              onUpgradeClick={() => setShowUpgradeModal(true)}
+            />
+          </div>
+        )}
 
         {/* Tab Content */}
         <div className={`flex-1 p-3 sm:p-6 overflow-y-auto bg-gray-50 dark:bg-black will-change-transform [backface-visibility:hidden] ${mobileSidebarHidden ? 'w-full' : ''}`}>
@@ -813,6 +866,7 @@ export default function Dashboard() {
         continent={selectedContinent === 'asia' ? 'Asia' : 'Selected Region'}
       />
 
+
       {/* Market Restriction Modal */}
       <MarketRestrictionModal
         isOpen={showRestrictionModal}
@@ -825,6 +879,19 @@ export default function Dashboard() {
       <DemoModal 
         isOpen={showDemo} 
         onClose={() => setShowDemo(false)} 
+
+      {/* Dummy Account Upgrade Modal */}
+      <DummyAccountUpgradeModal
+        isOpen={showUpgradeModal || showUpgradePrompt}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          setShowUpgradePrompt(false);
+        }}
+        onUpgrade={() => {
+          // Handle upgrade logic here
+          console.log('User upgraded to live account');
+        }}
+
       />
     </div>
   );
