@@ -237,6 +237,9 @@ export default function DummyOverviewTab({
             <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {currentHolding.shares} shares
             </div>
+            <div className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+              {formatPrice(currentHolding.totalValue, stockData.currency)}
+            </div>
             <div className={`text-sm ${currentHolding.gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {formatChangePercent(currentHolding.gainLossPercent)} ({formatPrice(currentHolding.gainLoss, stockData.currency)})
             </div>
