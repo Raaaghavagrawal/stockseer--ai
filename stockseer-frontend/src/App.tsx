@@ -5,6 +5,9 @@ import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionCo
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import PricingPage from './pages/PricingPage';
+import GoldCryptoPage from './pages/GoldCryptoPage';
+import StockTickerDemo from './pages/StockTickerDemo';
+import ETFBondsForexPage from './pages/ETFBondsForexPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ContinentSelectionModal from './components/ContinentSelectionModal';
 import ChatWidget from './components/ChatWidget';
@@ -43,6 +46,17 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/about" element={<About />} />
+          <Route path="/gold" element={<GoldCryptoPage />} />
+          <Route path="/ticker-demo" element={<StockTickerDemo />} />
+          <Route path="/etf-bonds-forex" element={<ETFBondsForexPage />} />
+          <Route 
+            path="/stocks" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
           <Route 
             path="/dashboard" 
             element={
@@ -51,10 +65,10 @@ function AppContent() {
               </ProtectedRoute>
             } 
           />
-                        <Route 
-                path="/pricing" 
-                element={<PricingPage />} 
-              />
+          <Route 
+            path="/pricing" 
+            element={<PricingPage />} 
+          />
           {/* Catch-all route to redirect to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
