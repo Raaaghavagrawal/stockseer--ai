@@ -2,8 +2,12 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
+
+import { MarketRestrictionProvider } from './contexts/MarketRestrictionContext';
+
 import { DummyAccountProvider } from './contexts/DummyAccountContext';
 import { LiveAccountProvider } from './contexts/LiveAccountContext';
+
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import PricingPage from './pages/PricingPage';
@@ -78,11 +82,17 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <SubscriptionProvider>
+
+          <MarketRestrictionProvider>
+            <AppContent />
+          </MarketRestrictionProvider>
+
           <DummyAccountProvider>
             <LiveAccountProvider>
               <AppContent />
             </LiveAccountProvider>
           </DummyAccountProvider>
+
         </SubscriptionProvider>
       </ThemeProvider>
     </AuthProvider>

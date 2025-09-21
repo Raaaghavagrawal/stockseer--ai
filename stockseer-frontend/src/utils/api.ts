@@ -123,6 +123,26 @@ const api = axios.create({
   },
 });
 
+// Function to get subscription headers from localStorage
+const getSubscriptionHeaders = () => {
+  const plan = localStorage.getItem('stockseer_subscription_plan') || 'free';
+  const continent = localStorage.getItem('stockseer_selected_continent') || null;
+  const userId = localStorage.getItem('stockseer_user_id') || null;
+  
+  return {
+    'X-Subscription-Plan': plan,
+    'X-Selected-Continent': continent,
+    'X-User-Id': userId,
+  };
+};
+
+// Add request interceptor to include subscription headers
+api.interceptors.request.use((config) => {
+  const subscriptionHeaders = getSubscriptionHeaders();
+  config.headers = { ...config.headers, ...subscriptionHeaders };
+  return config;
+});
+
 // Import types from the main types file
 import type { 
   StockData, 
@@ -136,7 +156,7 @@ import type {
 // Stock data API calls
 export const stockAPI = {
   // Get real-time stock data
-  getStockData: async (symbol: string): Promise<StockData> => {
+  getStockData: async (symbol: string, onMarketRestriction?: (details: any) => void): Promise<StockData> => {
     try {
       const cacheKey = symbol.toUpperCase();
       const cached = stockDataCache.get(cacheKey);
@@ -151,7 +171,17 @@ export const stockAPI = {
       return data;
     } catch (error) {
       console.error('API Error in getStockData:', error);
-      // Return mock data for testing if API fails
+      
+      // Handle market restriction errors
+      if (onMarketRestriction) {
+        const restrictionError = handleMarketRestrictionError(error);
+        if (restrictionError.isMarketRestricted) {
+          onMarketRestriction(restrictionError);
+          throw error; // Re-throw to maintain error handling flow
+        }
+      }
+      
+      // For non-restriction errors, return mock data for testing
       const currency = detectCurrencyFromSymbol(symbol);
       return {
         symbol: symbol,
@@ -355,9 +385,34 @@ export const newsAPI = {
   },
 };
 
+// Subscription API calls
+export const subscriptionAPI = {
+  getSubscriptionInfo: async (): Promise<any> => {
+    const response: any = await requestWithRetry(() => api.get('/subscription/info'));
+    return response.data;
+  },
+
+  // Get available markets for current subscription
+  getAvailableMarkets: async (): Promise<any> => {
+    const response: any = await requestWithRetry(() => api.get('/subscription/markets'));
+    return response.data;
+  },
+
+  // Validate market access
+  validateMarketAccess: async (market: string): Promise<any> => {
+    const response: any = await requestWithRetry(() => api.post('/subscription/validate-market', { market }));
+    return response.data;
+  },
+};
+
 // Error handling utility
 export const handleAPIError = (error: any): string => {
   if (error.response) {
+    // Handle market restriction errors specifically
+    if (error.response.status === 403 && error.response.data?.error === 'market_restricted') {
+      return `Market Access Restricted: ${error.response.data.message}`;
+    }
+    
     // Server responded with error status
     return error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
   } else if (error.request) {
@@ -366,6 +421,44 @@ export const handleAPIError = (error: any): string => {
   } else {
     // Something else happened
     return error.message || 'An unexpected error occurred.';
+  }
+};
+
+// Market restriction error handler
+export const handleMarketRestrictionError = (error: any) => {
+  if (error.response?.status === 403 && error.response.data?.error === 'market_restricted') {
+    return {
+      isMarketRestricted: true,
+      error: error.response.data,
+      message: error.response.data.message,
+      details: error.response.data.details,
+      requiredPlan: error.response.data.required_plan,
+      currentPlan: error.response.data.current_plan,
+      upgradeUrl: error.response.data.upgrade_url,
+      market: error.response.data.market || 'Unknown',
+      availableMarkets: error.response.data.available_markets || []
+    };
+  }
+  return {
+    isMarketRestricted: false,
+    error: error
+  };
+};
+
+// Enhanced API call with market restriction handling
+export const apiCallWithMarketRestriction = async (
+  apiCall: () => Promise<any>,
+  onMarketRestriction: (restrictionDetails: any) => void
+) => {
+  try {
+    return await apiCall();
+  } catch (error: any) {
+    const restrictionError = handleMarketRestrictionError(error);
+    if (restrictionError.isMarketRestricted) {
+      onMarketRestriction(restrictionError);
+      throw error; // Re-throw to maintain error handling flow
+    }
+    throw error;
   }
 };
 
