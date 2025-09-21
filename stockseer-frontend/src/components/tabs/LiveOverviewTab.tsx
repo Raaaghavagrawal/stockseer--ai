@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Plus, Minus, Download, BarChart3, LineChart, BarChart } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Minus, Download, BarChart3, LineChart, BarChart, FileText, BookOpen } from 'lucide-react';
 import type { StockData, StockChartData } from '../../types/stock';
 import { formatPrice, formatChange, formatChangePercent } from '../../utils/currency';
-import FeatureAccessGuard from '../FeatureAccessGuard';
+import { useLiveAccount } from '../../contexts/LiveAccountContext';
 import CandlestickChart from '../CandlestickChart';
 import {
   Chart as ChartJS,
@@ -31,7 +31,7 @@ ChartJS.register(
   Filler
 );
 
-interface OverviewTabProps {
+interface LiveOverviewTabProps {
   stockData: StockData | null;
   watchlist: string[];
   chartData: StockChartData[];
@@ -39,10 +39,18 @@ interface OverviewTabProps {
   onRemoveFromWatchlist: (symbol: string) => void;
 }
 
-export default function OverviewTab({ stockData, watchlist, chartData, onAddToWatchlist, onRemoveFromWatchlist }: OverviewTabProps) {
-  const [chartPeriod, setChartPeriod] = useState('1M');
+export default function LiveOverviewTab({ 
+  stockData, 
+  watchlist, 
+  chartData, 
+  onAddToWatchlist, 
+  onRemoveFromWatchlist 
+}: LiveOverviewTabProps) {
+  const { addToWatchlist, removeFromWatchlist, createResearchNote, generateAnalysisReport } = useLiveAccount();
   const [chartType, setChartType] = useState<'line' | 'candlestick'>('line');
+  const [chartPeriod, setChartPeriod] = useState('1Y');
   const [showHistoricalData, setShowHistoricalData] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   
   // Zoom state for both charts
   const [zoomState, setZoomState] = useState({
@@ -92,7 +100,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         '1Y': 365
       };
 
-      const maxPoints = periodMap[chartPeriod] || 30;
+      const maxPoints = periodMap[chartPeriod] || 365;
       dataToProcess = chartData.slice(-maxPoints);
     }
 
@@ -132,7 +140,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         '1Y': 365
       };
 
-      const maxPoints = periodMap[chartPeriod] || 30;
+      const maxPoints = periodMap[chartPeriod] || 365;
       dataToProcess = chartData.slice(-maxPoints);
     }
 
@@ -150,9 +158,46 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
 
   const isInWatchlist = watchlist.includes(stockData.symbol);
 
+  const handleWatchlistToggle = async () => {
+    if (isInWatchlist) {
+      await removeFromWatchlist(stockData.symbol);
+      onRemoveFromWatchlist(stockData.symbol);
+    } else {
+      await addToWatchlist(stockData.symbol);
+      onAddToWatchlist(stockData.symbol);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (!stockData) return;
+    
+    setIsGeneratingReport(true);
+    try {
+      const report = await generateAnalysisReport(stockData.symbol, 'technical');
+      if (report) {
+        // Handle successful report generation
+        console.log('Report generated:', report);
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleCreateNote = async () => {
+    if (!stockData) return;
+    
+    const title = `Research Note - ${stockData.symbol}`;
+    const content = `Initial research notes for ${stockData.name} (${stockData.symbol})`;
+    const tags = [stockData.symbol, 'research', 'initial'];
+    
+    await createResearchNote(stockData.symbol, title, content, tags);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
-      {/* Stock Header */}
+      {/* Stock Header with Research Actions */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -161,19 +206,85 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           </div>
           <div className="flex items-center justify-between sm:justify-end space-x-4">
             <div className="text-left sm:text-right">
-              <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{formatPrice(stockData.price || 0, stockData.currency)}</div>
+              <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                {formatPrice(stockData.price || 0, stockData.currency)}
+              </div>
               <div className={`flex items-center text-sm sm:text-base ${stockData.change && stockData.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {stockData.change && stockData.change >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
                 {formatChange(stockData.change || 0, stockData.currency)} ({formatChangePercent(stockData.changePercent || 0)}%)
               </div>
             </div>
-            <button
-              onClick={() => isInWatchlist ? onRemoveFromWatchlist(stockData.symbol) : onAddToWatchlist(stockData.symbol)}
-              className={`p-2 sm:p-3 rounded-lg transition-all duration-200 ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-            >
-              {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
-            </button>
+            <div className="flex items-center space-x-2">
+              {/* Generate Report Button */}
+              <button
+                onClick={handleGenerateReport}
+                disabled={isGeneratingReport}
+                className="p-2 sm:p-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
+                title="Generate Analysis Report"
+              >
+                {isGeneratingReport ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4 text-white" />
+                )}
+              </button>
+              {/* Create Note Button */}
+              <button
+                onClick={handleCreateNote}
+                className="p-2 sm:p-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all duration-200 transform hover:scale-105"
+                title="Create Research Note"
+              >
+                <BookOpen className="w-4 h-4 text-white" />
+              </button>
+              {/* Watchlist Button */}
+              <button
+                onClick={handleWatchlistToggle}
+                className={`p-2 sm:p-3 rounded-lg transition-all duration-200 ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+              >
+                {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
+              </button>
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Research & Development Tools */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Research & Development Tools</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={handleGenerateReport}
+            disabled={isGeneratingReport}
+            className="flex items-center space-x-3 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors disabled:opacity-50"
+          >
+            <FileText className="w-6 h-6 text-purple-600" />
+            <div className="text-left">
+              <div className="font-medium text-purple-800 dark:text-purple-200">Technical Analysis</div>
+              <div className="text-sm text-purple-600 dark:text-purple-400">Generate detailed report</div>
+            </div>
+          </button>
+          
+          <button
+            onClick={handleCreateNote}
+            className="flex items-center space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+          >
+            <BookOpen className="w-6 h-6 text-blue-600" />
+            <div className="text-left">
+              <div className="font-medium text-blue-800 dark:text-blue-200">Research Notes</div>
+              <div className="text-sm text-blue-600 dark:text-blue-400">Create research note</div>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => {/* TODO: Implement fundamental analysis */}}
+            className="flex items-center space-x-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+          >
+            <BarChart3 className="w-6 h-6 text-green-600" />
+            <div className="text-left">
+              <div className="font-medium text-green-800 dark:text-green-200">Fundamental Analysis</div>
+              <div className="text-sm text-green-600 dark:text-green-400">Deep dive analysis</div>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -197,14 +308,10 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         </div>
       </div>
 
-      {/* Chart Controls */}
-      <FeatureAccessGuard 
-        feature="stockAnalysis"
-        onFeatureUse={() => console.log('Chart accessed - Zolos deducted')}
-      >
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
+      {/* Chart */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
             {/* Chart Type Selection */}
             <div className="flex space-x-2">
@@ -266,7 +373,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
             )}
           </div>
         </div>
-        
+
         {/* Chart Display */}
         <div className="h-80 sm:h-96 bg-gray-50 dark:bg-gray-700 rounded-lg p-3 sm:p-4 relative w-full overflow-hidden">
           {chartData && chartData.length > 10 && (
@@ -292,15 +399,15 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
               }}
             >
               {chartType === 'line' && processedChartData && (
-                <Line
-                  data={processedChartData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false,
-                      },
+            <Line
+              data={processedChartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
                       tooltip: {
                         mode: 'index',
                         intersect: false,
@@ -315,27 +422,27 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
                       x: {
                         grid: {
                           color: 'rgba(255, 255, 255, 0.1)',
-                        },
-                        ticks: {
+                    },
+                    ticks: {
                           color: 'rgba(255, 255, 255, 0.7)',
-                        },
-                      },
+                    },
+                  },
                       y: {
-                        grid: {
+                    grid: {
                           color: 'rgba(255, 255, 255, 0.1)',
-                        },
-                        ticks: {
+                    },
+                    ticks: {
                           color: 'rgba(255, 255, 255, 0.7)',
                           callback: function(value) {
                             return '$' + Number(value).toFixed(2);
                           },
-                        },
-                      },
                     },
-                    interaction: {
+                  },
+                },
+                interaction: {
                       mode: 'nearest',
                       axis: 'x',
-                      intersect: false,
+                  intersect: false,
                     },
                     onClick: (_, elements) => {
                       if (elements.length > 0 && !zoomState.isZoomed) {
@@ -353,9 +460,9 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
                         
                         handleZoom(originalStartIndex, originalEndIndex);
                       }
-                    },
-                  }}
-                />
+                },
+              }}
+            />
               )}
               
               {chartType === 'candlestick' && candlestickData && (
@@ -377,7 +484,6 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           )}
         </div>
       </div>
-      </FeatureAccessGuard>
 
       {/* Historical Data */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
