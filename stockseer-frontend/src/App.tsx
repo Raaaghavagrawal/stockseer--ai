@@ -91,6 +91,13 @@ function App() {
       <ThemeProvider>
         <SubscriptionProvider>
           <AppContent />
+          <MarketRestrictionProvider>
+            <DummyAccountProvider>
+              <LiveAccountProvider>
+                <AppContent />
+              </LiveAccountProvider>
+            </DummyAccountProvider>
+          </MarketRestrictionProvider>
         </SubscriptionProvider>
       </ThemeProvider>
     </AuthProvider>
