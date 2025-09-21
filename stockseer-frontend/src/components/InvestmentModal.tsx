@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TrendingUp, TrendingDown, DollarSign, Coins, AlertCircle, CheckCircle } from 'lucide-react';
 import { useDummyAccount } from '../contexts/DummyAccountContext';
-import { formatPrice, formatChangePercent } from '../utils/currency';
+import { formatPrice } from '../utils/currency';
 
 interface InvestmentModalProps {
   isOpen: boolean;
@@ -28,7 +28,7 @@ const InvestmentModal: React.FC<InvestmentModalProps> = ({
   currency,
   aiPrediction
 }) => {
-  const { zolosBalance, makeInvestment, getZolosToCurrency, getCurrencyToZolos } = useDummyAccount();
+  const { zolosBalance, makeInvestment, getZolosToCurrency } = useDummyAccount();
   const [zolosAmount, setZolosAmount] = useState<number>(0);
   const [isInvesting, setIsInvesting] = useState(false);
   const [investmentSuccess, setInvestmentSuccess] = useState(false);

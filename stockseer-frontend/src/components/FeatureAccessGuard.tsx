@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Coins, Lock, Zap } from 'lucide-react';
+import { Coins, Lock } from 'lucide-react';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import { useDummyAccount } from '../contexts/DummyAccountContext';
 

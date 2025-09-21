@@ -3,6 +3,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SubscriptionProvider, useSubscription } from './contexts/SubscriptionContext';
 import { DummyAccountProvider } from './contexts/DummyAccountContext';
+import { LiveAccountProvider } from './contexts/LiveAccountContext';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import PricingPage from './pages/PricingPage';
@@ -33,8 +34,10 @@ function AppContent() {
       // For global markets (Premium Plus), redirect to pricing page
       navigate('/pricing');
     } else {
-      // For other premium markets, redirect to pricing page
-      navigate('/pricing');
+      // For other premium markets, start with free plan and go to dashboard
+      // User can upgrade later if needed
+      setCurrentPlan('free');
+      navigate('/dashboard');
     }
   };
 
@@ -78,7 +81,9 @@ function App() {
       <ThemeProvider>
         <SubscriptionProvider>
           <DummyAccountProvider>
-            <AppContent />
+            <LiveAccountProvider>
+              <AppContent />
+            </LiveAccountProvider>
           </DummyAccountProvider>
         </SubscriptionProvider>
       </ThemeProvider>

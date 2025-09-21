@@ -93,15 +93,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const setupAuth = async () => {
       const { onAuthStateChanged } = await import('firebase/auth');
       const unsubscribe = onAuthStateChanged(auth, (user) => {
+        console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
         setCurrentUser(user);
         setLoading(false);
       });
       return unsubscribe;
     };
 
-    setupAuth().then(unsubscribe => {
-      return unsubscribe;
+    let unsubscribe: (() => void) | undefined;
+    setupAuth().then(unsub => {
+      unsubscribe = unsub;
     });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const value: AuthContextType = {

@@ -4929,5 +4929,268 @@ async def get_zolos_transactions(user_id: str, limit: int = 50):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Dummy Account Investment System
+@app.get("/dummy-portfolio/{user_id}")
+async def get_dummy_portfolio(user_id: str):
+    """Get user's dummy portfolio"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = user_accounts[user_id]
+        if user.get('accountType') != 'dummy':
+            raise HTTPException(status_code=400, detail="User is not a dummy account")
+        
+        # Get user's portfolio
+        portfolio = virtual_portfolios.get(user_id, {
+            'totalValue': 0,
+            'totalCost': 0,
+            'totalGainLoss': 0,
+            'totalGainLossPercent': 0,
+            'zolosBalance': user.get('zolosBalance', 0),
+            'holdings': [],
+            'lastUpdated': datetime.now().isoformat()
+        })
+        
+        return portfolio
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/dummy-invest/{user_id}")
+async def make_dummy_investment(user_id: str, investment_data: dict):
+    """Make an investment in dummy account"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = user_accounts[user_id]
+        if user.get('accountType') != 'dummy':
+            raise HTTPException(status_code=400, detail="User is not a dummy account")
+        
+        symbol = investment_data.get('symbol')
+        zolos_amount = investment_data.get('zolosAmount')
+        shares = investment_data.get('shares')
+        price = investment_data.get('price')
+        ai_prediction = investment_data.get('aiPrediction')
+        
+        if not all([symbol, zolos_amount, shares, price]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        current_zolos = user.get('zolosBalance', 0)
+        if current_zolos < zolos_amount:
+            raise HTTPException(status_code=400, detail="Insufficient Zolos balance")
+        
+        # Update Zolos balance
+        new_zolos_balance = current_zolos - zolos_amount
+        user_accounts[user_id]['zolosBalance'] = new_zolos_balance
+        
+        # Get or create portfolio
+        if user_id not in virtual_portfolios:
+            virtual_portfolios[user_id] = {
+                'totalValue': 0,
+                'totalCost': 0,
+                'totalGainLoss': 0,
+                'totalGainLossPercent': 0,
+                'zolosBalance': new_zolos_balance,
+                'holdings': [],
+                'lastUpdated': datetime.now().isoformat()
+            }
+        
+        portfolio = virtual_portfolios[user_id]
+        
+        # Check if user already has this stock
+        existing_holding = None
+        for holding in portfolio['holdings']:
+            if holding['symbol'] == symbol:
+                existing_holding = holding
+                break
+        
+        if existing_holding:
+            # Update existing holding
+            total_shares = existing_holding['shares'] + shares
+            total_cost = existing_holding['totalCost'] + (shares * price)
+            avg_price = total_cost / total_shares
+            
+            existing_holding['shares'] = total_shares
+            existing_holding['avgPrice'] = avg_price
+            existing_holding['totalCost'] = total_cost
+            existing_holding['currentPrice'] = price
+            existing_holding['totalValue'] = total_shares * price
+            existing_holding['gainLoss'] = existing_holding['totalValue'] - total_cost
+            existing_holding['gainLossPercent'] = (existing_holding['gainLoss'] / total_cost) * 100
+            existing_holding['lastUpdated'] = datetime.now().isoformat()
+        else:
+            # Create new holding
+            new_holding = {
+                'symbol': symbol,
+                'shares': shares,
+                'avgPrice': price,
+                'currentPrice': price,
+                'totalValue': shares * price,
+                'totalCost': shares * price,
+                'gainLoss': 0,
+                'gainLossPercent': 0,
+                'lastUpdated': datetime.now().isoformat()
+            }
+            portfolio['holdings'].append(new_holding)
+        
+        # Update portfolio totals
+        total_value = sum(h['totalValue'] for h in portfolio['holdings'])
+        total_cost = sum(h['totalCost'] for h in portfolio['holdings'])
+        total_gain_loss = total_value - total_cost
+        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
+        
+        portfolio['totalValue'] = total_value
+        portfolio['totalCost'] = total_cost
+        portfolio['totalGainLoss'] = total_gain_loss
+        portfolio['totalGainLossPercent'] = total_gain_loss_percent
+        portfolio['zolosBalance'] = new_zolos_balance
+        portfolio['lastUpdated'] = datetime.now().isoformat()
+        
+        # Record transaction
+        transaction = {
+            'id': f"tx_{user_id}_{datetime.now().timestamp()}",
+            'userId': user_id,
+            'symbol': symbol,
+            'transactionType': 'buy',
+            'shares': shares,
+            'price': price,
+            'totalValue': shares * price,
+            'zolosUsed': zolos_amount,
+            'timestamp': datetime.now().isoformat(),
+            'aiPrediction': ai_prediction
+        }
+        virtual_transactions.append(transaction)
+        
+        return {
+            "message": "Investment successful",
+            "newZolosBalance": new_zolos_balance,
+            "portfolio": portfolio
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/dummy-transactions/{user_id}")
+async def get_dummy_transactions(user_id: str, limit: int = 50):
+    """Get user's dummy transaction history"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_transactions = [
+            tx for tx in virtual_transactions 
+            if tx['userId'] == user_id
+        ]
+        
+        # Sort by timestamp (newest first) and limit results
+        user_transactions.sort(key=lambda x: x['timestamp'], reverse=True)
+        user_transactions = user_transactions[:limit]
+        
+        return user_transactions
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/dummy-sell/{user_id}")
+async def sell_dummy_stock(user_id: str, sell_data: dict):
+    """Sell stock in dummy account"""
+    try:
+        if user_id not in user_accounts:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = user_accounts[user_id]
+        if user.get('accountType') != 'dummy':
+            raise HTTPException(status_code=400, detail="User is not a dummy account")
+        
+        symbol = sell_data.get('symbol')
+        shares_to_sell = sell_data.get('shares')
+        price = sell_data.get('price')
+        
+        if not all([symbol, shares_to_sell, price]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Get user's portfolio
+        if user_id not in virtual_portfolios:
+            raise HTTPException(status_code=400, detail="No portfolio found")
+        
+        portfolio = virtual_portfolios[user_id]
+        
+        # Find the holding
+        holding = None
+        for h in portfolio['holdings']:
+            if h['symbol'] == symbol:
+                holding = h
+                break
+        
+        if not holding:
+            raise HTTPException(status_code=400, detail="Stock not found in portfolio")
+        
+        if holding['shares'] < shares_to_sell:
+            raise HTTPException(status_code=400, detail="Insufficient shares to sell")
+        
+        # Calculate sale proceeds
+        sale_proceeds = shares_to_sell * price
+        zolos_gained = sale_proceeds  # 1:1 ratio for simplicity
+        
+        # Update holding
+        holding['shares'] -= shares_to_sell
+        if holding['shares'] == 0:
+            # Remove holding if no shares left
+            portfolio['holdings'] = [h for h in portfolio['holdings'] if h['symbol'] != symbol]
+        else:
+            # Update holding values
+            holding['currentPrice'] = price
+            holding['totalValue'] = holding['shares'] * price
+            holding['gainLoss'] = holding['totalValue'] - holding['totalCost']
+            holding['gainLossPercent'] = (holding['gainLoss'] / holding['totalCost']) * 100
+            holding['lastUpdated'] = datetime.now().isoformat()
+        
+        # Update Zolos balance
+        current_zolos = user.get('zolosBalance', 0)
+        new_zolos_balance = current_zolos + zolos_gained
+        user_accounts[user_id]['zolosBalance'] = new_zolos_balance
+        
+        # Update portfolio totals
+        total_value = sum(h['totalValue'] for h in portfolio['holdings'])
+        total_cost = sum(h['totalCost'] for h in portfolio['holdings'])
+        total_gain_loss = total_value - total_cost
+        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
+        
+        portfolio['totalValue'] = total_value
+        portfolio['totalCost'] = total_cost
+        portfolio['totalGainLoss'] = total_gain_loss
+        portfolio['totalGainLossPercent'] = total_gain_loss_percent
+        portfolio['zolosBalance'] = new_zolos_balance
+        portfolio['lastUpdated'] = datetime.now().isoformat()
+        
+        # Record transaction
+        transaction = {
+            'id': f"tx_{user_id}_{datetime.now().timestamp()}",
+            'userId': user_id,
+            'symbol': symbol,
+            'transactionType': 'sell',
+            'shares': shares_to_sell,
+            'price': price,
+            'totalValue': sale_proceeds,
+            'zolosUsed': -zolos_gained,  # Negative to indicate gain
+            'timestamp': datetime.now().isoformat()
+        }
+        virtual_transactions.append(transaction)
+        
+        return {
+            "message": "Sale successful",
+            "newZolosBalance": new_zolos_balance,
+            "portfolio": portfolio
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

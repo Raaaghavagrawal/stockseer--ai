@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AuthModalProps {
@@ -21,7 +21,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onModeChan
   const [accountType, setAccountType] = useState<'live' | 'dummy'>('live');
   
   const { login, signup } = useAuth();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +40,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onModeChan
       setPassword('');
       setDisplayName('');
       setAccountType('live');
-      // Redirect to dashboard
-      navigate('/dashboard');
+      // Don't navigate here - let the continent selection modal handle navigation
     } catch (error: any) {
       setError(getErrorMessage(error.code));
     } finally {
