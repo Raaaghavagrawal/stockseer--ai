@@ -10,6 +10,18 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
+
+import { useMarketRestriction } from '../contexts/MarketRestrictionContext';
+import FreePlanNotification from '../components/FreePlanNotification';
+import MarketRestrictionModal from '../components/MarketRestrictionModal';
+import DemoModal from '../components/DemoModal';
+
+import { useDummyAccount } from '../contexts/DummyAccountContext';
+import { useLiveAccount } from '../contexts/LiveAccountContext';
+import ZolosBalance from '../components/ZolosBalance';
+import DummyAccountUpgradeModal from '../components/DummyAccountUpgradeModal';
+import UserProfileButton from '../components/UserProfileButton';
+
 import FreePlanNotification from '../components/FreePlanNotification';
 import { formatPrice, formatChange, formatChangePercent } from '../utils/currency';
 
@@ -418,6 +430,36 @@ export default function Dashboard() {
         isVisible={showFreePlanNotification}
         onClose={() => setShowFreePlanNotification(false)}
         continent={selectedContinent === 'asia' ? 'Asia' : 'Selected Region'}
+      />
+
+
+
+      {/* Market Restriction Modal */}
+      <MarketRestrictionModal
+        isOpen={showRestrictionModal}
+        onClose={hideMarketRestriction}
+        onUpgrade={handleUpgrade}
+        restrictionDetails={restrictionDetails}
+      />
+      
+      {/* Demo Modal */}
+      <DemoModal 
+        isOpen={showDemo} 
+        onClose={() => setShowDemo(false)} 
+      />
+      
+      {/* Dummy Account Upgrade Modal */}
+      <DummyAccountUpgradeModal
+        isOpen={showUpgradeModal || showUpgradePrompt}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          setShowUpgradePrompt(false);
+        }}
+        onUpgrade={() => {
+          // Handle upgrade logic here
+          console.log('User upgraded to live account');
+        }}
+
       />
     </div>
   );
