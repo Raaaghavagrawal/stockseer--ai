@@ -323,6 +323,7 @@ export const notesAPI = {
 export const predictionsAPI = {
   // Get AI predictions for a stock
   getStockPrediction: async (symbol: string): Promise<StockPrediction> => {
+    // Backend exposes /predictions/{symbol}
     const response: any = await requestWithRetry(() => api.get(`/predictions/${symbol}`));
     return response.data as StockPrediction;
   },
@@ -405,21 +406,31 @@ export const subscriptionAPI = {
   },
 };
 
+// ML Prediction API
+export const mlAPI = {
+  getPrediction: async (symbol: string): Promise<{
+    signal: 'Bullish' | 'Bearish';
+    confidence: number;
+    sentiment: 'Positive' | 'Neutral' | 'Negative';
+    risk_level: 'High' | 'Medium' | 'Low';
+    p_bull: number;
+    volatility: { sharpe: number; max_drawdown: number };
+  }> => {
+    const response: any = await requestWithRetry(() => api.get(`/ml/predict/${symbol}`));
+    return response.data as any;
+  }
+};
+
 // Error handling utility
 export const handleAPIError = (error: any): string => {
   if (error.response) {
-    // Handle market restriction errors specifically
     if (error.response.status === 403 && error.response.data?.error === 'market_restricted') {
       return `Market Access Restricted: ${error.response.data.message}`;
     }
-    
-    // Server responded with error status
     return error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
   } else if (error.request) {
-    // Request made but no response
     return 'No response from server. Please check your connection.';
   } else {
-    // Something else happened
     return error.message || 'An unexpected error occurred.';
   }
 };
