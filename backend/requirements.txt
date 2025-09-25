@@ -13,5 +13,5 @@ vaderSentiment==3.3.2
 transformers==4.35.2
 plotly==5.17.0
 pydantic==2.8.0
-feedparser==6.0.10
+feedparser==6.0.12
 Pillow==10.4.0
