@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { TrendingUp, TrendingDown, Plus, Minus, BarChart3, LineChart, BarChart, DollarSign, Coins } from 'lucide-react';
-import type { StockData, StockChartData } from '../../types/stock';
+import type { StockData, StockChartData, StockPrediction } from '../../types/stock';
 import { formatPrice, formatChange, formatChangePercent } from '../../utils/currency';
 import { useDummyAccount } from '../../contexts/DummyAccountContext';
 import InvestmentModal from '../InvestmentModal';
 import CandlestickChart from '../CandlestickChart';
+import { predictionsAPI } from '../../utils/api';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -52,6 +53,8 @@ export default function DummyOverviewTab({
   const [chartPeriod, setChartPeriod] = useState('1Y');
   const [showInvestmentModal, setShowInvestmentModal] = useState(false);
   const [showHistoricalData, setShowHistoricalData] = useState(false);
+  const [prediction, setPrediction] = useState<StockPrediction | null>(null);
+  const [loadingPrediction, setLoadingPrediction] = useState(false);
   
   // Zoom state for both charts
   const [zoomState, setZoomState] = useState({
@@ -161,13 +164,43 @@ export default function DummyOverviewTab({
   const currentHolding = holdings.find(h => h.symbol === stockData.symbol);
   const currencyValue = getZolosToCurrency(zolosBalance);
 
-  // Mock AI prediction for demo
-  const aiPrediction = {
-    predictedPrice: stockData.price * (1 + (Math.random() - 0.5) * 0.1),
-    confidence: 0.75 + Math.random() * 0.2,
-    prediction: Math.random() > 0.5 ? 'bullish' : 'bearish' as 'bullish' | 'bearish' | 'neutral',
-    reasoning: 'Based on technical analysis and market sentiment'
-  };
+  // Fetch real AI prediction from backend to keep parity with live
+  useEffect(() => {
+    const fetchPrediction = async () => {
+      if (!stockData?.symbol) {
+        setPrediction(null);
+        return;
+      }
+      try {
+        setLoadingPrediction(true);
+        const resp = await predictionsAPI.getStockPrediction(stockData.symbol);
+        setPrediction(resp);
+      } catch (e) {
+        // Fallback to null prediction silently in dummy mode
+        setPrediction(null);
+      } finally {
+        setLoadingPrediction(false);
+      }
+    };
+    fetchPrediction();
+  }, [stockData?.symbol]);
+
+  // Derive modal-friendly prediction and sentiment
+  const modalPrediction = useMemo(() => {
+    if (!prediction || !stockData) return undefined;
+    const sentiment: 'bullish' | 'bearish' | 'neutral' =
+      Math.abs(prediction.predictedPrice - (stockData.price || 0)) < 1e-6
+        ? 'neutral'
+        : prediction.predictedPrice >= (stockData.price || 0)
+          ? 'bullish'
+          : 'bearish';
+    return {
+      predictedPrice: prediction.predictedPrice,
+      confidence: prediction.confidence ?? 0.7,
+      prediction: sentiment,
+      reasoning: prediction.reasoning || ''
+    } as const;
+  }, [prediction, stockData]);
 
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
@@ -250,33 +283,41 @@ export default function DummyOverviewTab({
       {/* AI Prediction */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">AI Prediction</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center">
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Predicted Price</div>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">
-              {formatPrice(aiPrediction.predictedPrice, stockData.currency)}
+        {loadingPrediction ? (
+          <div className="text-sm text-gray-600 dark:text-gray-400">Loading prediction...</div>
+        ) : prediction ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Predicted Price</div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white">
+                  {formatPrice(prediction.predictedPrice, stockData.currency)}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Confidence</div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white">
+                  {(prediction.confidence * 100).toFixed(0)}%
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Sentiment</div>
+                <div className={`text-xl font-bold capitalize ${
+                  prediction.prediction === 'bullish' ? 'text-green-600 dark:text-green-400' :
+                  prediction.prediction === 'bearish' ? 'text-red-600 dark:text-red-400' :
+                  'text-gray-600 dark:text-gray-400'
+                }`}>
+                  {prediction.prediction}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Confidence</div>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">
-              {(aiPrediction.confidence * 100).toFixed(0)}%
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Sentiment</div>
-            <div className={`text-xl font-bold capitalize ${
-              aiPrediction.prediction === 'bullish' ? 'text-green-600 dark:text-green-400' :
-              aiPrediction.prediction === 'bearish' ? 'text-red-600 dark:text-red-400' :
-              'text-gray-600 dark:text-gray-400'
-            }`}>
-              {aiPrediction.prediction}
-            </div>
-          </div>
-        </div>
-        <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-          {aiPrediction.reasoning}
-        </div>
+            {prediction.reasoning && (
+              <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">{prediction.reasoning}</div>
+            )}
+          </>
+        ) : (
+          <div className="text-sm text-gray-600 dark:text-gray-400">Prediction unavailable.</div>
+        )}
       </div>
 
       {/* Key Metrics */}
@@ -535,7 +576,7 @@ export default function DummyOverviewTab({
         stockName={stockData?.name || ''}
         currentPrice={stockData.price || 0}
         currency={stockData?.currency || 'USD'}
-        aiPrediction={aiPrediction}
+        aiPrediction={modalPrediction}
       />
     </div>
   );

@@ -19,6 +19,7 @@ import DemoModal from '../components/DemoModal';
 
 import { useDummyAccount } from '../contexts/DummyAccountContext';
 import { useLiveAccount } from '../contexts/LiveAccountContext';
+import { useAuth } from '../contexts/AuthContext';
 import ZolosBalance from '../components/ZolosBalance';
 import DummyAccountUpgradeModal from '../components/DummyAccountUpgradeModal';
 import UserProfileButton from '../components/UserProfileButton';
@@ -345,6 +346,8 @@ import type {
 
 // Import API functions
 import { stockAPI, handleAPIError, handleMarketRestrictionError } from '../utils/api';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 export default function Dashboard() {
   const { currentPlan, isTrialActive, showFreePlanNotification, setShowFreePlanNotification, selectedContinent } = useSubscription();
@@ -353,6 +356,7 @@ export default function Dashboard() {
 
   const { isDummyAccount, showUpgradePrompt, setShowUpgradePrompt } = useDummyAccount();
   const { isLiveAccount } = useLiveAccount();
+  const { currentUser } = useAuth();
 
   const [searchParams] = useSearchParams();
   const [showDemo, setShowDemo] = useState(false);
@@ -366,6 +370,37 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarHidden, setMobileSidebarHidden] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const [switchingAccount, setSwitchingAccount] = useState(false);
+
+  const handleToggleAccountType = async () => {
+    if (!currentUser || switchingAccount) return;
+    try {
+      setSwitchingAccount(true);
+      const userRef = doc(db, 'users', currentUser.uid);
+      const snap = await getDoc(userRef);
+      if (!snap.exists()) return;
+      const data: any = snap.data();
+      const currentType = (data.accountType as 'live' | 'dummy') || 'live';
+      const nextType: 'live' | 'dummy' = currentType === 'live' ? 'dummy' : 'live';
+
+      const updates: any = { accountType: nextType };
+      // Ensure a starting Zolos balance when switching to dummy if missing
+      if (nextType === 'dummy' && (data.zolosBalance === undefined || data.zolosBalance === null)) {
+        updates.zolosBalance = 2000;
+      }
+
+      await updateDoc(userRef, updates);
+      // Give contexts a moment to refetch, then reload to fully rehydrate UI
+      setTimeout(() => {
+        window.location.replace('/dashboard');
+      }, 300);
+    } catch (e) {
+      console.error('Failed to toggle account type', e);
+    } finally {
+      setSwitchingAccount(false);
+    }
+  };
 
   // Handle URL parameter for tab navigation
   useEffect(() => {
@@ -670,6 +705,13 @@ export default function Dashboard() {
                 value={searchQuery}
                 onChange={(e) => handleSearchInputChange(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleStockSearch()}
+                onFocus={() => {
+                  // If sidebar is collapsed, expand it when the search gains focus
+                  if (!sidebarOpen) setSidebarOpen(true);
+                }}
+                onClick={() => {
+                  if (!sidebarOpen) setSidebarOpen(true);
+                }}
                         className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm rounded-lg px-3 py-2 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-binance-yellow focus:border-binance-yellow transition-all duration-300"
               />
             </div>
@@ -697,20 +739,23 @@ export default function Dashboard() {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id);
-                    // Close sidebar on mobile after selecting a tab
                     if (window.innerWidth < 1024) {
                       setSidebarOpen(false);
                     }
                   }}
-                  className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ease-in-out transform hover:scale-105 ${
+                  className={`w-full flex ${sidebarOpen ? 'justify-start' : 'justify-center'} items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ease-in-out transform hover:scale-105 ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-binance-yellow to-binance-yellow-dark text-binance-gray-dark shadow-lg'
                       : 'text-gray-700 dark:text-binance-text-secondary hover:bg-gray-100 dark:hover:bg-binance-gray hover:text-binance-yellow dark:hover:text-binance-yellow'
                   }`}
                   title={!sidebarOpen ? tab.label : undefined}
                 >
-                  <span className="text-lg">{tab.label.split(' ')[0]}</span>
-                  {sidebarOpen && <span className="ml-3">{tab.label.split(' ').slice(1).join(' ')}</span>}
+                  <span className="inline-flex shrink-0 w-6 h-6 items-center justify-center text-base" aria-hidden>
+                    {tab.label.split(' ')[0]}
+                  </span>
+                  {sidebarOpen && (
+                    <span className="ml-3 truncate">{tab.label.split(' ').slice(1).join(' ')}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -814,6 +859,29 @@ export default function Dashboard() {
                 </div>
               )}
               
+              {/* User Profile Button */}
+              {/* Live/Dummy Toggle */}
+              <button
+                onClick={handleToggleAccountType}
+                disabled={switchingAccount || !currentUser}
+                className={`hidden sm:inline-flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold ${
+                  switchingAccount
+                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 cursor-not-allowed'
+                    : isDummyAccount
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white'
+                    : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                }`}
+                title={isDummyAccount ? 'Switch to Live Account' : 'Switch to Dummy Account'}
+              >
+                <span className="text-sm font-medium">
+                  {switchingAccount
+                    ? 'Switching...'
+                    : isDummyAccount
+                    ? 'Switch to Live'
+                    : 'Switch to Dummy'}
+                </span>
+              </button>
+
               {/* User Profile Button */}
               <UserProfileButton />
             </div>
