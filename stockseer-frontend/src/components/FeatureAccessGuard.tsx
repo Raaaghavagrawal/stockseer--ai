@@ -20,7 +20,7 @@ const FeatureAccessGuard: React.FC<FeatureAccessGuardProps> = ({
   className = ''
 }) => {
   const { canUseFeature, getFeatureCost, isDummyAccount } = useFeatureAccess();
-  const { deductZolos, zolosBalance } = useDummyAccount();
+  const { updateZolosBalance, zolosBalance } = useDummyAccount();
 
   const handleFeatureUse = async () => {
     if (!isDummyAccount) {
@@ -29,9 +29,8 @@ const FeatureAccessGuard: React.FC<FeatureAccessGuardProps> = ({
     }
 
     const cost = getFeatureCost(feature);
-    const success = await deductZolos(cost);
-    
-    if (success) {
+    if (zolosBalance >= cost) {
+      await updateZolosBalance(zolosBalance - cost);
       onFeatureUse?.();
     }
   };
