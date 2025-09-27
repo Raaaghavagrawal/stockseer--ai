@@ -8,7 +8,7 @@ import numpy_financial as npf
 from transformers import pipeline
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import quote_plus, urlparsef
+from urllib.parse import quote_plus, urlparse
 import os
 from dotenv import load_dotenv
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -2198,7 +2198,12 @@ def scrape_company_images(query_term, max_images=9):
             for img in soup.find_all('img'):
                 if 'src' in img.attrs and img['src'].startswith('http'):
                     url = img['src']
-                    if url not in image_urls and not any(x in url.lower() for x in ['gstatic', 'google', 'favicon']):
+                    # Parse URL to validate and clean it
+                    parsed_url = urlparse(url)
+                    if (parsed_url.netloc and 
+                        url not in image_urls and 
+                        not any(x in url.lower() for x in ['gstatic', 'google', 'favicon']) and
+                        parsed_url.scheme in ['http', 'https']):
                         image_urls.append(url)
                         if len(image_urls) >= max_images:
                             break
@@ -2210,7 +2215,12 @@ def scrape_company_images(query_term, max_images=9):
                     # Look for image URLs in script content
                     urls = re.findall(r'"(https?://[^"]+\.(?:jpg|jpeg|png|gif|webp))"', script.string)
                     for url in urls:
-                        if url not in image_urls and not any(x in url.lower() for x in ['gstatic', 'google', 'favicon']):
+                        # Parse URL to validate and clean it
+                        parsed_url = urlparse(url)
+                        if (parsed_url.netloc and 
+                            url not in image_urls and 
+                            not any(x in url.lower() for x in ['gstatic', 'google', 'favicon']) and
+                            parsed_url.scheme in ['http', 'https']):
                             image_urls.append(url)
                             if len(image_urls) >= max_images:
                                 break
@@ -2227,7 +2237,12 @@ def scrape_company_images(query_term, max_images=9):
                                 if isinstance(item, list):
                                     for subitem in item:
                                         if isinstance(subitem, str) and subitem.startswith('http'):
-                                            if subitem not in image_urls and not any(x in subitem.lower() for x in ['gstatic', 'google', 'favicon']):
+                                            # Parse URL to validate and clean it
+                                            parsed_url = urlparse(subitem)
+                                            if (parsed_url.netloc and 
+                                                subitem not in image_urls and 
+                                                not any(x in subitem.lower() for x in ['gstatic', 'google', 'favicon']) and
+                                                parsed_url.scheme in ['http', 'https']):
                                                 image_urls.append(subitem)
                                                 if len(image_urls) >= max_images:
                                                     break
@@ -2322,6 +2337,14 @@ def monte_carlo_simulation(initial_investment, years, num_simulations, mean_retu
         expected_return = np.mean(total_return)
         volatility_actual = np.std(total_return)
         
+        # Financial calculations using numpy_financial
+        # Calculate present value of expected final value
+        expected_final_value = np.mean(final_values)
+        present_value = npf.pv(risk_free_rate, years, 0, -expected_final_value)
+        
+        # Calculate future value with risk-free rate
+        risk_free_future_value = npf.fv(risk_free_rate, years, 0, -initial_investment)
+        
         # Sharpe ratio
         excess_returns = total_return - (risk_free_rate * years)
         sharpe_ratio = np.mean(excess_returns) / np.std(excess_returns) if np.std(excess_returns) > 0 else 0
@@ -2343,7 +2366,10 @@ def monte_carlo_simulation(initial_investment, years, num_simulations, mean_retu
             'volatility': volatility_actual,
             'sharpe_ratio': sharpe_ratio,
             'avg_max_drawdown': avg_max_drawdown,
-            'success_rate': np.mean(final_values > initial_investment)
+            'success_rate': np.mean(final_values > initial_investment),
+            'present_value': present_value,
+            'risk_free_future_value': risk_free_future_value,
+            'expected_final_value': expected_final_value
         }
         
     except Exception as e:
@@ -3020,10 +3046,22 @@ def analyze_news_item_sentiment_vader(text):
 def analyze_sentiment_text_hf(text):
     """Analyze sentiment using Hugging Face transformers"""
     try:
-        # This would require the transformers library and a sentiment model
-        # For now, return a neutral sentiment
-        return 0.0
+        # Load the sentiment analysis pipeline
+        sentiment_pipeline = pipeline("sentiment-analysis", 
+                                    model="cardiffnlp/twitter-roberta-base-sentiment-latest",
+                                    return_all_scores=True)
+        
+        # Analyze the text
+        results = sentiment_pipeline(text)
+        
+        # Extract sentiment scores (LABEL_0: negative, LABEL_1: neutral, LABEL_2: positive)
+        scores = {result['label']: result['score'] for result in results[0]}
+        
+        # Calculate compound score (-1 to 1)
+        compound_score = scores.get('LABEL_2', 0) - scores.get('LABEL_0', 0)
+        return compound_score
     except Exception as e:
+        print(f"Error in HF sentiment analysis: {e}")
         return 0.0
 
 def load_lottiefile(filepath: str):
@@ -3041,9 +3079,10 @@ def load_lottiefile(filepath: str):
 def load_hf_sentiment_model():
     """Load Hugging Face sentiment model"""
     try:
-        # This would require the transformers library
-        # For now, return None
-        return None
+        # Load the sentiment analysis pipeline
+        sentiment_pipeline = pipeline("sentiment-analysis", 
+                                    model="cardiffnlp/twitter-roberta-base-sentiment-latest")
+        return sentiment_pipeline
     except Exception as e:
         print(f"Error loading HF model: {e}")
         return None
@@ -3075,12 +3114,20 @@ def _render_tag(tag_text, sentiment_class=""):
 # --- API ENDPOINTS ---
 
 @app.get("/test")
-async def test_endpoint():
+async def test_endpoint(request: Request):
     """Simple test endpoint to verify API is working"""
+    # Log request information
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+    
+    print(f"Test endpoint accessed from {client_ip} with User-Agent: {user_agent}")
+    
     return {
         "message": "StockSeer API is running successfully!",
         "timestamp": datetime.now().isoformat(),
-        "status": "healthy"
+        "status": "healthy",
+        "client_ip": client_ip,
+        "user_agent": user_agent
     }
 
 @app.get("/")
@@ -5053,6 +5100,88 @@ async def get_stock_holders(symbol: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def create_technical_analysis_chart(df, symbol):
+    """Create a comprehensive technical analysis chart with subplots"""
+    try:
+        # Create subplots with 4 rows: Price, Volume, RSI, MACD
+        fig = make_subplots(
+            rows=4, cols=1,
+            subplot_titles=(f'{symbol} Price & Moving Averages', 'Volume', 'RSI', 'MACD'),
+            vertical_spacing=0.08,
+            row_heights=[0.4, 0.2, 0.2, 0.2]
+        )
+        
+        # Add candlestick chart
+        fig.add_trace(
+            go.Candlestick(
+                x=df.index,
+                open=df['Open'],
+                high=df['High'],
+                low=df['Low'],
+                close=df['Close'],
+                name='Price'
+            ),
+            row=1, col=1
+        )
+        
+        # Add moving averages if available
+        if 'SMA_20' in df.columns:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df['SMA_20'], name='SMA 20', line=dict(color='orange')),
+                row=1, col=1
+            )
+        
+        if 'EMA_20' in df.columns:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df['EMA_20'], name='EMA 20', line=dict(color='purple')),
+                row=1, col=1
+            )
+        
+        # Add volume
+        fig.add_trace(
+            go.Bar(x=df.index, y=df['Volume'], name='Volume', marker_color='lightblue'),
+            row=2, col=1
+        )
+        
+        # Add RSI if available
+        if 'RSI' in df.columns:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df['RSI'], name='RSI', line=dict(color='red')),
+                row=3, col=1
+            )
+            # Add RSI overbought/oversold lines
+            fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
+            fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
+        
+        # Add MACD if available
+        if 'MACD_line' in df.columns and 'MACD_signal' in df.columns:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df['MACD_line'], name='MACD', line=dict(color='blue')),
+                row=4, col=1
+            )
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df['MACD_signal'], name='Signal', line=dict(color='red')),
+                row=4, col=1
+            )
+            if 'MACD_histogram' in df.columns:
+                fig.add_trace(
+                    go.Bar(x=df.index, y=df['MACD_histogram'], name='Histogram', marker_color='gray'),
+                    row=4, col=1
+                )
+        
+        # Update layout
+        fig.update_layout(
+            title=f'Technical Analysis for {symbol}',
+            xaxis_rangeslider_visible=False,
+            height=800,
+            showlegend=True
+        )
+        
+        return fig.to_json()
+    except Exception as e:
+        print(f"Error creating technical chart: {e}")
+        return None
+
 @app.get("/stocks/{symbol}/enhanced-technical")
 async def get_enhanced_technical_analysis(symbol: str, period: str = "1y"):
     """Get enhanced technical analysis with more indicators"""
@@ -5072,11 +5201,15 @@ async def get_enhanced_technical_analysis(symbol: str, period: str = "1y"):
         # Generate enhanced signal
         signal, reason = generate_enhanced_signal(df_enhanced)
         
+        # Create technical analysis chart
+        chart_json = create_technical_analysis_chart(df_enhanced, symbol.upper())
+        
         return {
             "symbol": symbol.upper(),
             "period": period,
             "signal": signal,
             "reason": reason,
+            "chart": chart_json,
             "indicators": {
                 "price": float(latest.get('Close', 0)),
                 "volume": int(latest.get('Volume', 0)),
