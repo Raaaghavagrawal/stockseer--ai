@@ -303,11 +303,11 @@ export default function DummyOverviewTab({
               <div className="text-center">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Sentiment</div>
                 <div className={`text-xl font-bold capitalize ${
-                  prediction.prediction === 'bullish' ? 'text-green-600 dark:text-green-400' :
-                  prediction.prediction === 'bearish' ? 'text-red-600 dark:text-red-400' :
+                  modalPrediction?.prediction === 'bullish' ? 'text-green-600 dark:text-green-400' :
+                  modalPrediction?.prediction === 'bearish' ? 'text-red-600 dark:text-red-400' :
                   'text-gray-600 dark:text-gray-400'
                 }`}>
-                  {prediction.prediction}
+                  {modalPrediction?.prediction}
                 </div>
               </div>
             </div>

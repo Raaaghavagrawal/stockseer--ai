@@ -20,6 +20,7 @@ interface StockTickerProps {
   direction?: 'left' | 'right';
   pauseOnHover?: boolean;
   className?: string;
+  height?: string;
 }
 
 // Default stock data for demonstration
