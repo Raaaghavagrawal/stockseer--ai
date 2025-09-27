@@ -114,10 +114,11 @@ function detectCurrencyFromSymbol(symbol: string): string {
   return 'USD';
 }
 
-// Configure axios with base URL and default headers
+declare const VITE_API_URL: string; 
+const API_BASE_URL = VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const api = axios.create({
-  baseURL: 'http://localhost:8000', // Direct connection to Python backend
-  timeout: 30000, // Increased timeout to 30 seconds
+  baseURL: API_BASE_URL,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
