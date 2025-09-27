@@ -8,7 +8,7 @@ import numpy_financial as npf
 from transformers import pipeline
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import quote_plus, urlparsef
 import os
 from dotenv import load_dotenv
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -29,7 +29,7 @@ import uvicorn
 # Rate limiting for Yahoo Finance API
 import time
 from datetime import datetime, timedelta
-
+VERCEL_FRONTEND_URL = "https://stockseer-ai-vkm2.vercel.app"
 # Import utility modules
 from stock_utils import (
     fetch_stock_data, add_technical_indicators, generate_signal_basic, 
@@ -782,7 +782,7 @@ def ml_predict_alias(symbol: str, days: int = 5):
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173", "http://127.0.0.1:4173"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173", "http://127.0.0.1:4173", VERCEL_FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
