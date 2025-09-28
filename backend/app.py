@@ -23,6 +23,7 @@ import re
 from fastapi import FastAPI, HTTPException, Depends, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 from typing import List, Optional, Dict, Any
 import uvicorn
 
@@ -3213,11 +3214,15 @@ async def get_stock_data(symbol: str, user_subscription: dict = Depends(get_user
         
         # Apply rate limiting
         rate_limiter.acquire()
-        return get_stock_info(symbol.upper())
+        
+        # Run synchronous stock info fetching in thread pool for better performance
+        data = await run_in_threadpool(get_stock_info, symbol.upper())
+        return data
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        print(f"Internal Backend Error for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving stock data (Internal Timeout)")
 
 @app.get("/stocks/{symbol}/chart")
 async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d", user_subscription: dict = Depends(get_user_subscription_from_headers)):
@@ -3242,7 +3247,8 @@ async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d",
             yf_period, yf_interval = period, interval
         
         print(f"Fetching chart data for {symbol} with period={yf_period}, interval={yf_interval}")
-        df = fetch_stock_data(symbol.upper(), yf_period, yf_interval)
+        # Run synchronous stock data fetching in thread pool for better performance
+        df = await run_in_threadpool(fetch_stock_data, symbol.upper(), yf_period, yf_interval)
         
         if df.empty:
             print(f"No data available for {symbol}")
@@ -3292,7 +3298,8 @@ async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d",
 async def get_technical_indicators(symbol: str, period: str = "1y"):
     """Get technical indicators for a stock"""
     try:
-        df = fetch_stock_data(symbol.upper(), period)
+        # Run synchronous stock data fetching in thread pool for better performance
+        df = await run_in_threadpool(fetch_stock_data, symbol.upper(), period)
         
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data available for {symbol}")
@@ -5186,7 +5193,8 @@ def create_technical_analysis_chart(df, symbol):
 async def get_enhanced_technical_analysis(symbol: str, period: str = "1y"):
     """Get enhanced technical analysis with more indicators"""
     try:
-        df = fetch_stock_data(symbol.upper(), period)
+        # Run synchronous stock data fetching in thread pool for better performance
+        df = await run_in_threadpool(fetch_stock_data, symbol.upper(), period)
         
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data available for {symbol}")
