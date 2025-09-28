@@ -5253,6 +5253,8 @@ notes_storage = []  # In-memory storage for notes (replace with database in prod
 # User Account Storage
 user_accounts = {}  # In-memory storage for user accounts (replace with database in production)
 zolos_transactions = []  # In-memory storage for Zolos transactions (replace with database in production)
+virtual_portfolios = {}  # In-memory storage for dummy portfolios
+virtual_transactions = []  # In-memory storage for dummy transactions
 
 @app.get("/alerts")
 async def get_alerts():
