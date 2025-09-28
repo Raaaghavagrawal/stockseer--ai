@@ -30,7 +30,7 @@ import uvicorn
 # Rate limiting for Yahoo Finance API
 import time
 from datetime import datetime, timedelta
-VERCEL_FRONTEND_URL = "https://stockseer-ai-vkm2.vercel.app"
+VERCEL_FRONTEND_URL = "https://stockseer--ai.vercel.app"
 # Import utility modules
 from stock_utils import (
     fetch_stock_data, add_technical_indicators, generate_signal_basic, 
@@ -5195,17 +5195,12 @@ async def get_enhanced_technical_analysis(symbol: str, period: str = "1y"):
     try:
         # Run synchronous stock data fetching in thread pool for better performance
         df = await run_in_threadpool(fetch_stock_data, symbol.upper(), period)
-        
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data available for {symbol}")
-        
         df_enhanced = get_enhanced_technical_indicators(df)
-        
         if df_enhanced.empty:
             raise HTTPException(status_code=500, detail="Failed to calculate enhanced technical indicators")
-        
         latest = df_enhanced.iloc[-1]
-        
         # Generate enhanced signal
         signal, reason = generate_enhanced_signal(df_enhanced)
         
