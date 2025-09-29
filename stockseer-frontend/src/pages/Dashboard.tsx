@@ -20,7 +20,6 @@ import DemoModal from '../components/DemoModal';
 import { useDummyAccount } from '../contexts/DummyAccountContext';
 import { useLiveAccount } from '../contexts/LiveAccountContext';
 import { useAuth } from '../contexts/AuthContext';
-import ZolosBalance from '../components/ZolosBalance';
 import DummyAccountUpgradeModal from '../components/DummyAccountUpgradeModal';
 import UserProfileButton from '../components/UserProfileButton';
 
@@ -435,6 +434,22 @@ export default function Dashboard() {
     setMobileSidebarHidden(!mobileSidebarHidden);
   };
 
+  // Responsive: initialize sidebar visibility based on screen size and keep in sync on resize
+  useEffect(() => {
+    const syncSidebarWithViewport = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false);
+        setMobileSidebarHidden(true);
+      } else {
+        setSidebarOpen(true);
+        setMobileSidebarHidden(false);
+      }
+    };
+    syncSidebarWithViewport();
+    window.addEventListener('resize', syncSidebarWithViewport);
+    return () => window.removeEventListener('resize', syncSidebarWithViewport);
+  }, []);
+
   // Check if market is restricted before making API call
   const checkMarketRestriction = (symbol: string) => {
     const plan = localStorage.getItem('stockseer_subscription_plan') || 'free';
@@ -513,6 +528,11 @@ export default function Dashboard() {
         showMarketRestriction(restrictionDetails);
       });
       setStockData(stockDataResponse);
+      // On mobile, auto-hide sidebar when data arrives
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false);
+        setMobileSidebarHidden(true);
+      }
       
       // Fetch chart data
       try {
@@ -664,7 +684,7 @@ export default function Dashboard() {
       {sidebarOpen && !mobileSidebarHidden && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => { setSidebarOpen(false); setMobileSidebarHidden(true); }}
         />
       )}
       
@@ -687,7 +707,14 @@ export default function Dashboard() {
               </div>
             )}
             <button
-              onClick={toggleSidebar}
+              onClick={() => {
+                if (window.innerWidth < 1024) {
+                  setSidebarOpen(false);
+                  setMobileSidebarHidden(true);
+                } else {
+                  toggleSidebar();
+                }
+              }}
                     className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out transform hover:scale-110"
             >
               {sidebarOpen ? <X className="w-4 h-4 text-gray-700 dark:text-binance-text" /> : <Menu className="w-4 h-4 text-gray-700 dark:text-binance-text" />}
@@ -741,6 +768,7 @@ export default function Dashboard() {
                     setActiveTab(tab.id);
                     if (window.innerWidth < 1024) {
                       setSidebarOpen(false);
+                      setMobileSidebarHidden(true);
                     }
                   }}
                   className={`w-full flex ${sidebarOpen ? 'justify-start' : 'justify-center'} items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ease-in-out transform hover:scale-105 ${
@@ -784,27 +812,27 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className={`flex-1 flex flex-col overflow-hidden min-w-0 ${mobileSidebarHidden ? 'w-full' : ''}`}>
         {/* Top Bar */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
+              {/* Mobile Hamburger to open sidebar */}
+              <button
+                onClick={() => { setMobileSidebarHidden(false); setSidebarOpen(true); }}
+                className="lg:hidden p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out transform hover:scale-110 shrink-0 relative z-20"
+                aria-label="Open sidebar"
+                title="Open Sidebar"
+              >
+                <Menu className="w-5 h-5 text-gray-700 dark:text-binance-text" />
+              </button>
+
               <Link
                 to="/"
-                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out transform hover:scale-110"
+                className="shrink-0 p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out transform hover:scale-110"
                 title="Go to Home"
               >
                 <Home className="w-5 h-5 text-gray-700 dark:text-binance-text" />
               </Link>
-              {selectedStock && (
-                <button
-                  onClick={() => setSelectedStock('')}
-                  className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                  title="Back to Overview"
-                >
-                  ← Back to Overview
-                </button>
-              )}
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 overflow-hidden">
                 <div className="flex items-center space-x-2">
                   <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-binance-text capitalize truncate">
                     {allTabs.find(tab => tab.id === activeTab)?.label || 'Dashboard'}
@@ -821,36 +849,11 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              {/* Pricing Button - Hidden on small screens */}
-              <Link
-                to="/pricing"
-                className="hidden sm:flex items-center space-x-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-binance-gray-dark rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold"
-              >
-                <Crown className="w-4 h-4" />
-                <span className="text-sm font-medium">Upgrade</span>
-              </Link>
-              
-              {/* Plan Status - Simplified on mobile */}
-              <div className="flex items-center space-x-1 sm:space-x-2">
-                <Crown className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                  currentPlan === 'free' ? 'text-gray-500 dark:text-binance-text-secondary' : 
-                  currentPlan === 'premium' ? 'text-binance-yellow' : 'text-binance-yellow-dark'
-                }`} />
-                <span className={`text-xs sm:text-sm font-medium hidden sm:inline ${
-                  currentPlan === 'free' ? 'text-gray-500 dark:text-binance-text-secondary' : 
-                  currentPlan === 'premium' ? 'text-binance-yellow' : 'text-binance-yellow-dark'
-                }`}>
-                  {currentPlan === 'free' ? 'Free' : 
-                   currentPlan === 'premium' ? 'Premium' : 'Premium Plus'}
-                  {isTrialActive && ' (Trial)'}
-                </span>
-              </div>
-              
-              {/* Stock Price - Responsive */}
+            <div className="flex items-center gap-2 sm:space-x-4 shrink-0 w-full sm:w-auto justify-end mt-2 sm:mt-0">
+              {/* Stock Price - prioritize visibility */}
               {selectedStock && stockData && (
-                <div className="text-right min-w-0">
-                  <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-binance-text truncate">
+                <div className="hidden sm:block text-right shrink-0 whitespace-nowrap">
+                  <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-binance-text">
                     {formatPrice(stockData.price || 0, stockData.currency)}
                   </div>
                   <div className={`text-xs sm:text-sm font-semibold ${stockData.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -858,13 +861,12 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-              
-              {/* User Profile Button */}
+
               {/* Live/Dummy Toggle */}
               <button
                 onClick={handleToggleAccountType}
                 disabled={switchingAccount || !currentUser}
-                className={`hidden sm:inline-flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold ${
+                className={`inline-flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold whitespace-nowrap ${
                   switchingAccount
                     ? 'bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 cursor-not-allowed'
                     : isDummyAccount
@@ -882,22 +884,38 @@ export default function Dashboard() {
                 </span>
               </button>
 
-              {/* User Profile Button */}
+
+              {/* Upgrade */}
+              <Link
+                to="/pricing"
+                className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-binance-gray-dark rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold whitespace-nowrap"
+              >
+                <Crown className="w-4 h-4" />
+                <span className="text-sm font-medium">Upgrade</span>
+              </Link>
+
+              {/* Plan Status (hidden label on xs) */}
+              <div className="hidden sm:flex items-center space-x-2">
+                <Crown className={`${
+                  currentPlan === 'free' ? 'text-gray-500 dark:text-binance-text-secondary' : 
+                  currentPlan === 'premium' ? 'text-binance-yellow' : 'text-binance-yellow-dark'
+                } w-5 h-5`} />
+                <span className={`${
+                  currentPlan === 'free' ? 'text-gray-500 dark:text-binance-text-secondary' : 
+                  currentPlan === 'premium' ? 'text-binance-yellow' : 'text-binance-yellow-dark'
+                } text-sm font-medium`}>
+                  {currentPlan === 'free' ? 'Free' : 
+                   currentPlan === 'premium' ? 'Premium' : 'Premium Plus'}
+                  {isTrialActive && ' (Trial)'}
+                </span>
+              </div>
+
+              {/* User Profile Button - pinned to extreme right */}
               <UserProfileButton />
+              
             </div>
           </div>
         </div>
-
-        {/* Zolos Balance Display for Dummy Accounts */}
-        {isDummyAccount && (
-          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <ZolosBalance 
-              showUpgradeButton={true}
-              onUpgradeClick={() => setShowUpgradeModal(true)}
-            />
-          </div>
-        )}
-
         {/* Tab Content */}
         <div className={`flex-1 p-3 sm:p-6 overflow-y-auto bg-gray-50 dark:bg-black will-change-transform [backface-visibility:hidden] ${mobileSidebarHidden ? 'w-full' : ''}`}>
           <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-xl p-3 sm:p-6 shadow-lg min-h-full max-w-full overflow-hidden">
@@ -916,7 +934,7 @@ export default function Dashboard() {
       </div>
       
       {/* Mobile Floating Action Button for Sidebar */}
-      {mobileSidebarHidden && (
+      {(!sidebarOpen || mobileSidebarHidden) && (
         <button
           onClick={toggleMobileSidebar}
           className="lg:hidden fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark hover:from-binance-yellow-dark hover:to-binance-yellow text-binance-gray-dark rounded-full shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-110 flex items-center justify-center"

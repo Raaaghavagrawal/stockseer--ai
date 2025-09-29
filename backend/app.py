@@ -626,6 +626,104 @@ load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI(title="StockSeer API", version="1.0.0")
+
+_live_research_notes_store = {}
+_live_analysis_reports_store = {}
+
+def _ensure_user_stores(user_id: str):
+    if user_id not in _live_research_notes_store:
+        _live_research_notes_store[user_id] = []
+    if user_id not in _live_analysis_reports_store:
+        _live_analysis_reports_store[user_id] = []
+
+@app.get("/live-research-notes/{user_id}")
+async def get_live_research_notes(user_id: str):
+    _ensure_user_stores(user_id)
+    return _live_research_notes_store[user_id]
+
+@app.post("/live-research-notes/{user_id}")
+async def create_live_research_note(user_id: str, payload: dict):
+    _ensure_user_stores(user_id)
+    note = {
+        "id": payload.get("id") or f"note_{len(_live_research_notes_store[user_id]) + 1}",
+        "symbol": payload.get("symbol", ""),
+        "title": payload.get("title", "Untitled"),
+        "content": payload.get("content", ""),
+        "tags": payload.get("tags", []),
+        "timestamp": payload.get("timestamp") or datetime.now().isoformat(),
+        "lastModified": datetime.now().isoformat(),
+    }
+    _live_research_notes_store[user_id].append(note)
+    return note
+
+@app.put("/live-research-notes/{user_id}/{note_id}")
+async def update_live_research_note(user_id: str, note_id: str, updates: dict):
+    _ensure_user_stores(user_id)
+    notes = _live_research_notes_store[user_id]
+    for n in notes:
+        if n.get("id") == note_id:
+            n.update({k: v for k, v in updates.items() if k in ["symbol", "title", "content", "tags"]})
+            n["lastModified"] = datetime.now().isoformat()
+            return n
+    raise HTTPException(status_code=404, detail="Note not found")
+
+@app.delete("/live-research-notes/{user_id}/{note_id}")
+async def delete_live_research_note(user_id: str, note_id: str):
+    _ensure_user_stores(user_id)
+    notes = _live_research_notes_store[user_id]
+    for i, n in enumerate(notes):
+        if n.get("id") == note_id:
+            notes.pop(i)
+            return {"ok": True}
+    raise HTTPException(status_code=404, detail="Note not found")
+
+@app.get("/live-analysis-reports/{user_id}")
+async def get_live_analysis_reports(user_id: str):
+    _ensure_user_stores(user_id)
+    return _live_analysis_reports_store[user_id]
+
+@app.post("/live-analysis-reports/{user_id}")
+async def create_live_analysis_report(user_id: str, report: dict):
+    _ensure_user_stores(user_id)
+    if "id" not in report:
+        report["id"] = f"report_{len(_live_analysis_reports_store[user_id]) + 1}"
+    if "timestamp" not in report:
+        report["timestamp"] = datetime.now().isoformat()
+    _live_analysis_reports_store[user_id].append(report)
+    return report
+
+@app.post("/live-generate-analysis/{user_id}")
+async def live_generate_analysis(user_id: str, payload: dict):
+    _ensure_user_stores(user_id)
+    symbol = payload.get("symbol", "UNKNOWN").upper()
+    report_type = payload.get("reportType", "technical")
+    custom_params = payload.get("customParams")
+
+    # Simple mocked analysis content
+    content = {
+        "summary": f"Auto-generated {report_type} analysis for {symbol}.",
+        "highlights": [
+            "Trend: Neutral",
+            "Momentum: Moderate",
+            "Volatility: Average",
+        ],
+        "customParams": custom_params or {},
+    }
+    metrics = {
+        "score": 0.5,
+        "confidence": 0.6,
+    }
+    report = {
+        "id": f"gen_{len(_live_analysis_reports_store[user_id]) + 1}",
+        "symbol": symbol,
+        "reportType": report_type,
+        "title": f"{symbol} {report_type.title()} Analysis",
+        "content": content,
+        "metrics": metrics,
+        "timestamp": datetime.now().isoformat(),
+    }
+    _live_analysis_reports_store[user_id].append(report)
+    return report
 # Mount ML router with fallback to avoid 404 on /ml/predict/{symbol}
 try:
     from ml_pipeline.router import router as ml_router

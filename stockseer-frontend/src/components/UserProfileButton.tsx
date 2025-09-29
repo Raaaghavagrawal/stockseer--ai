@@ -22,7 +22,7 @@ const UserProfileButton: React.FC = () => {
           <User className="w-4 h-4 text-white" />
         </div>
         {isDummyAccount && (
-          <div className="hidden sm:flex items-center space-x-1">
+          <div className="flex items-center space-x-1">
             <Coins className="w-4 h-4 text-yellow-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {zolosBalance.toLocaleString()}Z
