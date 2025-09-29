@@ -28,6 +28,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from '../components/AuthModal';
 import ContactForm from '../components/ContactForm';
+import LiveStockTicker from '../components/LiveStockTicker';
 
 // Animated Text Component
 const AnimatedText: React.FC<{ 
@@ -265,10 +266,10 @@ const LandingPage: React.FC = () => {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-binance-gray-dark" />
+              <div className="w-10 h-10 flex items-center justify-center">
+                <img src="/stocks.png" alt="StockSeer" className="w-6 h-6" />
               </div>
-              <span className="text-2xl font-bold text-gray-900 dark:text-binance-text">StockSeer.ai</span>
+              <span className="text-2xl font-bold text-gray-900 dark:text-binance-text">STOCKSEER.AI</span>
             </div>
             
                         {/* Right side - Navigation and buttons */}
@@ -418,8 +419,9 @@ const LandingPage: React.FC = () => {
       </header>
 
       {/* Hero Section */}
-      <section id="home" className="relative overflow-hidden scroll-mt-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+      <section id="home" className="relative overflow-hidden scroll-mt-20 min-h-[calc(100vh-4rem)] w-full flex items-center">
+        <div className="w-full h-full flex items-center">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left side - Content */}
           <motion.div
@@ -502,143 +504,28 @@ const LandingPage: React.FC = () => {
               </div>
             </motion.div>
 
-            {/* Right side - Visual */}
+            {/* Right side - Live Stock Data */}
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
               className="relative"
             >
-              <div className="relative bg-gradient-to-br from-binance-yellow/20 to-binance-yellow-dark/20 dark:from-binance-yellow/10 dark:to-binance-yellow-dark/10 rounded-3xl p-8 backdrop-blur-sm">
-                <div className="bg-white dark:bg-binance-gray rounded-2xl p-6 shadow-2xl">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-lg flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5 text-binance-gray-dark" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-binance-text">Live Market</h3>
-                        <p className="text-xs text-gray-500 dark:text-binance-text-secondary">Real-time prices</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-green-500 font-medium">Live</span>
-                    </div>
-                  </div>
-                  
-                  {/* Market Data Table */}
-                  <div className="space-y-3">
-                    {/* Table Header */}
-                    <div className="grid grid-cols-4 gap-4 text-xs font-medium text-gray-500 dark:text-binance-text-secondary border-b border-gray-200 dark:border-binance-gray-light pb-2">
-                      <div>Symbol</div>
-                      <div className="text-right">Price</div>
-                      <div className="text-right">24h Change</div>
-                      <div className="text-right">Volume</div>
-                    </div>
-                    
-                    {/* Stock Rows */}
-                    <div className="space-y-2">
-                      {/* AAPL */}
-                      <div className="grid grid-cols-4 gap-4 items-center py-2 hover:bg-gray-50 dark:hover:bg-binance-gray-light rounded-lg px-2 transition-colors">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-6 h-6 bg-gradient-to-r from-gray-600 to-gray-800 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">A</span>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900 dark:text-binance-text text-sm">AAPL</div>
-                            <div className="text-xs text-gray-500 dark:text-binance-text-secondary">Apple Inc.</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-gray-900 dark:text-binance-text">$175.43</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-green-500 font-semibold text-sm">+2.45%</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-gray-600 dark:text-binance-text-secondary text-sm">45.2M</div>
-                        </div>
-                      </div>
-
-                      {/* TSLA */}
-                      <div className="grid grid-cols-4 gap-4 items-center py-2 hover:bg-gray-50 dark:hover:bg-binance-gray-light rounded-lg px-2 transition-colors">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-6 h-6 bg-gradient-to-r from-red-500 to-red-700 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">T</span>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900 dark:text-binance-text text-sm">TSLA</div>
-                            <div className="text-xs text-gray-500 dark:text-binance-text-secondary">Tesla Inc.</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-gray-900 dark:text-binance-text">$248.87</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-red-500 font-semibold text-sm">-1.23%</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-gray-600 dark:text-binance-text-secondary text-sm">28.7M</div>
-                        </div>
-                      </div>
-
-                      {/* GOOGL */}
-                      <div className="grid grid-cols-4 gap-4 items-center py-2 hover:bg-gray-50 dark:hover:bg-binance-gray-light rounded-lg px-2 transition-colors">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-700 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">G</span>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900 dark:text-binance-text text-sm">GOOGL</div>
-                            <div className="text-xs text-gray-500 dark:text-binance-text-secondary">Alphabet Inc.</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-gray-900 dark:text-binance-text">$142.56</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-green-500 font-semibold text-sm">+0.87%</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-gray-600 dark:text-binance-text-secondary text-sm">18.9M</div>
-                        </div>
-                      </div>
-
-                      {/* MSFT */}
-                      <div className="grid grid-cols-4 gap-4 items-center py-2 hover:bg-gray-50 dark:hover:bg-binance-gray-light rounded-lg px-2 transition-colors">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-6 h-6 bg-gradient-to-r from-orange-500 to-orange-700 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-bold text-white">M</span>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900 dark:text-binance-text text-sm">MSFT</div>
-                            <div className="text-xs text-gray-500 dark:text-binance-text-secondary">Microsoft Corp.</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-gray-900 dark:text-binance-text">$378.91</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-green-500 font-semibold text-sm">+1.56%</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-gray-600 dark:text-binance-text-secondary text-sm">22.1M</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* View More Button */}
-                    <div className="pt-3 border-t border-gray-200 dark:border-binance-gray-light">
-                      <button className="w-full py-2 text-sm font-medium text-binance-yellow hover:text-binance-yellow-dark transition-colors">
-                        View All Markets →
-              </button>
-                    </div>
-                  </div>
+              <div className="relative bg-white dark:bg-binance-gray-light rounded-2xl border border-gray-200 dark:border-binance-gray shadow-xl p-3 sm:p-4">
+                {/* Mac-style controls (top-right) */}
+                <div className="absolute top-3 right-3 flex items-center space-x-2">
+                  <span className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"></span>
+                  <span className="w-3 h-3 rounded-full bg-yellow-400 shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"></span>
+                  <span className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"></span>
                 </div>
-            </div>
-          </motion.div>
+
+                {/* Content */}
+                <div className="rounded-xl overflow-hidden">
+                  <LiveStockTicker />
+                </div>
+              </div>
+            </motion.div>
+          </div>
           </div>
         </div>
       </section>

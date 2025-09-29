@@ -676,8 +676,8 @@ export default function Dashboard() {
             {sidebarOpen && (
               <div>
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gradient-to-r from-binance-yellow to-binance-yellow-dark rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-binance-gray-dark" />
+                  <div className="w-8 h-8 flex items-center justify-center">
+                    <img src="/stocks.png" alt="StockSeer" className="w-5 h-5" />
                   </div>
                   <div>
                     <h1 className="text-xl font-bold text-gray-900 dark:text-binance-text">StockSeer.AI</h1>
