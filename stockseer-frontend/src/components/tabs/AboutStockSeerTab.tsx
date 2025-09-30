@@ -290,7 +290,7 @@ export default function AboutStockSeerTab() {
               </div>
               <div>
                 <h4 className="text-xl font-bold text-white">Ranvijay Singh</h4>
-                <p className="text-blue-400 font-semibold">Frontend Developer</p>
+                <p className="text-blue-400 font-semibold">CEO & Backend Engineer</p>
               </div>
             </div>
             <p className="text-slate-300 text-sm leading-relaxed">
@@ -306,27 +306,11 @@ export default function AboutStockSeerTab() {
               </div>
               <div>
                 <h4 className="text-xl font-bold text-white">Raghav Agrawal</h4>
-                <p className="text-green-400 font-semibold">Backend Engineer</p>
+                <p className="text-green-400 font-semibold">CTO & Full Stack Developer</p>
               </div>
             </div>
             <p className="text-slate-300 text-sm leading-relaxed">
               Platform architecture, AI systems, and engineering leadership.
-            </p>
-          </div>
-
-          {/* Ravi Gupta */}
-          <div className="p-6 bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-xl">RG</span>
-              </div>
-              <div>
-                <h4 className="text-xl font-bold text-white">Yash Raghuvanshi</h4>
-                <p className="text-cyan-300 font-semibold">Full Stack Developer</p>
-              </div>
-            </div>
-            <p className="text-slate-300 text-sm leading-relaxed">
-              
             </p>
           </div>
         </div>

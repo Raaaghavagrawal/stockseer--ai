@@ -254,12 +254,13 @@ export default function LiveOverviewTab({
 
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.open();
-    w.document.write(reportHtml);
-    w.document.close();
+    const blob = new Blob([reportHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    w.location.href = url;
     w.onload = () => {
       w.focus();
       w.print();
+      URL.revokeObjectURL(url);
     };
   };
 
