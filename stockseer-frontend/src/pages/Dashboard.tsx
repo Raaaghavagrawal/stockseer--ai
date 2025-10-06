@@ -345,7 +345,7 @@ import type {
 
 // Import API functions
 import { stockAPI, handleAPIError, handleMarketRestrictionError } from '../utils/api';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 export default function Dashboard() {
@@ -389,7 +389,12 @@ export default function Dashboard() {
         updates.zolosBalance = 2000;
       }
 
-      await updateDoc(userRef, updates);
+      // Try update first; if the doc doesn't exist, fall back to set with merge
+      try {
+        await updateDoc(userRef, updates);
+      } catch (err) {
+        await setDoc(userRef, updates, { merge: true });
+      }
       // Give contexts a moment to refetch, then reload to fully rehydrate UI
       setTimeout(() => {
         window.location.replace('/dashboard');
