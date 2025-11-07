@@ -62,11 +62,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
         <div className="p-6">
           {/* Logo */}
           <div className="flex items-center space-x-3 mb-8">
-            <div className="w-10 h-10 bg-gradient-to-r from-primary-600 to-blue-600 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 flex items-center justify-center">
+              <img src="/stocks.png" alt="StockSeer" className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">StockSeer.ai</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white uppercase">STOCKSEER.AI</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">AI Analytics</p>
             </div>
           </div>
@@ -144,11 +144,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onCl
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-primary-600 to-blue-600 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 flex items-center justify-center">
+                <img src="/stocks.png" alt="StockSeer" className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">StockSeer.ai</h1>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white uppercase">STOCKSEER.AI</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">AI Analytics</p>
               </div>
             </div>

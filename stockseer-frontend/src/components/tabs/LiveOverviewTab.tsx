@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Plus, Minus, Download, BarChart3, LineChart, BarChart } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Minus, Download, BarChart3, LineChart, BarChart, FileText, BookOpen } from 'lucide-react';
 import type { StockData, StockChartData } from '../../types/stock';
 import { formatPrice, formatChange, formatChangePercent } from '../../utils/currency';
-import FeatureAccessGuard from '../FeatureAccessGuard';
+import { useLiveAccount } from '../../contexts/LiveAccountContext';
 import CandlestickChart from '../CandlestickChart';
 import {
   Chart as ChartJS,
@@ -31,7 +31,7 @@ ChartJS.register(
   Filler
 );
 
-interface OverviewTabProps {
+interface LiveOverviewTabProps {
   stockData: StockData | null;
   watchlist: string[];
   chartData: StockChartData[];
@@ -39,10 +39,20 @@ interface OverviewTabProps {
   onRemoveFromWatchlist: (symbol: string) => void;
 }
 
-export default function OverviewTab({ stockData, watchlist, chartData, onAddToWatchlist, onRemoveFromWatchlist }: OverviewTabProps) {
-  const [chartPeriod, setChartPeriod] = useState('1M');
+export default function LiveOverviewTab({ 
+  stockData, 
+  watchlist, 
+  chartData, 
+  onAddToWatchlist, 
+  onRemoveFromWatchlist 
+}: LiveOverviewTabProps) {
+  const { addToWatchlist, removeFromWatchlist, createResearchNote, generateAnalysisReport } = useLiveAccount();
   const [chartType, setChartType] = useState<'line' | 'candlestick'>('line');
+  const [chartPeriod, setChartPeriod] = useState('1Y');
   const [showHistoricalData, setShowHistoricalData] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [generatedReport, setGeneratedReport] = useState<any | null>(null);
   
   // Zoom state for both charts
   const [zoomState, setZoomState] = useState({
@@ -92,7 +102,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         '1Y': 365
       };
 
-      const maxPoints = periodMap[chartPeriod] || 30;
+      const maxPoints = periodMap[chartPeriod] || 365;
       dataToProcess = chartData.slice(-maxPoints);
     }
 
@@ -132,7 +142,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         '1Y': 365
       };
 
-      const maxPoints = periodMap[chartPeriod] || 30;
+      const maxPoints = periodMap[chartPeriod] || 365;
       dataToProcess = chartData.slice(-maxPoints);
     }
 
@@ -150,9 +160,123 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
 
   const isInWatchlist = watchlist.includes(stockData.symbol);
 
+  const handleWatchlistToggle = async () => {
+    if (isInWatchlist) {
+      await removeFromWatchlist(stockData.symbol);
+      onRemoveFromWatchlist(stockData.symbol);
+    } else {
+      await addToWatchlist(stockData.symbol);
+      onAddToWatchlist(stockData.symbol);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (!stockData) return;
+    
+    setIsGeneratingReport(true);
+    try {
+      const report = await generateAnalysisReport(stockData.symbol, 'technical');
+      if (report) {
+        // Open modal with generated report
+        setGeneratedReport(report);
+        setReportModalOpen(true);
+      }
+    } catch (error) {
+      // Optionally surface a toast in future; avoid noisy console
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleDownloadReportPDF = () => {
+    if (!generatedReport || !stockData) return;
+    const title = `${stockData.symbol} ${generatedReport.reportType?.toUpperCase?.() || 'ANALYSIS'} Report`;
+    const reportHtml = `
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${title}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { font-size: 20px; margin: 0 0 8px 0; }
+            h2 { font-size: 16px; margin: 16px 0 8px 0; }
+            .meta { color: #6B7280; font-size: 12px; margin-bottom: 16px; }
+            .section { margin-bottom: 16px; }
+            ul { margin: 8px 0 0 16px; }
+            li { margin: 4px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            th, td { border: 1px solid #E5E7EB; padding: 8px; font-size: 12px; text-align: left; }
+          </style>
+        </head>
+        <body>
+          <h1>${title}</h1>
+          <div class="meta">Generated: ${new Date(generatedReport.timestamp || Date.now()).toLocaleString()}</div>
+          <div class="section">
+            <h2>Stock Snapshot</h2>
+            <table>
+              <tbody>
+                <tr><th>Symbol</th><td>${stockData.symbol}</td></tr>
+                <tr><th>Name</th><td>${stockData.name || ''}</td></tr>
+                <tr><th>Price</th><td>${formatPrice(stockData.price || 0, stockData.currency)}</td></tr>
+                <tr><th>Change</th><td>${formatChange(stockData.change || 0, stockData.currency)} (${formatChangePercent(stockData.changePercent || 0)}%)</td></tr>
+                ${stockData.marketCap ? `<tr><th>Market Cap</th><td>$${(stockData.marketCap/1e9).toFixed(2)}B</td></tr>` : ''}
+                ${stockData.volume ? `<tr><th>Volume</th><td>${(stockData.volume/1e6).toFixed(1)}M</td></tr>` : ''}
+                ${typeof stockData.pe === 'number' ? `<tr><th>P/E Ratio</th><td>${stockData.pe.toFixed(2)}</td></tr>` : ''}
+                ${typeof stockData.high === 'number' ? `<tr><th>52W High</th><td>$${stockData.high.toFixed(2)}</td></tr>` : ''}
+              </tbody>
+            </table>
+          </div>
+          <div class="section">
+            <h2>Summary</h2>
+            <p>${generatedReport?.content?.summary || 'No summary available.'}</p>
+          </div>
+          ${Array.isArray(generatedReport?.content?.highlights) ? `
+            <div class="section">
+              <h2>Highlights</h2>
+              <ul>
+                ${generatedReport.content.highlights.map((h: string) => `<li>${h}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          ${generatedReport?.metrics ? `
+            <div class="section">
+              <h2>Metrics</h2>
+              <table>
+                <tbody>
+                  ${Object.entries(generatedReport.metrics).map(([k,v]) => `<tr><th>${k}</th><td>${String(v)}</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+        </body>
+      </html>
+    `;
+
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const blob = new Blob([reportHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    w.location.href = url;
+    w.onload = () => {
+      w.focus();
+      w.print();
+      URL.revokeObjectURL(url);
+    };
+  };
+
+  const handleCreateNote = async () => {
+    if (!stockData) return;
+    
+    const title = `Research Note - ${stockData.symbol}`;
+    const content = `Initial research notes for ${stockData.name} (${stockData.symbol})`;
+    const tags = [stockData.symbol, 'research', 'initial'];
+    
+    await createResearchNote(stockData.symbol, title, content, tags);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
-      {/* Stock Header */}
+      {/* Stock Header with Research Actions */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -161,19 +285,85 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           </div>
           <div className="flex items-center justify-between sm:justify-end space-x-4">
             <div className="text-left sm:text-right">
-              <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{formatPrice(stockData.price || 0, stockData.currency)}</div>
+              <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                {formatPrice(stockData.price || 0, stockData.currency)}
+              </div>
               <div className={`flex items-center text-sm sm:text-base ${stockData.change && stockData.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {stockData.change && stockData.change >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
                 {formatChange(stockData.change || 0, stockData.currency)} ({formatChangePercent(stockData.changePercent || 0)}%)
               </div>
             </div>
-            <button
-              onClick={() => isInWatchlist ? onRemoveFromWatchlist(stockData.symbol) : onAddToWatchlist(stockData.symbol)}
-              className={`p-2 sm:p-3 rounded-lg transition-all duration-200 ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-            >
-              {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
-            </button>
+            <div className="flex items-center space-x-2">
+              {/* Generate Report Button */}
+              <button
+                onClick={handleGenerateReport}
+                disabled={isGeneratingReport}
+                className="p-2 sm:p-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
+                title="Generate Analysis Report"
+              >
+                {isGeneratingReport ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4 text-white" />
+                )}
+              </button>
+              {/* Create Note Button */}
+              <button
+                onClick={handleCreateNote}
+                className="p-2 sm:p-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all duration-200 transform hover:scale-105"
+                title="Create Research Note"
+              >
+                <BookOpen className="w-4 h-4 text-white" />
+              </button>
+              {/* Watchlist Button */}
+              <button
+                onClick={handleWatchlistToggle}
+                className={`p-2 sm:p-3 rounded-lg transition-all duration-200 ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+              >
+                {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
+              </button>
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Research & Development Tools */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Research & Development Tools</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={handleGenerateReport}
+            disabled={isGeneratingReport}
+            className="flex items-center space-x-3 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors disabled:opacity-50"
+          >
+            <FileText className="w-6 h-6 text-purple-600" />
+            <div className="text-left">
+              <div className="font-medium text-purple-800 dark:text-purple-200">Technical Analysis</div>
+              <div className="text-sm text-purple-600 dark:text-purple-400">Generate detailed report</div>
+            </div>
+          </button>
+          
+          <button
+            onClick={handleCreateNote}
+            className="flex items-center space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+          >
+            <BookOpen className="w-6 h-6 text-blue-600" />
+            <div className="text-left">
+              <div className="font-medium text-blue-800 dark:text-blue-200">Research Notes</div>
+              <div className="text-sm text-blue-600 dark:text-blue-400">Create research note</div>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => {/* TODO: Implement fundamental analysis */}}
+            className="flex items-center space-x-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+          >
+            <BarChart3 className="w-6 h-6 text-green-600" />
+            <div className="text-left">
+              <div className="font-medium text-green-800 dark:text-green-200">Fundamental Analysis</div>
+              <div className="text-sm text-green-600 dark:text-green-400">Deep dive analysis</div>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -197,14 +387,10 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         </div>
       </div>
 
-      {/* Chart Controls */}
-      <FeatureAccessGuard 
-        feature="stockAnalysis"
-        onFeatureUse={() => console.log('Chart accessed - Zolos deducted')}
-      >
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
+      {/* Chart */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
             {/* Chart Type Selection */}
             <div className="flex space-x-2">
@@ -266,7 +452,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
             )}
           </div>
         </div>
-        
+
         {/* Chart Display */}
         <div className="h-80 sm:h-96 bg-gray-50 dark:bg-gray-700 rounded-lg p-3 sm:p-4 relative w-full overflow-hidden">
           {chartData && chartData.length > 10 && (
@@ -292,15 +478,15 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
               }}
             >
               {chartType === 'line' && processedChartData && (
-                <Line
-                  data={processedChartData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false,
-                      },
+            <Line
+              data={processedChartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
                       tooltip: {
                         mode: 'index',
                         intersect: false,
@@ -315,27 +501,27 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
                       x: {
                         grid: {
                           color: 'rgba(255, 255, 255, 0.1)',
-                        },
-                        ticks: {
+                    },
+                    ticks: {
                           color: 'rgba(255, 255, 255, 0.7)',
-                        },
-                      },
+                    },
+                  },
                       y: {
-                        grid: {
+                    grid: {
                           color: 'rgba(255, 255, 255, 0.1)',
-                        },
-                        ticks: {
+                    },
+                    ticks: {
                           color: 'rgba(255, 255, 255, 0.7)',
                           callback: function(value) {
                             return '$' + Number(value).toFixed(2);
                           },
-                        },
-                      },
                     },
-                    interaction: {
+                  },
+                },
+                interaction: {
                       mode: 'nearest',
                       axis: 'x',
-                      intersect: false,
+                  intersect: false,
                     },
                     onClick: (_, elements) => {
                       if (elements.length > 0 && !zoomState.isZoomed) {
@@ -353,9 +539,9 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
                         
                         handleZoom(originalStartIndex, originalEndIndex);
                       }
-                    },
-                  }}
-                />
+                },
+              }}
+            />
               )}
               
               {chartType === 'candlestick' && candlestickData && (
@@ -377,7 +563,6 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           )}
         </div>
       </div>
-      </FeatureAccessGuard>
 
       {/* Historical Data */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
@@ -443,6 +628,89 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           </button>
         </div>
       </div>
+
+      {/* Analysis Report Modal */}
+      {reportModalOpen && generatedReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setReportModalOpen(false)} />
+          <div className="relative z-10 w-[92vw] max-w-2xl max-h-[85vh] overflow-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl p-4 sm:p-6">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{stockData.symbol} {String(generatedReport.reportType || '').toUpperCase()} Report</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(generatedReport.timestamp || Date.now()).toLocaleString()}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadReportPDF}
+                  className="inline-flex items-center px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm shadow"
+                >
+                  <Download className="w-4 h-4 mr-1" /> Download PDF
+                </button>
+                <button
+                  onClick={() => setReportModalOpen(false)}
+                  className="px-3 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Stock Snapshot</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Symbol</span><span className="text-gray-900 dark:text-white font-medium">{stockData.symbol}</span></div>
+                  <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Name</span><span className="text-gray-900 dark:text-white font-medium truncate">{stockData.name}</span></div>
+                  <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Price</span><span className="text-gray-900 dark:text-white font-medium">{formatPrice(stockData.price || 0, stockData.currency)}</span></div>
+                  <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Change</span><span className={`font-medium ${stockData.changePercent && stockData.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatChange(stockData.change || 0, stockData.currency)} ({formatChangePercent(stockData.changePercent || 0)}%)</span></div>
+                  {stockData.marketCap ? (
+                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Market Cap</span><span className="text-gray-900 dark:text-white font-medium">${(stockData.marketCap/1e9).toFixed(2)}B</span></div>
+                  ) : null}
+                  {stockData.volume ? (
+                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Volume</span><span className="text-gray-900 dark:text-white font-medium">{(stockData.volume/1e6).toFixed(1)}M</span></div>
+                  ) : null}
+                  {typeof stockData.pe === 'number' ? (
+                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">P/E Ratio</span><span className="text-gray-900 dark:text-white font-medium">{stockData.pe.toFixed(2)}</span></div>
+                  ) : null}
+                  {typeof stockData.high === 'number' ? (
+                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">52W High</span><span className="text-gray-900 dark:text-white font-medium">${stockData.high.toFixed(2)}</span></div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Summary</h4>
+                <p className="text-sm text-gray-700 dark:text-gray-300">{generatedReport?.content?.summary || 'No summary available.'}</p>
+              </div>
+
+              {Array.isArray(generatedReport?.content?.highlights) && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Highlights</h4>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {generatedReport.content.highlights.map((h: string, idx: number) => (
+                      <li key={idx} className="text-sm text-gray-700 dark:text-gray-300">{h}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {generatedReport?.metrics && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Metrics</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {Object.entries(generatedReport.metrics).map(([k, v]) => (
+                      <div key={k} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2">
+                        <span className="text-gray-600 dark:text-gray-400">{k}</span>
+                        <span className="text-gray-900 dark:text-white font-medium">{String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

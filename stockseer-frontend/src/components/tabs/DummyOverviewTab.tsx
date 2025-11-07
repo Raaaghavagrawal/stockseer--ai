@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Plus, Minus, Download, BarChart3, LineChart, BarChart } from 'lucide-react';
-import type { StockData, StockChartData } from '../../types/stock';
+import { useEffect, useState, useMemo } from 'react';
+import { TrendingUp, TrendingDown, Plus, Minus, BarChart3, LineChart, BarChart, DollarSign, Coins } from 'lucide-react';
+import type { StockData, StockChartData, StockPrediction } from '../../types/stock';
 import { formatPrice, formatChange, formatChangePercent } from '../../utils/currency';
-import FeatureAccessGuard from '../FeatureAccessGuard';
+import { useDummyAccount } from '../../contexts/DummyAccountContext';
+import InvestmentModal from '../InvestmentModal';
 import CandlestickChart from '../CandlestickChart';
+import { predictionsAPI } from '../../utils/api';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -31,7 +33,7 @@ ChartJS.register(
   Filler
 );
 
-interface OverviewTabProps {
+interface DummyOverviewTabProps {
   stockData: StockData | null;
   watchlist: string[];
   chartData: StockChartData[];
@@ -39,10 +41,20 @@ interface OverviewTabProps {
   onRemoveFromWatchlist: (symbol: string) => void;
 }
 
-export default function OverviewTab({ stockData, watchlist, chartData, onAddToWatchlist, onRemoveFromWatchlist }: OverviewTabProps) {
-  const [chartPeriod, setChartPeriod] = useState('1M');
+export default function DummyOverviewTab({ 
+  stockData, 
+  watchlist, 
+  chartData, 
+  onAddToWatchlist, 
+  onRemoveFromWatchlist 
+}: DummyOverviewTabProps) {
+  const { zolosBalance, holdings, getZolosToCurrency } = useDummyAccount();
   const [chartType, setChartType] = useState<'line' | 'candlestick'>('line');
+  const [chartPeriod, setChartPeriod] = useState('1Y');
+  const [showInvestmentModal, setShowInvestmentModal] = useState(false);
   const [showHistoricalData, setShowHistoricalData] = useState(false);
+  const [prediction, setPrediction] = useState<StockPrediction | null>(null);
+  const [loadingPrediction, setLoadingPrediction] = useState(false);
   
   // Zoom state for both charts
   const [zoomState, setZoomState] = useState({
@@ -92,7 +104,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         '1Y': 365
       };
 
-      const maxPoints = periodMap[chartPeriod] || 30;
+      const maxPoints = periodMap[chartPeriod] || 365;
       dataToProcess = chartData.slice(-maxPoints);
     }
 
@@ -132,7 +144,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         '1Y': 365
       };
 
-      const maxPoints = periodMap[chartPeriod] || 30;
+      const maxPoints = periodMap[chartPeriod] || 365;
       dataToProcess = chartData.slice(-maxPoints);
     }
 
@@ -149,10 +161,50 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
   }
 
   const isInWatchlist = watchlist.includes(stockData.symbol);
+  const currentHolding = holdings.find(h => h.symbol === stockData.symbol);
+  const currencyValue = getZolosToCurrency(zolosBalance);
+
+  // Fetch real AI prediction from backend to keep parity with live
+  useEffect(() => {
+    const fetchPrediction = async () => {
+      if (!stockData?.symbol) {
+        setPrediction(null);
+        return;
+      }
+      try {
+        setLoadingPrediction(true);
+        const resp = await predictionsAPI.getStockPrediction(stockData.symbol);
+        setPrediction(resp);
+      } catch (e) {
+        // Fallback to null prediction silently in dummy mode
+        setPrediction(null);
+      } finally {
+        setLoadingPrediction(false);
+      }
+    };
+    fetchPrediction();
+  }, [stockData?.symbol]);
+
+  // Derive modal-friendly prediction and sentiment
+  const modalPrediction = useMemo(() => {
+    if (!prediction || !stockData) return undefined;
+    const sentiment: 'bullish' | 'bearish' | 'neutral' =
+      Math.abs(prediction.predictedPrice - (stockData.price || 0)) < 1e-6
+        ? 'neutral'
+        : prediction.predictedPrice >= (stockData.price || 0)
+          ? 'bullish'
+          : 'bearish';
+    return {
+      predictedPrice: prediction.predictedPrice,
+      confidence: prediction.confidence ?? 0.7,
+      prediction: sentiment,
+      reasoning: prediction.reasoning || ''
+    } as const;
+  }, [prediction, stockData]);
 
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
-      {/* Stock Header */}
+      {/* Stock Header with Investment Button */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -161,20 +213,111 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           </div>
           <div className="flex items-center justify-between sm:justify-end space-x-4">
             <div className="text-left sm:text-right">
-              <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{formatPrice(stockData.price || 0, stockData.currency)}</div>
+              <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                {formatPrice(stockData.price || 0, stockData.currency)}
+              </div>
               <div className={`flex items-center text-sm sm:text-base ${stockData.change && stockData.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {stockData.change && stockData.change >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
                 {formatChange(stockData.change || 0, stockData.currency)} ({formatChangePercent(stockData.changePercent || 0)}%)
               </div>
             </div>
-            <button
-              onClick={() => isInWatchlist ? onRemoveFromWatchlist(stockData.symbol) : onAddToWatchlist(stockData.symbol)}
-              className={`p-2 sm:p-3 rounded-lg transition-all duration-200 ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-            >
-              {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
-            </button>
+            <div className="flex items-center space-x-2">
+              {/* Investment Button */}
+              <button
+                onClick={() => setShowInvestmentModal(true)}
+                className="p-2 sm:p-3 rounded-lg bg-green-600 hover:bg-green-700 transition-all duration-200 transform hover:scale-105"
+                title="Invest in this stock"
+              >
+                <Plus className="w-4 h-4 text-white" />
+              </button>
+              {/* Watchlist Button */}
+              <button
+                onClick={() => isInWatchlist ? onRemoveFromWatchlist(stockData.symbol) : onAddToWatchlist(stockData.symbol)}
+                className={`p-2 sm:p-3 rounded-lg transition-all duration-200 ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              >
+                {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
+              </button>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Zolos Balance & Current Holding */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <Coins className="w-5 h-5 text-yellow-600" />
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Available Zolos</span>
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+            {zolosBalance.toLocaleString()} Z
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-500">
+            ≈ {formatPrice(currencyValue, stockData.currency)}
+          </div>
+        </div>
+
+        {currentHolding && (
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <DollarSign className="w-5 h-5 text-green-600" />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Your Holding</span>
+              </div>
+            </div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              {currentHolding.shares} shares
+            </div>
+            <div className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+              {formatPrice(currentHolding.totalValue, stockData.currency)}
+            </div>
+            <div className={`text-sm ${currentHolding.gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              {formatChangePercent(currentHolding.gainLossPercent)} ({formatPrice(currentHolding.gainLoss, stockData.currency)})
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* AI Prediction */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">AI Prediction</h3>
+        {loadingPrediction ? (
+          <div className="text-sm text-gray-600 dark:text-gray-400">Loading prediction...</div>
+        ) : prediction ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Predicted Price</div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white">
+                  {formatPrice(prediction.predictedPrice, stockData.currency)}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Confidence</div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white">
+                  {(prediction.confidence * 100).toFixed(0)}%
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Sentiment</div>
+                <div className={`text-xl font-bold capitalize ${
+                  modalPrediction?.prediction === 'bullish' ? 'text-green-600 dark:text-green-400' :
+                  modalPrediction?.prediction === 'bearish' ? 'text-red-600 dark:text-red-400' :
+                  'text-gray-600 dark:text-gray-400'
+                }`}>
+                  {modalPrediction?.prediction}
+                </div>
+              </div>
+            </div>
+            {prediction.reasoning && (
+              <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">{prediction.reasoning}</div>
+            )}
+          </>
+        ) : (
+          <div className="text-sm text-gray-600 dark:text-gray-400">Prediction unavailable.</div>
+        )}
       </div>
 
       {/* Key Metrics */}
@@ -197,14 +340,10 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         </div>
       </div>
 
-      {/* Chart Controls */}
-      <FeatureAccessGuard 
-        feature="stockAnalysis"
-        onFeatureUse={() => console.log('Chart accessed - Zolos deducted')}
-      >
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
+      {/* Chart */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
             {/* Chart Type Selection */}
             <div className="flex space-x-2">
@@ -266,7 +405,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
             )}
           </div>
         </div>
-        
+
         {/* Chart Display */}
         <div className="h-80 sm:h-96 bg-gray-50 dark:bg-gray-700 rounded-lg p-3 sm:p-4 relative w-full overflow-hidden">
           {chartData && chartData.length > 10 && (
@@ -377,7 +516,6 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
           )}
         </div>
       </div>
-      </FeatureAccessGuard>
 
       {/* Historical Data */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
@@ -430,19 +568,16 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
         )}
       </div>
 
-      {/* Download Data */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Export Data</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Download stock data for analysis</p>
-          </div>
-          <button className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-white flex items-center justify-center transition-all duration-200">
-            <Download className="w-4 h-4 mr-2" />
-            Download CSV
-          </button>
-        </div>
-      </div>
+      {/* Investment Modal */}
+      <InvestmentModal
+        isOpen={showInvestmentModal}
+        onClose={() => setShowInvestmentModal(false)}
+        symbol={stockData?.symbol || ''}
+        stockName={stockData?.name || ''}
+        currentPrice={stockData.price || 0}
+        currency={stockData?.currency || 'USD'}
+        aiPrediction={modalPrediction}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Brain, AlertTriangle, TrendingUp, TrendingDown, BarChart3, Activity, Target, Shield } from 'lucide-react';
 import type { StockData } from '../../types/stock';
+import { mlAPI } from '../../utils/api';
 
 interface AIRiskNewsTabProps {
   selectedStock: string;
@@ -10,6 +11,15 @@ interface AIRiskNewsTabProps {
 export default function AIRiskNewsTab({ selectedStock, stockData }: AIRiskNewsTabProps) {
   const [activeTab, setActiveTab] = useState('ai-analysis');
   const [riskScore, setRiskScore] = useState(0);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [mlError, setMlError] = useState<string | null>(null);
+  const [mlResult, setMlResult] = useState<{
+    signal: 'Bullish' | 'Bearish';
+    confidence: number;
+    sentiment: 'Positive' | 'Neutral' | 'Negative';
+    risk_level: 'High' | 'Medium' | 'Low';
+    predicted_price?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (stockData) {
@@ -22,6 +32,36 @@ export default function AIRiskNewsTab({ selectedStock, stockData }: AIRiskNewsTa
       setRiskScore(Math.round(finalScore));
     }
   }, [stockData]);
+
+  // Fetch ML prediction whenever selectedStock changes
+  useEffect(() => {
+    const run = async () => {
+      if (!selectedStock) {
+        setMlResult(null);
+        return;
+      }
+      try {
+        setMlLoading(true);
+        setMlError(null);
+        const res = await mlAPI.getPrediction(selectedStock);
+        if ((res as any)?.error) {
+          setMlError((res as any).error as string);
+          setMlResult(null);
+          return;
+        }
+        setMlResult(res as any);
+        // Map ML risk_level to score band for UI cohesion
+        const mapped = res.risk_level === 'Low' ? 25 : res.risk_level === 'Medium' ? 55 : 80;
+        setRiskScore(mapped);
+      } catch (e: any) {
+        setMlError('Failed to load AI prediction');
+        setMlResult(null);
+      } finally {
+        setMlLoading(false);
+      }
+    };
+    run();
+  }, [selectedStock]);
 
   if (!selectedStock) {
     return (
@@ -74,6 +114,12 @@ export default function AIRiskNewsTab({ selectedStock, stockData }: AIRiskNewsTa
             <div className="text-slate-400 text-sm">Volume</div>
           </div>
         </div>
+        {mlLoading && (
+          <div className="text-xs text-slate-400 mt-3">Loading AI prediction...</div>
+        )}
+        {mlError && (
+          <div className="text-xs text-red-400 mt-3">{mlError}</div>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -116,11 +162,19 @@ export default function AIRiskNewsTab({ selectedStock, stockData }: AIRiskNewsTa
                   <Brain className="w-5 h-5 mr-2 text-blue-400" />
                   AI Insights
                 </h4>
-                <div className="space-y-3 text-sm text-slate-300">
-                  <p>• Based on current market data, {selectedStock} shows {riskScore <= 50 ? 'favorable' : 'concerning'} risk patterns</p>
-                  <p>• Technical indicators suggest {riskScore <= 40 ? 'bullish' : riskScore <= 70 ? 'neutral' : 'bearish'} momentum</p>
-                  <p>• AI model predicts {riskScore <= 30 ? 'low' : riskScore <= 60 ? 'moderate' : 'high'} volatility in the next 30 days</p>
-                </div>
+                {mlResult ? (
+                  <div className="space-y-3 text-sm text-slate-300">
+                    <p>• Model signal: <span className={`font-semibold ${mlResult.signal === 'Bullish' ? 'text-green-400' : 'text-red-400'}`}>{mlResult.signal}</span></p>
+                    <p>• Confidence: <span className="font-semibold">{Math.round(mlResult.confidence * 100)}%</span></p>
+                    <p>• Sentiment: <span className="font-semibold">{mlResult.sentiment}</span></p>
+                    <p>• Risk Level: <span className="font-semibold">{mlResult.risk_level}</span></p>
+                    {typeof mlResult.predicted_price === 'number' && (
+                      <p className="text-slate-400">• Predicted Price: <span className="font-semibold text-white">{mlResult.predicted_price.toFixed(2)}</span></p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400">No AI result available.</div>
+                )}
               </div>
               
               <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
@@ -129,9 +183,9 @@ export default function AIRiskNewsTab({ selectedStock, stockData }: AIRiskNewsTa
                   Investment Outlook
                 </h4>
                 <div className="space-y-3 text-sm text-slate-300">
-                  <p>• AI recommendation: {riskScore <= 40 ? 'Consider buying' : riskScore <= 70 ? 'Hold position' : 'Consider selling'}</p>
+                  <p>• AI recommendation: {mlResult ? (mlResult.signal === 'Bullish' ? 'Consider buying' : 'Consider caution / trim') : 'N/A'}</p>
                   <p>• Expected return range: {riskScore <= 30 ? '8-15%' : riskScore <= 60 ? '5-10%' : '2-8%'} annually</p>
-                  <p>• Risk-adjusted score: {Math.round(100 - riskScore)}/100</p>
+                  <p>• Risk-adjusted score: {mlResult ? (mlResult.risk_level === 'Low' ? 85 : mlResult.risk_level === 'Medium' ? 65 : 45) : '--'}/100</p>
                 </div>
               </div>
             </div>
@@ -146,28 +200,36 @@ export default function AIRiskNewsTab({ selectedStock, stockData }: AIRiskNewsTa
               <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 text-center">
                 <AlertTriangle className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
                 <div className="text-lg font-semibold text-white">Market Risk</div>
-                <div className="text-slate-400 text-sm">Medium</div>
+                <div className="text-slate-400 text-sm">{mlResult?.risk_level || (riskScore <= 30 ? 'Low' : riskScore <= 60 ? 'Medium' : 'High')}</div>
               </div>
               
               <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 text-center">
                 <Shield className="w-8 h-8 text-blue-400 mx-auto mb-2" />
                 <div className="text-lg font-semibold text-white">Volatility Risk</div>
-                <div className="text-slate-400 text-sm">{riskScore <= 40 ? 'Low' : riskScore <= 70 ? 'Medium' : 'High'}</div>
+                <div className="text-slate-400 text-sm">{mlResult?.risk_level || (riskScore <= 40 ? 'Low' : riskScore <= 70 ? 'Medium' : 'High')}</div>
               </div>
               
               <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 text-center">
                 <Activity className="w-8 h-8 text-red-400 mx-auto mb-2" />
                 <div className="text-lg font-semibold text-white">Liquidity Risk</div>
-                <div className="text-slate-400 text-sm">Low</div>
+                <div className="text-slate-400 text-sm">
+                  {(() => {
+                    const v = stockData?.volume || 0;
+                    // Higher volume => lower liquidity risk
+                    if (v >= 5_000_000) return 'Low';
+                    if (v >= 1_000_000) return 'Medium';
+                    return 'High';
+                  })()}
+                </div>
               </div>
             </div>
 
             <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
               <h4 className="font-medium text-white mb-3">Risk Factors</h4>
               <div className="space-y-2 text-sm text-slate-300">
-                <p>• <strong>Market Volatility:</strong> Current market conditions show {riskScore <= 40 ? 'stable' : riskScore <= 70 ? 'moderate' : 'high'} volatility</p>
-                <p>• <strong>Sector Performance:</strong> {selectedStock} sector is performing {riskScore <= 50 ? 'above' : 'below'} market average</p>
-                <p>• <strong>Technical Indicators:</strong> RSI and MACD suggest {riskScore <= 40 ? 'oversold' : riskScore <= 70 ? 'neutral' : 'overbought'} conditions</p>
+                <p>• <strong>Market Volatility:</strong> Model classifies overall risk as {mlResult?.risk_level || (riskScore <= 40 ? 'Low' : riskScore <= 70 ? 'Medium' : 'High')}</p>
+                <p>• <strong>Sentiment:</strong> Overall news sentiment is {mlResult?.sentiment || 'Neutral'}; confidence {mlResult ? Math.round(mlResult.confidence * 100) : 0}%</p>
+                <p>• <strong>Technical Bias:</strong> Model signal indicates {mlResult?.signal || (riskScore <= 40 ? 'bullish' : riskScore <= 70 ? 'neutral' : 'bearish')} conditions</p>
               </div>
             </div>
           </div>

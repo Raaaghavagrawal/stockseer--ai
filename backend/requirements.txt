@@ -5,6 +5,9 @@ uvicorn==0.24.0
 pandas>=2.2.0
 numpy>=1.26.0
 yfinance==0.2.18
+pandas==2.2.3
+numpy==2.1.0
+yfinance==0.2.66
 ta==0.10.2
 numpy-financial==1.0.0
 requests==2.31.0
@@ -12,6 +15,6 @@ beautifulsoup4==4.12.2
 vaderSentiment==3.3.2
 transformers==4.35.2
 plotly==5.17.0
-pydantic==2.5.0
-feedparser==6.0.10
-Pillow>=10.1.0
+pydantic==2.8.0
+feedparser==6.0.12
+Pillow==10.4.0
