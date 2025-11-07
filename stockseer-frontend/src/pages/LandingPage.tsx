@@ -30,6 +30,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AuthModal from '../components/AuthModal';
 import ContactForm from '../components/ContactForm';
 import LiveStockTicker from '../components/LiveStockTicker';
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 // Animated Text Component
 const AnimatedText: React.FC<{ 
