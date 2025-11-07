@@ -136,6 +136,17 @@ const GoldCryptoPage: React.FC = () => {
     usingMockData: false
   });
 
+  // Quick Actions state
+  const [showPriceAlerts, setShowPriceAlerts] = useState(false);
+  const [showPortfolio, setShowPortfolio] = useState(false);
+  const [showAIInsights, setShowAIInsights] = useState(false);
+  const [showMarketAnalysis, setShowMarketAnalysis] = useState(false);
+  const [priceAlerts, setPriceAlerts] = useState<Array<{asset: string, price: number, type: 'above' | 'below', id: string}>>([]);
+  const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [selectedAsset, setSelectedAsset] = useState<string>('');
+  const [alertPrice, setAlertPrice] = useState<string>('');
+  const [alertType, setAlertType] = useState<'above' | 'below'>('above');
+
   // Initialize price data
   useEffect(() => {
     loadMarketData();
@@ -210,6 +221,44 @@ const GoldCryptoPage: React.FC = () => {
           : 'Balanced approach with crypto for growth potential'
       });
     }
+  };
+
+  // Quick Actions helper functions
+  const addPriceAlert = () => {
+    if (selectedAsset && alertPrice) {
+      const newAlert = {
+        id: Date.now().toString(),
+        asset: selectedAsset,
+        price: parseFloat(alertPrice),
+        type: alertType
+      };
+      setPriceAlerts(prev => [...prev, newAlert]);
+      setSelectedAsset('');
+      setAlertPrice('');
+      setShowPriceAlerts(false);
+    }
+  };
+
+  const removePriceAlert = (id: string) => {
+    setPriceAlerts(prev => prev.filter(alert => alert.id !== id));
+  };
+
+  const toggleWatchlist = (asset: string) => {
+    setWatchlist(prev => 
+      prev.includes(asset) 
+        ? prev.filter(item => item !== asset)
+        : [...prev, asset]
+    );
+  };
+
+  const getAIInsights = () => {
+    setShowAIInsights(true);
+    // In a real app, this would fetch AI insights
+  };
+
+  const getMarketAnalysis = () => {
+    setShowMarketAnalysis(true);
+    // In a real app, this would fetch market analysis
   };
 
   const getTrendIcon = (trend: string) => {
@@ -1011,36 +1060,313 @@ const GoldCryptoPage: React.FC = () => {
               </Card>
             </motion.div>
 
-            {/* Quick Actions */}
+            {/* Enhanced Quick Actions */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.6 }}
             >
               <Card className="p-6">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Quick Actions</h3>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {priceAlerts.length} alerts • {watchlist.length} watched
+                    </span>
+                  </div>
+                </div>
                 
-                <div className="space-y-3">
-                  <Button className="w-full justify-start" variant="outline">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={() => setShowPriceAlerts(!showPriceAlerts)}
+                  >
                     <Target className="w-4 h-4 mr-2" />
-                    Set Price Alerts
+                    Price Alerts ({priceAlerts.length})
                   </Button>
                   
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={() => setShowPortfolio(!showPortfolio)}
+                  >
                     <PieChart className="w-4 h-4 mr-2" />
-                    View Portfolio
+                    Portfolio
                   </Button>
                   
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={getAIInsights}
+                  >
                     <Zap className="w-4 h-4 mr-2" />
-                    Get AI Insights
+                    AI Insights
                   </Button>
                   
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={getMarketAnalysis}
+                  >
                     <Activity className="w-4 h-4 mr-2" />
                     Market Analysis
                   </Button>
                 </div>
+
+                {/* Price Alerts Section */}
+                {showPriceAlerts && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600"
+                  >
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Set Price Alert</h4>
+                    
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Asset
+                          </label>
+                          <select
+                            value={selectedAsset}
+                            onChange={(e) => setSelectedAsset(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="">Select Asset</option>
+                            <option value="Gold">Gold</option>
+                            <option value="Bitcoin">Bitcoin</option>
+                            <option value="Ethereum">Ethereum</option>
+                            <option value="Silver">Silver</option>
+                            <option value="Platinum">Platinum</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Price
+                          </label>
+                          <Input
+                            type="number"
+                            placeholder="Enter price"
+                            value={alertPrice}
+                            onChange={(e) => setAlertPrice(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id="above"
+                            name="alertType"
+                            value="above"
+                            checked={alertType === 'above'}
+                            onChange={(e) => setAlertType(e.target.value as 'above' | 'below')}
+                            className="text-blue-600"
+                          />
+                          <label htmlFor="above" className="text-sm text-gray-700 dark:text-gray-300">
+                            Above
+                          </label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id="below"
+                            name="alertType"
+                            value="below"
+                            checked={alertType === 'below'}
+                            onChange={(e) => setAlertType(e.target.value as 'above' | 'below')}
+                            className="text-blue-600"
+                          />
+                          <label htmlFor="below" className="text-sm text-gray-700 dark:text-gray-300">
+                            Below
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <Button onClick={addPriceAlert} className="w-full">
+                        Add Alert
+                      </Button>
+                    </div>
+
+                    {/* Active Alerts */}
+                    {priceAlerts.length > 0 && (
+                      <div className="mt-4">
+                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Active Alerts</h5>
+                        <div className="space-y-2">
+                          {priceAlerts.map((alert) => (
+                            <div key={alert.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm font-medium">{alert.asset}</span>
+                                <span className="text-sm text-gray-500">
+                                  {alert.type === 'above' ? '>' : '<'} ${alert.price.toLocaleString()}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => removePriceAlert(alert.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Portfolio Section */}
+                {showPortfolio && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600"
+                  >
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Watchlist</h4>
+                    
+                    <div className="space-y-2">
+                      {priceData.map((asset) => (
+                        <div key={asset.symbol} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <span className="text-2xl">{asset.icon}</span>
+                            <div>
+                              <div className="font-medium text-gray-900 dark:text-white">{asset.symbol}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{asset.name}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                              {formatPrice(asset.price, asset.symbol)}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant={watchlist.includes(asset.symbol) ? "default" : "outline"}
+                              onClick={() => toggleWatchlist(asset.symbol)}
+                            >
+                              {watchlist.includes(asset.symbol) ? 'Watching' : 'Watch'}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* AI Insights Modal */}
+                {showAIInsights && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">AI Insights</h4>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowAIInsights(false)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Brain className="w-5 h-5 text-blue-500" />
+                          <span className="font-medium text-gray-900 dark:text-white">Market Analysis</span>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Current market conditions show strong bullish sentiment for precious metals and moderate optimism for cryptocurrencies. 
+                          Gold appears to be a safe haven with inflation concerns, while Bitcoin shows technical strength above key support levels.
+                        </p>
+                      </div>
+                      
+                      <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Target className="w-5 h-5 text-green-500" />
+                          <span className="font-medium text-gray-900 dark:text-white">Recommendations</span>
+                        </div>
+                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                          <li>• Consider increasing gold allocation to 40-50% of portfolio</li>
+                          <li>• Bitcoin shows strong technical indicators for short-term gains</li>
+                          <li>• Silver may present buying opportunity below $25/oz</li>
+                          <li>• Monitor Fed policy changes for market direction</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Market Analysis Modal */}
+                {showMarketAnalysis && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Market Analysis</h4>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowMarketAnalysis(false)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <h5 className="font-medium text-gray-900 dark:text-white mb-2">Technical Indicators</h5>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">RSI (Gold)</span>
+                              <span className="text-green-600">65 (Neutral)</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">MACD (BTC)</span>
+                              <span className="text-green-600">Bullish</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Volume</span>
+                              <span className="text-orange-600">Above Average</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <h5 className="font-medium text-gray-900 dark:text-white mb-2">Market Sentiment</h5>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Fear & Greed Index</span>
+                              <span className="text-yellow-600">55 (Neutral)</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Volatility</span>
+                              <span className="text-orange-600">Medium</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Trend</span>
+                              <span className="text-green-600">Upward</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
               </Card>
             </motion.div>
           </div>
