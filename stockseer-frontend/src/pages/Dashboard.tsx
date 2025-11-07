@@ -684,7 +684,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-black text-gray-900 dark:text-white flex">
+      <div className="h-screen overflow-hidden bg-gray-50 dark:bg-black text-gray-900 dark:text-white flex">
       {/* Mobile Overlay */}
       {sidebarOpen && !mobileSidebarHidden && (
         <div 
