@@ -35,7 +35,7 @@ const generateMockStockData = (symbol: string): StockData => {
   const changePercent = (Math.random() - 0.5) * 10;
   const change = (basePrice * changePercent) / 100;
   const newPrice = basePrice + change;
-  
+
   return {
     symbol,
     name: getStockName(symbol),
@@ -90,13 +90,13 @@ const LiveStockTicker: React.FC = () => {
   const fetchStockData = async () => {
     try {
       setIsRefreshing(true);
-      
+
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       // Generate mock data for demonstration
       const stockData = POPULAR_STOCKS.map(symbol => generateMockStockData(symbol));
-      
+
       // Track price changes for animations
       const newPriceChanges: { [key: string]: 'up' | 'down' | 'neutral' } = {};
       stockData.forEach(stock => {
@@ -113,7 +113,7 @@ const LiveStockTicker: React.FC = () => {
           newPriceChanges[stock.symbol] = 'neutral';
         }
       });
-      
+
       setPriceChanges(newPriceChanges);
       setStocks(stockData);
       setLastUpdated(new Date());
@@ -176,16 +176,16 @@ const LiveStockTicker: React.FC = () => {
                 <p className="text-xs text-[#707A8A]">Real-time stock prices</p>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <motion.div 
+                <motion.div
                   className="w-2 h-2 bg-[#02C076] rounded-full"
-                  animate={{ 
+                  animate={{
                     scale: [1, 1.2, 1],
                     opacity: [1, 0.7, 1]
                   }}
-                  transition={{ 
+                  transition={{
                     duration: 2,
                     repeat: Infinity,
                     ease: "easeInOut"
@@ -193,7 +193,7 @@ const LiveStockTicker: React.FC = () => {
                 />
                 <span className="text-sm text-[#02C076] font-medium">Live</span>
               </div>
-              
+
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
@@ -208,30 +208,29 @@ const LiveStockTicker: React.FC = () => {
         {/* Binance-style Stock Table */}
         <div className="bg-[#0B0E11]">
           {/* Table Header */}
-          <div className="grid grid-cols-5 gap-4 px-4 py-3 text-xs font-medium text-[#707A8A] border-b border-[#2B3139]">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-4 px-4 py-3 text-xs font-medium text-[#707A8A] border-b border-[#2B3139]">
             <div className="text-left">Symbol</div>
             <div className="text-right">Price</div>
             <div className="text-right">24h Change</div>
-            <div className="text-right">Volume</div>
-            <div className="text-right">Market Cap</div>
+            <div className="text-right hidden sm:block">Volume</div>
+            <div className="text-right hidden sm:block">Market Cap</div>
           </div>
-          
+
           {/* Stock Rows */}
           <div className="divide-y divide-[#2B3139]">
             {stocks.map((stock, index) => {
               const priceChange = priceChanges[stock.symbol];
               const isUp = priceChange === 'up';
               const isDown = priceChange === 'down';
-              
+
               return (
                 <motion.div
                   key={stock.symbol}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className={`grid grid-cols-5 gap-4 px-4 py-3 hover:bg-[#1E2329] transition-colors ${
-                    isUp ? 'bg-[#0A1B0A]' : isDown ? 'bg-[#1B0A0A]' : ''
-                  }`}
+                  className={`grid grid-cols-3 sm:grid-cols-5 gap-4 px-4 py-3 hover:bg-[#1E2329] transition-colors ${isUp ? 'bg-[#0A1B0A]' : isDown ? 'bg-[#1B0A0A]' : ''
+                    }`}
                 >
                   {/* Symbol */}
                   <div className="flex items-center">
@@ -240,14 +239,14 @@ const LiveStockTicker: React.FC = () => {
                       <div className="text-xs text-[#707A8A] truncate">{stock.name}</div>
                     </div>
                   </div>
-                  
+
                   {/* Price */}
                   <div className="text-right">
-                    <motion.div 
+                    <motion.div
                       key={`${stock.symbol}-price-${stock.price}`}
                       initial={{ scale: 1 }}
-                      animate={{ 
-                        scale: isUp ? [1, 1.05, 1] : isDown ? [1, 0.95, 1] : 1 
+                      animate={{
+                        scale: isUp ? [1, 1.05, 1] : isDown ? [1, 0.95, 1] : 1
                       }}
                       transition={{ duration: 0.3 }}
                       className="font-semibold text-[#F0B90B] text-sm"
@@ -255,17 +254,16 @@ const LiveStockTicker: React.FC = () => {
                       {formatCurrency(stock.price)}
                     </motion.div>
                   </div>
-                  
+
                   {/* 24h Change */}
                   <div className="text-right">
-                    <motion.div 
+                    <motion.div
                       key={`${stock.symbol}-change-${stock.change}`}
                       initial={{ opacity: 1 }}
                       animate={{ opacity: [1, 0.7, 1] }}
                       transition={{ duration: 0.5 }}
-                      className={`flex items-center justify-end text-sm ${
-                        stock.change >= 0 ? 'text-[#02C076]' : 'text-[#F84960]'
-                      }`}
+                      className={`flex items-center justify-end text-sm ${stock.change >= 0 ? 'text-[#02C076]' : 'text-[#F84960]'
+                        }`}
                     >
                       {stock.change >= 0 ? (
                         <TrendingUp className="w-3 h-3 mr-1" />
@@ -277,14 +275,14 @@ const LiveStockTicker: React.FC = () => {
                       </span>
                     </motion.div>
                   </div>
-                  
+
                   {/* Volume */}
-                  <div className="text-right text-sm text-[#F0B90B]">
+                  <div className="text-right text-sm text-[#F0B90B] hidden sm:block">
                     {formatNumber(stock.volume)}
                   </div>
-                  
+
                   {/* Market Cap */}
-                  <div className="text-right text-sm text-[#F0B90B]">
+                  <div className="text-right text-sm text-[#F0B90B] hidden sm:block">
                     {formatNumber(stock.marketCap)}
                   </div>
                 </motion.div>
