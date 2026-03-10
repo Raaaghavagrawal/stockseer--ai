@@ -1,0 +1,30 @@
+# Ignore virtual environment folders
+venv/
+.env/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables file
+*.env
+
+# IDE/Editor settings
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Compiled files
+*.so
+
+# Backup files
+*.bak
