@@ -26,8 +26,11 @@ import {
 } from 'lucide-react';
 import { fetchAllMarketData, getMockData, formatPrice, formatMarketCap } from '../utils/marketApi';
 import type { PriceData } from '../utils/marketApi';
+import { mlAPI } from '../utils/api';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import LiveMarketData from '../components/LiveMarketData';
 import LiveMetalPrices from '../components/LiveMetalPrices';
+import NewsTab from '../components/tabs/NewsTab';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -143,13 +146,29 @@ const GoldCryptoPage: React.FC = () => {
   const [showMarketAnalysis, setShowMarketAnalysis] = useState(false);
   const [priceAlerts, setPriceAlerts] = useState<Array<{asset: string, price: number, type: 'above' | 'below', id: string}>>([]);
   const [watchlist, setWatchlist] = useState<string[]>([]);
-  const [selectedAsset, setSelectedAsset] = useState<string>('');
+  const [selectedAsset, setSelectedAsset] = useState<string>('BTC');
   const [alertPrice, setAlertPrice] = useState<string>('');
   const [alertType, setAlertType] = useState<'above' | 'below'>('above');
+  
+  // Dynamic AI Predictions State
+  const [aiPredictions, setAIPredictions] = useState<Record<string, {
+    signal: 'Bullish' | 'Bearish';
+    confidence: number;
+    sentiment: 'Positive' | 'Neutral' | 'Negative';
+    risk_level: 'High' | 'Medium' | 'Low';
+    p_bull: number;
+    volatility: { sharpe: number; max_drawdown: number };
+  } | null>>({
+    'GC=F': null, // Gold
+    'BTC': null, // Bitcoin
+    'ETH': null // Ethereum
+  });
+  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
 
   // Initialize price data
   useEffect(() => {
     loadMarketData();
+    fetchAIPredictions();
   }, []);
 
   // Auto-refresh prices every 30 seconds
@@ -202,8 +221,33 @@ const GoldCryptoPage: React.FC = () => {
     }
   };
 
+  const fetchAIPredictions = async () => {
+    try {
+      setIsLoadingPredictions(true);
+      // We map our targeted assets to the respective Yahoo Finance / Crypto symbols used by standard calls
+      const symbolsToFetch = ['GC=F', 'BTC', 'ETH']; // GC=F for Gold
+      
+      const newPredictions: Record<string, any> = {};
+      await Promise.all(
+        symbolsToFetch.map(async (symbol) => {
+          try {
+            const data = await mlAPI.getPrediction(symbol);
+            newPredictions[symbol] = data;
+          } catch (e) {
+            console.error(`Failed to fetch AI prediction for ${symbol}`, e);
+          }
+        })
+      );
+      setAIPredictions(prev => ({ ...prev, ...newPredictions }));
+    } catch (err) {
+      console.error('Failed to update AI predictions block', err);
+    } finally {
+      setIsLoadingPredictions(false);
+    }
+  };
+
   const refreshPrices = async () => {
-    await loadMarketData();
+    await Promise.all([loadMarketData(), fetchAIPredictions()]);
   };
 
   const calculatePortfolio = () => {
@@ -334,8 +378,51 @@ const GoldCryptoPage: React.FC = () => {
       {/* Live Metal Prices Component */}
       <LiveMetalPrices />
 
+      {/* Added News Feed (Dynamically listens to selectedAsset with quick-toggles) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full z-20 relative">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+        >
+          <Card className="p-0 overflow-hidden border border-indigo-200 dark:border-indigo-900/60 shadow-xl rounded-2xl">
+            <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/80 to-purple-50/80 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 p-6 border-b border-indigo-100 dark:border-indigo-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 backdrop-blur-sm">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                  <Zap className="w-6 h-6 text-indigo-500 mr-2" />
+                  Live Market News Hub
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Real-time breaking updates & sentiment analysis for <span className="font-semibold text-indigo-600 dark:text-indigo-400">{selectedAsset}</span></p>
+              </div>
+              <div className="flex items-center bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-xl p-1 border border-white/50 dark:border-gray-700/50 shadow-sm">
+                {(['BTC', 'ETH', 'GOLD', 'GLD', 'SLV'] as string[]).map(asset => (
+                  <button
+                    key={asset}
+                    onClick={() => setSelectedAsset(asset)}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 ${selectedAsset === asset ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md transform scale-105' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'}`}
+                  >
+                    {asset}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {selectedAsset ? (
+               <div className="max-h-[500px] overflow-y-auto w-full p-2 sm:p-6 custom-scrollbar bg-slate-50/50 dark:bg-gray-900/30">
+                 <NewsTab selectedStock={selectedAsset} />
+               </div>
+            ) : (
+              <div className="text-sm text-gray-500 text-center py-16 flex flex-col items-center">
+                 <Zap className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" />
+                 <span>Select an asset from the quick menu above to view its latest news.</span>
+              </div>
+            )}
+          </Card>
+        </motion.div>
+      </div>
+
       {/* AI Insights Section */}
-      <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-800 dark:to-gray-900">
+      <section className="py-16 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 shadow-lg border-y border-gray-200 dark:border-gray-800/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -592,40 +679,39 @@ const GoldCryptoPage: React.FC = () => {
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gold</h3>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Current: ${formatPrice(priceData.find(p => p.symbol === 'GOLD')?.price || 2347.85, 'GOLD')}/oz
+                            Current: ${formatPrice(priceData.find(p => p.symbol === 'XAU')?.price || 2347.85, 'XAU')}/kg
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center text-green-500">
-                          <TrendingUp className="w-4 h-4 mr-1" />
-                          <span className="font-semibold text-sm">Bullish</span>
+                        <div className={`flex items-center ${aiPredictions['GC=F']?.signal === 'Bullish' ? 'text-green-500' : 'text-red-500'}`}>
+                          {aiPredictions['GC=F']?.signal === 'Bullish' ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
+                          <span className="font-semibold text-sm">{aiPredictions['GC=F']?.signal || 'Loading...'}</span>
                         </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">+0.53% (24h)</p>
                       </div>
                     </div>
                     
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Target Price</span>
-                        <span className="font-semibold text-gray-900 dark:text-white">$2,450</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Risk Level</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">{aiPredictions['GC=F']?.risk_level || '--'}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Confidence</span>
                         <div className="flex items-center">
-                          <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2">
-                            <div className="bg-green-500 h-2 rounded-full" style={{ width: '85%' }}></div>
+                          <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2 overflow-hidden">
+                            <div className={`${aiPredictions['GC=F']?.signal === 'Bullish' ? 'bg-green-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${aiPredictions['GC=F']?.confidence || 0}%` }}></div>
                           </div>
-                          <span className="text-sm font-semibold">85%</span>
+                          <span className="text-sm font-semibold">{aiPredictions['GC=F']?.confidence || 0}%</span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Timeframe</span>
-                        <span className="text-sm font-semibold">3 months</span>
+                        <span className="text-sm font-semibold">Gemini Live Analysis</span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Strong inflation hedge demand expected
+                          {aiPredictions['GC=F']?.signal === 'Bullish' ? 'Expected upside probability:' : 'Expected downside probability:'} {aiPredictions['GC=F'] ? Math.round(aiPredictions['GC=F'].p_bull * 100) : '--'}%
                         </p>
                       </div>
                     </div>
@@ -639,40 +725,39 @@ const GoldCryptoPage: React.FC = () => {
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bitcoin</h3>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Current: ${formatPrice(priceData.find(p => p.symbol === 'BTC')?.price || 75234, 'BTC')}
+                            Current: ${formatPrice(priceData.find(p => p.symbol === 'btc')?.price || 75234, 'btc')}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center text-green-500">
-                          <TrendingUp className="w-4 h-4 mr-1" />
-                          <span className="font-semibold text-sm">Bullish</span>
+                        <div className={`flex items-center ${aiPredictions['BTC']?.signal === 'Bullish' ? 'text-green-500' : 'text-red-500'}`}>
+                          {aiPredictions['BTC']?.signal === 'Bullish' ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
+                          <span className="font-semibold text-sm">{aiPredictions['BTC']?.signal || 'Loading...'}</span>
                         </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">+3.94% (24h)</p>
                       </div>
                     </div>
                     
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Target Price</span>
-                        <span className="font-semibold text-gray-900 dark:text-white">$85,000</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Risk Level</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">{aiPredictions['BTC']?.risk_level || '--'}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Confidence</span>
                         <div className="flex items-center">
-                          <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2">
-                            <div className="bg-green-500 h-2 rounded-full" style={{ width: '78%' }}></div>
+                          <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2 overflow-hidden">
+                            <div className={`${aiPredictions['BTC']?.signal === 'Bullish' ? 'bg-green-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${aiPredictions['BTC']?.confidence || 0}%` }}></div>
                           </div>
-                          <span className="text-sm font-semibold">78%</span>
+                          <span className="text-sm font-semibold">{aiPredictions['BTC']?.confidence || 0}%</span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Timeframe</span>
-                        <span className="text-sm font-semibold">6 months</span>
+                        <span className="text-sm font-semibold">Gemini Live Analysis</span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Institutional adoption accelerating
+                          {aiPredictions['BTC']?.signal === 'Bullish' ? 'Expected upside probability:' : 'Expected downside probability:'} {aiPredictions['BTC'] ? Math.round(aiPredictions['BTC'].p_bull * 100) : '--'}%
                         </p>
                       </div>
                     </div>
@@ -686,40 +771,39 @@ const GoldCryptoPage: React.FC = () => {
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ethereum</h3>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Current: ${formatPrice(priceData.find(p => p.symbol === 'ETH')?.price || 3847, 'ETH')}
+                            Current: ${formatPrice(priceData.find(p => p.symbol === 'eth')?.price || 3847, 'eth')}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center text-green-500">
-                          <TrendingUp className="w-4 h-4 mr-1" />
-                          <span className="font-semibold text-sm">Bullish</span>
+                        <div className={`flex items-center ${aiPredictions['ETH']?.signal === 'Bullish' ? 'text-green-500' : 'text-red-500'}`}>
+                          {aiPredictions['ETH']?.signal === 'Bullish' ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
+                          <span className="font-semibold text-sm">{aiPredictions['ETH']?.signal || 'Loading...'}</span>
                         </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">+2.39% (24h)</p>
                       </div>
                     </div>
                     
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Target Price</span>
-                        <span className="font-semibold text-gray-900 dark:text-white">$4,200</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Risk Level</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">{aiPredictions['ETH']?.risk_level || '--'}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Confidence</span>
                         <div className="flex items-center">
-                          <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2">
-                            <div className="bg-green-500 h-2 rounded-full" style={{ width: '72%' }}></div>
+                          <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2 overflow-hidden">
+                            <div className={`${aiPredictions['ETH']?.signal === 'Bullish' ? 'bg-green-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${aiPredictions['ETH']?.confidence || 0}%` }}></div>
                           </div>
-                          <span className="text-sm font-semibold">72%</span>
+                          <span className="text-sm font-semibold">{aiPredictions['ETH']?.confidence || 0}%</span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Timeframe</span>
-                        <span className="text-sm font-semibold">4 months</span>
+                        <span className="text-sm font-semibold">Gemini Live Analysis</span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          DeFi ecosystem growth driving demand
+                          {aiPredictions['ETH']?.signal === 'Bullish' ? 'Expected upside probability:' : 'Expected downside probability:'} {aiPredictions['ETH'] ? Math.round(aiPredictions['ETH'].p_bull * 100) : '--'}%
                         </p>
                       </div>
                     </div>

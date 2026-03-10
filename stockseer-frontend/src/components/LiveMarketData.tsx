@@ -154,8 +154,9 @@ const getFallbackCryptoData = (currency: string): CryptoData[] => {
 // Fetch metals data for specific country using real-time service
 const fetchMetalsData = async (countryCode: string): Promise<MetalData[]> => {
   try {
-    console.log('Fetching real-time metals data for country:', countryCode);
+    console.log('Fetching real-time metals data from backend for country:', countryCode);
     
+    // getMetalsDataForCountry now calls our Python backend implicitly through metalsDataService
     const countryMetalsData = await getMetalsDataForCountry(countryCode);
     
     // Convert to our component format
@@ -168,14 +169,14 @@ const fetchMetalsData = async (countryCode: string): Promise<MetalData[]> => {
       icon: METAL_CONFIG[metal.symbol as keyof typeof METAL_CONFIG]?.icon || '💎',
       color: METAL_CONFIG[metal.symbol as keyof typeof METAL_CONFIG]?.color || '#B87333',
       currency: metal.currency,
-      source: metal.source,
+      source: metal.source, // This will say "Yahoo Finance (Scraped)" or "Fallback Data"
       lastUpdated: metal.lastUpdated,
     }));
     
     console.log('Successfully fetched metals data:', metals.length, 'metals from', metals[0]?.source);
     return metals;
   } catch (error) {
-    console.error('Error fetching metals data:', error);
+    console.error('Error fetching metals data from backend:', error);
     console.log('Falling back to demo metals data');
     return getFallbackMetalsData(countryCode);
   }
@@ -450,16 +451,16 @@ const LiveMarketData: React.FC = () => {
                         {formatCurrency(crypto.current_price, selectedCountry.currency)}
                       </div>
                       <div className={`flex items-center justify-end text-sm ${
-                        crypto.price_change_percentage_24h >= 0 
+                        (crypto.price_change_percentage_24h || 0) >= 0 
                           ? 'text-green-500' 
                           : 'text-red-500'
                       }`}>
-                        {crypto.price_change_percentage_24h >= 0 ? (
+                        {(crypto.price_change_percentage_24h || 0) >= 0 ? (
                           <TrendingUp className="w-4 h-4 mr-1" />
                         ) : (
                           <TrendingDown className="w-4 h-4 mr-1" />
                         )}
-                        <span>{crypto.price_change_percentage_24h.toFixed(2)}%</span>
+                        <span>{(crypto.price_change_percentage_24h || 0).toFixed(2)}%</span>
                       </div>
                     </div>
                   </motion.div>

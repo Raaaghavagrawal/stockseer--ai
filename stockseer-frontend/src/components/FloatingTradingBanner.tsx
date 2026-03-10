@@ -81,8 +81,9 @@ const getMockTradingData = (): TradingData[] => [
 ];
 
 // API configuration
-const ALPHA_VANTAGE_API_KEY = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY || 'demo';
-const METALS_API_KEY = process.env.NEXT_PUBLIC_METALS_API_KEY || 'demo';
+// API configuration
+const ALPHA_VANTAGE_API_KEY = import.meta.env.VITE_ALPHA_VANTAGE_API_KEY || '';
+const METALS_API_KEY = import.meta.env.VITE_METALS_API_KEY || '';
 
 // Fetch real trading data
 const fetchTradingData = async (): Promise<TradingData[]> => {
@@ -90,7 +91,7 @@ const fetchTradingData = async (): Promise<TradingData[]> => {
     const tradingData: TradingData[] = [];
     
     // Fetch BSE Sensex data (Alpha Vantage)
-    if (ALPHA_VANTAGE_API_KEY && ALPHA_VANTAGE_API_KEY !== 'demo') {
+    if (ALPHA_VANTAGE_API_KEY) {
       try {
         const bseResponse = await fetch(
           `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=BSE.BSE&apikey=${ALPHA_VANTAGE_API_KEY}`
@@ -119,7 +120,7 @@ const fetchTradingData = async (): Promise<TradingData[]> => {
     }
     
     // Fetch Nifty 50 data (Alpha Vantage)
-    if (ALPHA_VANTAGE_API_KEY && ALPHA_VANTAGE_API_KEY !== 'demo') {
+    if (ALPHA_VANTAGE_API_KEY) {
       try {
         const niftyResponse = await fetch(
           `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=NIFTY.NSE&apikey=${ALPHA_VANTAGE_API_KEY}`
@@ -148,7 +149,7 @@ const fetchTradingData = async (): Promise<TradingData[]> => {
     }
     
     // Fetch TCS data (Alpha Vantage)
-    if (ALPHA_VANTAGE_API_KEY && ALPHA_VANTAGE_API_KEY !== 'demo') {
+    if (ALPHA_VANTAGE_API_KEY) {
       try {
         const tcsResponse = await fetch(
           `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=TCS.BSE&apikey=${ALPHA_VANTAGE_API_KEY}`
@@ -177,7 +178,7 @@ const fetchTradingData = async (): Promise<TradingData[]> => {
     }
     
     // Fetch Infosys data (Alpha Vantage)
-    if (ALPHA_VANTAGE_API_KEY && ALPHA_VANTAGE_API_KEY !== 'demo') {
+    if (ALPHA_VANTAGE_API_KEY) {
       try {
         const infyResponse = await fetch(
           `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=INFY.BSE&apikey=${ALPHA_VANTAGE_API_KEY}`
@@ -206,7 +207,7 @@ const fetchTradingData = async (): Promise<TradingData[]> => {
     }
     
     // Fetch Gold data (Metals-API)
-    if (METALS_API_KEY && METALS_API_KEY !== 'demo') {
+    if (METALS_API_KEY) {
       try {
         const goldResponse = await fetch(
           `https://metals-api.com/api/latest?access_key=${METALS_API_KEY}&base=INR&symbols=XAU`

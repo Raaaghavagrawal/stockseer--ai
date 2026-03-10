@@ -1,59 +1,39 @@
-"""
-Feature engineering: technical indicators, volatility metrics, and text sentiment.
-"""
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import List, Tuple
-
-import numpy as np
 import pandas as pd
+import ta
 
-
-def add_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
+def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Engineers technical features for ML modeling."""
     df = df.copy()
-    if df.empty:
-        return df
-
-    # Moving averages
-    df["SMA_20"] = df["Close"].rolling(20).mean()
-    df["SMA_50"] = df["Close"].rolling(50).mean()
-    df["EMA_20"] = df["Close"].ewm(span=20, adjust=False).mean()
-    df["EMA_50"] = df["Close"].ewm(span=50, adjust=False).mean()
-
-    # RSI
-    delta = df["Close"].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-    rs = gain / (loss.replace(0, np.nan))
-    df["RSI"] = 100 - (100 / (1 + rs))
-
-    # MACD
-    ema12 = df["Close"].ewm(span=12, adjust=False).mean()
-    ema26 = df["Close"].ewm(span=26, adjust=False).mean()
-    df["MACD_line"] = ema12 - ema26
-    df["MACD_signal"] = df["MACD_line"].ewm(span=9, adjust=False).mean()
-    df["MACD_hist"] = df["MACD_line"] - df["MACD_signal"]
-
-    # Bollinger Bands
-    bb_mid = df["Close"].rolling(20).mean()
-    bb_std = df["Close"].rolling(20).std()
-    df["BB_Mid"] = bb_mid
-    df["BB_High"] = bb_mid + 2 * bb_std
-    df["BB_Low"] = bb_mid - 2 * bb_std
-
+    
+    # Handle multi-index columns from yfinance (if applicable)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.droplevel(1)
+        
+    df.columns = [str(c).title() for c in df.columns]
+    
+    # Technical Indicators (ta library)
+    df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
+    macd = ta.trend.MACD(df['Close'])
+    df['MACD_line'] = macd.macd()
+    df['MACD_signal'] = macd.macd_signal()
+    df['MACD_diff'] = macd.macd_diff()
+    
+    bb = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
+    df['BB_high'] = bb.bollinger_hband()
+    df['BB_low'] = bb.bollinger_lband()
+    df['BB_width'] = bb.bollinger_wband()
+    
+    df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close'], window=14).average_true_range()
+    
+    # Moving Averages & Crossovers
+    df['SMA_20'] = ta.trend.sma_indicator(df['Close'], window=20)
+    df['SMA_50'] = ta.trend.sma_indicator(df['Close'], window=50)
+    df['Crossover_20_50'] = (df['SMA_20'] > df['SMA_50']).astype(int)
+    
+    # Market Features (Returns & Volatility)
+    df['Daily_Return'] = df['Close'].pct_change()
+    df['Return_Vol_5d'] = df['Daily_Return'].rolling(5).std()
+    df['Volume_Change'] = df['Volume'].pct_change()
+    
+    df.dropna(inplace=True)
     return df
-
-
-def compute_volatility_metrics(df: pd.DataFrame) -> dict:
-    if df.empty:
-        return {"sharpe": 0.0, "max_drawdown": 0.0}
-    returns = df["Close"].pct_change().dropna()
-    sharpe = (returns.mean() / (returns.std() + 1e-9)) * np.sqrt(252)
-    cummax = (1 + returns).cumprod().cummax()
-    equity = (1 + returns).cumprod()
-    drawdown = equity / cummax - 1
-    max_drawdown = drawdown.min()
-    return {"sharpe": float(sharpe), "max_drawdown": float(max_drawdown)}
-
-

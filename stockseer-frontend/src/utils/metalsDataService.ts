@@ -193,171 +193,38 @@ class MetalsDataService {
     }
   }
 
-  private async fetchMetalsFromMultipleSources(): Promise<MetalPrice[]> {
-    const sources = [
-      this.fetchFromMetalsAPI(),
-      this.fetchFromAlphaVantage(),
-      this.fetchFromYahooFinance(),
-      this.fetchFromKitco(),
-    ];
-
-    // Try sources in parallel, use first successful one
-    for (const source of sources) {
-      try {
-        const metals = await source;
-        if (metals && metals.length > 0) {
-          return metals;
-        }
-      } catch (error) {
-        console.warn('Metals data source failed:', error);
-      }
-    }
-
-    throw new Error('All metals data sources failed');
-  }
-
-  private async fetchFromMetalsAPI(): Promise<MetalPrice[]> {
-    const apiKey = process.env.NEXT_PUBLIC_METALS_API_KEY;
-    if (!apiKey || apiKey === 'demo') {
-      throw new Error('Metals API key not available');
-    }
-
-    const symbols = Object.keys(METAL_SYMBOLS).join(',');
-    const response = await fetch(
-      `https://metals-api.com/api/latest?access_key=${apiKey}&base=USD&symbols=${symbols}`,
-      { signal: AbortSignal.timeout(10000) }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Metals API HTTP error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(`Metals API error: ${data.error.info}`);
-    }
-
-    const metals: MetalPrice[] = [];
-    for (const [symbol, config] of Object.entries(METAL_SYMBOLS)) {
-      const rate = data.rates[symbol];
-      if (rate) {
-        const price = 1 / rate; // Metals API returns 1 USD = X metal units
-        const changePercent24h = (Math.random() - 0.5) * 4; // Mock change data
-        const change24h = price * (changePercent24h / 100);
-
-        metals.push({
-          symbol,
-          name: config.name,
-          price,
-          currency: 'USD',
-          change24h,
-          changePercent24h,
-          lastUpdated: new Date(),
-          source: 'Metals API',
-        });
-      }
-    }
-
-    return metals;
-  }
-
-  private async fetchFromAlphaVantage(): Promise<MetalPrice[]> {
-    const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
-    if (!apiKey) {
-      throw new Error('Alpha Vantage API key not available');
-    }
-
-    const metals: MetalPrice[] = [];
-    const symbols = ['XAUUSD', 'XAGUSD', 'XPTUSD', 'XPDUSD'];
-
-    for (const symbol of symbols) {
-      try {
-        const response = await fetch(
-          `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${symbol}&to_currency=USD&apikey=${apiKey}`,
-          { signal: AbortSignal.timeout(5000) }
-        );
-
-        if (!response.ok) continue;
-
-        const data = await response.json();
-        const exchangeRate = data['Realtime Currency Exchange Rate'];
-        
-        if (exchangeRate && exchangeRate['5. Exchange Rate']) {
-          const price = parseFloat(exchangeRate['5. Exchange Rate']);
-          const metalSymbol = symbol.replace('USD', '');
-          const config = METAL_SYMBOLS[metalSymbol as keyof typeof METAL_SYMBOLS];
-          
-          if (config) {
-            const changePercent24h = (Math.random() - 0.5) * 4;
-            const change24h = price * (changePercent24h / 100);
-
-            metals.push({
-              symbol: metalSymbol,
-              name: config.name,
-              price,
-              currency: 'USD',
-              change24h,
-              changePercent24h,
-              lastUpdated: new Date(),
-              source: 'Alpha Vantage',
-            });
-          }
-        }
-      } catch (error) {
-        console.warn(`Failed to fetch ${symbol} from Alpha Vantage:`, error);
-      }
-    }
-
-    return metals;
-  }
-
-  private async fetchFromYahooFinance(): Promise<MetalPrice[]> {
-    // Yahoo Finance scraping simulation (in real implementation, you'd use a proxy or API)
+  private async fetchMetalsFromMultipleSources(countryCode: string = 'US'): Promise<MetalPrice[]> {
     try {
-      const response = await fetch('/api/yahoo-finance-metals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols: Object.keys(METAL_SYMBOLS) }),
-        signal: AbortSignal.timeout(10000)
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const countryConfig = COUNTRIES_CONFIG[countryCode as keyof typeof COUNTRIES_CONFIG] || COUNTRIES_CONFIG['US'];
+      const response = await fetch(`${baseUrl}/api/metals?currency=${countryConfig.currency}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(15000)
       });
 
       if (!response.ok) {
-        throw new Error('Yahoo Finance API failed');
+        throw new Error(`Backend API failed: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.metals.map((metal: any) => ({
-        ...metal,
-        lastUpdated: new Date(),
-        source: 'Yahoo Finance',
-      }));
-    } catch (error) {
-      throw new Error('Yahoo Finance unavailable');
-    }
-  }
-
-  private async fetchFromKitco(): Promise<MetalPrice[]> {
-    // Kitco scraping simulation (in real implementation, you'd use a proxy or API)
-    try {
-      const response = await fetch('/api/kitco-metals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols: Object.keys(METAL_SYMBOLS) }),
-        signal: AbortSignal.timeout(10000)
-      });
-
-      if (!response.ok) {
-        throw new Error('Kitco API failed');
+      if (!data.rates || data.rates.length === 0) {
+        throw new Error('No metals data received from backend');
       }
 
-      const data = await response.json();
-      return data.metals.map((metal: any) => ({
-        ...metal,
-        lastUpdated: new Date(),
-        source: 'Kitco',
+      return data.rates.map((rate: any) => ({
+        symbol: rate.symbol,
+        name: rate.name,
+        price: rate.price,
+        currency: rate.currency,
+        change24h: rate.change24h,
+        changePercent24h: rate.changePercent24h,
+        lastUpdated: new Date(rate.lastUpdated),
+        source: rate.source
       }));
     } catch (error) {
-      throw new Error('Kitco unavailable');
+      console.warn('Backend metals data source failed:', error);
+      throw new Error('All metals data sources failed');
     }
   }
 

@@ -64,18 +64,13 @@ const METAL_CONFIG = {
 // API Configuration
 const METALS_API_KEY = process.env.NEXT_PUBLIC_METALS_API_KEY;
 
-// Fetch real-time metals data from Metals-API with enhanced error handling
+// Fetch real-time metals data from our Python backend (which scrapes Yahoo Finance)
 const fetchMetalsData = async (currency: string): Promise<MetalPrice[]> => {
-  if (!METALS_API_KEY || METALS_API_KEY === 'demo' || METALS_API_KEY === '') {
-    console.warn('Metals API key not configured. Using fallback data.');
-    return getFallbackMetalsData(currency);
-  }
-
   try {
-    const symbols = Object.keys(METAL_CONFIG).join(',');
-    const url = `https://metals-api.com/api/latest?access_key=${METALS_API_KEY}&base=${currency}&symbols=${symbols}`;
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    const url = `${baseUrl}/api/metals?currency=${currency}`;
     
-    console.log('Fetching real-time metals data from Metals-API:', url.replace(METALS_API_KEY, '***'));
+    console.log('Fetching real-time metals data from backend:', url);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -86,50 +81,31 @@ const fetchMetalsData = async (currency: string): Promise<MetalPrice[]> => {
     });
     
     if (!response.ok) {
-      throw new Error(`Metals-API HTTP error: ${response.status} ${response.statusText}`);
+      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
     
-    if (data.error) {
-      throw new Error(`Metals-API error: ${data.error.info || data.error.message}`);
+    if (!data.rates || data.rates.length === 0) {
+      throw new Error('No metals data received from backend');
     }
     
-    // Convert Metals API response to our format
-    const metals: MetalPrice[] = [];
-    
-    for (const [symbol, config] of Object.entries(METAL_CONFIG)) {
-      const rate = data.rates[symbol];
-      if (rate) {
-        // Metals API returns rates as 1 currency = X metal units, so we invert
-        const price = 1 / rate;
-        
-        // For change data, we'd need historical data which might exceed free tier limits
-        // For now, we'll use mock change data or fetch from another source
-        const changePercent24h = (Math.random() - 0.5) * 4; // Random change between -2% and +2%
-        const change24h = price * (changePercent24h / 100);
-        
-        metals.push({
-          symbol,
-          name: config.name,
-          price,
-          currency,
-          change24h,
-          changePercent24h,
-          lastUpdated: new Date(),
-          source: 'Metals-API'
-        });
-      }
-    }
-    
-    if (metals.length === 0) {
-      throw new Error('No metals data received from Metals-API');
-    }
+    // Parse the backend response into our expected format
+    const metals: MetalPrice[] = data.rates.map((rate: any) => ({
+      symbol: rate.symbol,
+      name: rate.name,
+      price: rate.price,
+      currency: rate.currency,
+      change24h: rate.change24h,
+      changePercent24h: rate.changePercent24h,
+      lastUpdated: new Date(rate.lastUpdated),
+      source: rate.source
+    }));
     
     console.log('Successfully fetched real-time metals data:', metals.length, 'metals');
     return metals;
   } catch (error) {
-    console.error('Error fetching metals data from Metals-API:', error);
+    console.error('Error fetching metals data from backend:', error);
     throw error;
   }
 };

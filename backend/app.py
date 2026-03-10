@@ -592,8 +592,6 @@ market_icons = {
     "Swedish": "🇸🇪", "Norwegian": "🇳🇴", "Danish": "🇩🇰", "Finnish": "🇫🇮",
     "Israeli": "🇮🇱", "New Zealand": "🇳🇿", "South African": "🇿🇦"
 }
-
-# Simple rate limiter
 class RateLimiter:
     def __init__(self, max_requests=10, time_window=60):
         self.max_requests = max_requests
@@ -627,6 +625,28 @@ load_dotenv()
 # Initialize FastAPI app
 app = FastAPI(title="StockSeer API", version="1.0.0")
 
+# --- BACKGROUND NEWS SCHEDULER & DB INIT ---
+try:
+    from database import engine, Base, SQLALCHEMY_AVAILABLE
+    from news_worker import start_news_scheduler
+    _DB_AVAILABLE = SQLALCHEMY_AVAILABLE
+except ImportError:
+    _DB_AVAILABLE = False
+    print("[WARNING] Database imports failed. News system will be disabled.")
+
+@app.on_event("startup")
+async def startup_event():
+    if _DB_AVAILABLE and engine is not None and Base is not None:
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            start_news_scheduler()
+        except Exception as e:
+            print(f"[WARNING] Could not start news DB/scheduler: {e}")
+
+from ml_pipeline.router import router as ml_router
+app.include_router(ml_router)
+
 _live_research_notes_store = {}
 _live_analysis_reports_store = {}
 
@@ -635,6 +655,72 @@ def _ensure_user_stores(user_id: str):
         _live_research_notes_store[user_id] = []
     if user_id not in _live_analysis_reports_store:
         _live_analysis_reports_store[user_id] = []
+
+@app.get("/api/metals")
+async def get_metals(currency: str = 'USD'):
+    """Fetch live precious metals data using yfinance (no API key required)"""
+    try:
+        # yfinance tickers for metals
+        metal_tickers = {
+            'XAU': {'symbol': 'GC=F', 'name': 'Gold'},
+            'XAG': {'symbol': 'SI=F', 'name': 'Silver'},
+            'XPT': {'symbol': 'PL=F', 'name': 'Platinum'},
+            'XPD': {'symbol': 'PA=F', 'name': 'Palladium'}
+        }
+        
+        # Country exchange rates (approximate fallbacks if currency conversion needed)
+        exchange_rates = {
+            'USD': 1.0, 'INR': 83.5, 'EUR': 0.92, 'GBP': 0.79,
+            'JPY': 150.0, 'AUD': 1.52, 'CAD': 1.36, 'CNY': 7.25
+        }
+        
+        rate = exchange_rates.get(currency.upper(), 1.0)
+        results = []
+        
+        for code, info in metal_tickers.items():
+            ticker = yf.Ticker(info['symbol'])
+            # Fetch last 2 days to get current price and calculate 24h change
+            hist = ticker.history(period="2d")
+            
+            if len(hist) > 0:
+                current_price = float(hist['Close'].iloc[-1])
+                
+                # Calculate 24h change
+                change24h = 0.0
+                changePercent24h = 0.0
+                if len(hist) >= 2:
+                    prev_close = float(hist['Close'].iloc[-2])
+                    change24h = current_price - prev_close
+                    changePercent24h = (change24h / prev_close) * 100
+                
+                # Convert to Kilograms (1 kg = 32.1507 troy ounces)
+                kg_multiplier = 32.1507
+                current_price_kg = current_price * kg_multiplier
+                change24h_kg = change24h * kg_multiplier
+                
+                # Convert to requested currency
+                converted_price = current_price_kg * rate
+                converted_change = change24h_kg * rate
+                
+                results.append({
+                    "symbol": code,
+                    "name": f"{info['name']} (per kg)",
+                    "price": converted_price,
+                    "currency": currency.upper(),
+                    "change24h": converted_change,
+                    "changePercent24h": changePercent24h,
+                    "lastUpdated": datetime.now().isoformat(),
+                    "source": "Yahoo Finance (Scraped)"
+                })
+        
+        if not results:
+            raise HTTPException(status_code=500, detail="Failed to fetch metals data")
+            
+        return {"rates": results}
+        
+    except Exception as e:
+        print(f"Error fetching metals: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/live-research-notes/{user_id}")
 async def get_live_research_notes(user_id: str):
@@ -3439,92 +3525,76 @@ async def get_technical_indicators(symbol: str, period: str = "1y"):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/stocks/{symbol}/news")
-async def get_stock_news_endpoint(symbol: str, max_articles: int = 8, user_subscription: dict = Depends(get_user_subscription_from_headers)):
-    """Get comprehensive news for a stock from multiple sources with sentiment analysis"""
+async def get_stock_news_endpoint(symbol: str, max_articles: int = 15, user_subscription: dict = Depends(get_user_subscription_from_headers)):
+    """Get comprehensive news for a stock instantly from the background SQLite engine."""
     try:
+        ticker = symbol.upper()
+        
         # Determine market from symbol and validate access
         market = get_market_from_symbol(symbol)
         validate_market_access(market, user_subscription)
-        ticker = symbol.upper()
         
-        # Get news from multiple sources
         news_by_source = {}
         error_messages = {}
-        
-        # 1. NewsAPI
-        if os.getenv("NEWS_API_KEY"):
-            try:
-                news_items_api, error_message_api = get_stock_news_from_newsapi(ticker)
-                if news_items_api:
-                    news_by_source['NewsAPI'] = news_items_api
-                if error_message_api:
-                    error_messages['NewsAPI'] = error_message_api
-            except Exception as e:
-                error_messages['NewsAPI'] = f"NewsAPI error: {str(e)}"
-        
-        # 2. Yahoo Finance
-        try:
-            scraped_yfinance_items, yfinance_error = scrape_yahoo_finance_news(ticker)
-            if scraped_yfinance_items:
-                news_by_source['Yahoo Finance'] = scraped_yfinance_items
-            if yfinance_error:
-                error_messages['Yahoo Finance'] = yfinance_error
-        except Exception as e:
-            error_messages['Yahoo Finance'] = f"Yahoo Finance error: {str(e)}"
-        
-        # 3. Google News
-        try:
-            scraped_gnews_items, gnews_error = scrape_google_news(ticker)
-            if scraped_gnews_items:
-                news_by_source['Google News'] = scraped_gnews_items
-            if gnews_error:
-                error_messages['Google News'] = gnews_error
-        except Exception as e:
-            error_messages['Google News'] = f"Google News error: {str(e)}"
-
-        # 4. RSS via feedparser (utilize get_stock_news_feedparser import)
-        try:
-            rss_entries, rss_error = get_stock_news_feedparser(ticker)
-            if rss_entries:
-                news_by_source['RSS'] = rss_entries
-            if rss_error:
-                error_messages['RSS'] = rss_error
-        except Exception as e:
-            error_messages['RSS'] = f"RSS error: {str(e)}"
-        
-        # Calculate overall sentiment
         overall_sentiment_score = 0.0
         total_articles = 0
         
-        for source, articles in news_by_source.items():
-            for article in articles:
-                sentiment = article.get('vader_sentiment', {})
-                sentiment_score = sentiment.get('compound', 0)
-                overall_sentiment_score += sentiment_score
-                total_articles += 1
+        from database import AsyncSessionLocal
+        from models import NewsArticle
+        from sqlalchemy import select
         
+        async with AsyncSessionLocal() as session:
+            # Query articles where related_tickers string contains the EXACT ticker
+            stmt = select(NewsArticle).where(NewsArticle.related_tickers.like(f"%'{ticker}'%")).order_by(NewsArticle.published_at.desc()).limit(max_articles)
+            result = await session.execute(stmt)
+            articles = result.scalars().all()
+            
+            for article in articles:
+                source = article.source
+                if source not in news_by_source:
+                    news_by_source[source] = []
+                    
+                # Format to match legacy frontend expectations
+                news_by_source[source].append({
+                    "title": article.title,
+                    "link": article.url,
+                    "published": article.published_at.isoformat() if article.published_at else "",
+                    "summary": article.summary,
+                    "source": article.source,
+                    "sentiment_score": article.sentiment_score or 0.0,
+                    "sentiment_label": article.sentiment_label or "neutral"
+                })
+                
+                overall_sentiment_score += (article.sentiment_score or 0.0)
+                total_articles += 1
+
         if total_articles > 0:
             overall_sentiment_score = overall_sentiment_score / total_articles
-        
-        # Get fallback news if no sources worked
-        if not news_by_source:
-            fallback_news = get_stock_news(ticker, max_articles)
-            news_by_source['Fallback'] = fallback_news
-        
-        # Add sentiment scores to each article
-        for source, articles in news_by_source.items():
-            for article in articles:
-                sentiment = article.get('vader_sentiment', {})
-                sentiment_score = sentiment.get('compound', 0)
-                article['sentiment_score'] = round(sentiment_score, 3)
-                article['sentiment_label'] = "positive" if sentiment_score > 0.05 else "negative" if sentiment_score < -0.05 else "neutral"
+            
+        # Fallback to general market news if no ticker-specific news found
+        if total_articles == 0:
+            async with AsyncSessionLocal() as session:
+                stmt = select(NewsArticle).where(NewsArticle.category == 'market_news').order_by(NewsArticle.published_at.desc()).limit(10)
+                result = await session.execute(stmt)
+                fallback_articles = result.scalars().all()
+                if fallback_articles:
+                    news_by_source['General Market'] = [{
+                        "title": a.title,
+                        "link": a.url,
+                        "published": a.published_at.isoformat() if a.published_at else "",
+                        "summary": a.summary,
+                        "source": a.source,
+                        "sentiment_score": a.sentiment_score or 0.0,
+                        "sentiment_label": a.sentiment_label or "neutral"
+                    } for a in fallback_articles]
+                    total_articles = len(fallback_articles)
         
         return {
             "symbol": ticker,
             "news_by_source": news_by_source,
             "overall_sentiment_score": round(overall_sentiment_score, 3),
             "overall_sentiment_label": "positive" if overall_sentiment_score > 0.05 else "negative" if overall_sentiment_score < -0.05 else "neutral",
-            "total_articles": sum(len(articles) for articles in news_by_source.values()),
+            "total_articles": total_articles,
             "error_messages": error_messages,
             "sources_available": list(news_by_source.keys()),
             "sentiment_summary": {
@@ -3533,6 +3603,34 @@ async def get_stock_news_endpoint(symbol: str, max_articles: int = 8, user_subsc
                 "strength": "strong" if abs(overall_sentiment_score) > 0.5 else "moderate" if abs(overall_sentiment_score) > 0.1 else "weak"
             }
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/news/market")
+async def get_market_news(max_articles: int = 50):
+    """Instantly fetches the latest global market news from the background SQLite engine."""
+    try:
+        from database import AsyncSessionLocal
+        from models import NewsArticle
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as session:
+            stmt = select(NewsArticle).where(NewsArticle.category == 'market_news').order_by(NewsArticle.published_at.desc()).limit(max_articles)
+            result = await session.execute(stmt)
+            articles = result.scalars().all()
+            
+            payload = []
+            for a in articles:
+                payload.append({
+                    "title": a.title,
+                    "link": a.url,
+                    "published": a.published_at.isoformat() if a.published_at else "",
+                    "summary": a.summary,
+                    "source": a.source,
+                    "sentiment_score": a.sentiment_score or 0.0,
+                    "sentiment_label": a.sentiment_label or "neutral"
+                })
+        return {"market_news": payload}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -4450,46 +4548,14 @@ async def get_news_sentiment_for_trading(symbol: str):
 
 @app.get("/stocks/{symbol}/news/sentiment/scores")
 async def get_news_sentiment_scores(symbol: str):
-    """Get detailed sentiment scores for news articles in a clear, readable format"""
+    """Get detailed sentiment scores for news articles instantly from the SQLite engine"""
     try:
         ticker = symbol.upper()
         
-        # Get news from multiple sources
-        news_by_source = {}
-        error_messages = {}
+        from database import AsyncSessionLocal
+        from models import NewsArticle
+        from sqlalchemy import select
         
-        # 1. NewsAPI
-        if os.getenv("NEWS_API_KEY"):
-            try:
-                news_items_api, error_message_api = get_stock_news_from_newsapi(ticker)
-                if news_items_api:
-                    news_by_source['NewsAPI'] = news_items_api
-                if error_message_api:
-                    error_messages['NewsAPI'] = error_message_api
-            except Exception as e:
-                error_messages['NewsAPI'] = f"NewsAPI error: {str(e)}"
-        
-        # 2. Yahoo Finance
-        try:
-            scraped_yfinance_items, yfinance_error = scrape_yahoo_finance_news(ticker)
-            if scraped_yfinance_items:
-                news_by_source['Yahoo Finance'] = scraped_yfinance_items
-            if yfinance_error:
-                error_messages['Yahoo Finance'] = yfinance_error
-        except Exception as e:
-            error_messages['Yahoo Finance'] = f"Yahoo Finance error: {str(e)}"
-        
-        # 3. Google News
-        try:
-            scraped_gnews_items, gnews_error = scrape_google_news(ticker)
-            if scraped_gnews_items:
-                news_by_source['Google News'] = scraped_gnews_items
-            if gnews_error:
-                error_messages['Google News'] = gnews_error
-        except Exception as e:
-            error_messages['Google News'] = f"Google News error: {str(e)}"
-        
-        # Calculate overall sentiment and detailed breakdown
         overall_sentiment_score = 0.0
         total_articles = 0
         sentiment_breakdown = {
@@ -4498,16 +4564,22 @@ async def get_news_sentiment_scores(symbol: str):
             'neutral': 0
         }
         
-        # Process each article and add detailed sentiment scores
         processed_articles = []
+        news_by_source = {}
+        error_messages = {}
         
-        for source, articles in news_by_source.items():
+        async with AsyncSessionLocal() as session:
+            stmt = select(NewsArticle).where(NewsArticle.related_tickers.like(f"%'{ticker}'%")).order_by(NewsArticle.published_at.desc()).limit(20)
+            result = await session.execute(stmt)
+            articles = result.scalars().all()
+            
             for article in articles:
-                sentiment = article.get('vader_sentiment', {})
-                sentiment_score = sentiment.get('compound', 0)
-                positive_score = sentiment.get('pos', 0)
-                negative_score = sentiment.get('neg', 0)
-                neutral_score = sentiment.get('neu', 0)
+                source = article.source
+                if source not in news_by_source:
+                    news_by_source[source] = []
+                news_by_source[source].append(article.title)
+                
+                sentiment_score = article.sentiment_score or 0.0
                 
                 overall_sentiment_score += sentiment_score
                 total_articles += 1
@@ -4522,17 +4594,17 @@ async def get_news_sentiment_scores(symbol: str):
                 
                 # Create detailed article with sentiment scores
                 processed_article = {
-                    "title": article.get('title', 'N/A'),
+                    "title": article.title,
                     "source": source,
-                    "url": article.get('url') or article.get('link', '#'),
-                    "published": article.get('publishedAt') or article.get('published', 'N/A'),
+                    "url": article.url,
+                    "published": article.published_at.isoformat() if article.published_at else "",
                     "sentiment_scores": {
                         "compound": round(sentiment_score, 3),
-                        "positive": round(positive_score, 3),
-                        "negative": round(negative_score, 3),
-                        "neutral": round(neutral_score, 3)
+                        "positive": round((sentiment_score + 1) / 2, 3) if sentiment_score > 0 else 0,
+                        "negative": round((abs(sentiment_score) + 1) / 2, 3) if sentiment_score < 0 else 0,
+                        "neutral": 1.0 - abs(sentiment_score)
                     },
-                    "sentiment_label": "positive" if sentiment_score > 0.05 else "negative" if sentiment_score < -0.05 else "neutral",
+                    "sentiment_label": article.sentiment_label or "neutral",
                     "sentiment_strength": "strong" if abs(sentiment_score) > 0.5 else "moderate" if abs(sentiment_score) > 0.1 else "weak",
                     "confidence": round(abs(sentiment_score), 3)
                 }
