@@ -8,6 +8,7 @@ import numpy_financial as npf
 from transformers import pipeline
 import requests
 from bs4 import BeautifulSoup
+import asyncio
 from urllib.parse import quote_plus, urlparse
 import os
 from dotenv import load_dotenv
@@ -598,7 +599,7 @@ market_icons = {
     "Israeli": "🇮🇱", "New Zealand": "🇳🇿", "South African": "🇿🇦"
 }
 class RateLimiter:
-    def __init__(self, max_requests=10, time_window=60):
+    def __init__(self, max_requests=30, time_window=60):
         self.max_requests = max_requests
         self.time_window = time_window
         self.requests = []
@@ -610,15 +611,15 @@ class RateLimiter:
                         if now - req_time < timedelta(seconds=self.time_window)]
         
         if len(self.requests) >= self.max_requests:
-            # Wait until we can make another request
-            oldest_request = min(self.requests)
-            wait_time = self.time_window - (now - oldest_request).seconds + 1
-            time.sleep(wait_time)
+            # Instead of sleeping and blocking the event loop, raise a 429
+            # or return False so the handler can raise it.
+            return False
         
         self.requests.append(now)
+        return True
 
 # Global rate limiter instance
-rate_limiter = RateLimiter(max_requests=8, time_window=60)  # 8 requests per minute
+rate_limiter = RateLimiter(max_requests=30, time_window=60)  # Increased limit
 
 # Simple cache for stock info to reduce API calls
 stock_cache = {}
@@ -3405,7 +3406,8 @@ async def get_stock_data(symbol: str, user_subscription: dict = Depends(get_user
         validate_market_access(market, user_subscription)
         
         # Apply rate limiting
-        rate_limiter.acquire()
+        if not rate_limiter.acquire():
+            raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
         
         # Run synchronous stock info fetching in thread pool for better performance
         data = await run_in_threadpool(get_stock_info, symbol.upper())
@@ -3552,17 +3554,43 @@ async def get_stock_news_endpoint(symbol: str, max_articles: int = 15, user_subs
         from sqlalchemy import select
         
         async with AsyncSessionLocal() as session:
+            # Get company name first for better relevance checking
+            company_name = ticker # default
+            try:
+                stock = await asyncio.to_thread(yf.Ticker, ticker)
+                stock_info = await asyncio.to_thread(lambda: stock.info)
+                company_name = stock_info.get('longName') or stock_info.get('shortName') or ticker
+            except:
+                pass
+
             # Query articles where related_tickers string contains the EXACT ticker
-            stmt = select(NewsArticle).where(NewsArticle.related_tickers.like(f"%'{ticker}'%")).order_by(NewsArticle.published_at.desc()).limit(max_articles)
+            stmt = select(NewsArticle).where(NewsArticle.related_tickers.like(f"%'{ticker}'%")).order_by(NewsArticle.published_at.desc()).limit(30) # Get more then filter
             result = await session.execute(stmt)
             articles = result.scalars().all()
             
+            ticker_base = ticker.split('.')[0].lower()
+            company_base = company_name.split(' ')[0].lower() if company_name else ticker_base
+
             for article in articles:
+                # Relevance check: Does ticker or company name appear in title/summary?
+                text_content = f"{article.title} {article.summary}".lower()
+                is_relevant = (ticker_base in text_content or 
+                               ticker.lower() in text_content or 
+                               company_base in text_content)
+                
+                if not is_relevant:
+                    continue
+
                 source = article.source
                 if source not in news_by_source:
                     news_by_source[source] = []
                     
-                # Format to match legacy frontend expectations
+                # Map Bullish/Bearish to positive/negative for frontend consistency
+                label = article.sentiment_label or "neutral"
+                if label == "Bullish": label = "positive"
+                elif label == "Bearish": label = "negative"
+                elif label.lower() == "neutral": label = "neutral"
+
                 news_by_source[source].append({
                     "title": article.title,
                     "link": article.url,
@@ -3570,33 +3598,80 @@ async def get_stock_news_endpoint(symbol: str, max_articles: int = 15, user_subs
                     "summary": article.summary,
                     "source": article.source,
                     "sentiment_score": article.sentiment_score or 0.0,
-                    "sentiment_label": article.sentiment_label or "neutral"
+                    "sentiment_label": label
                 })
                 
                 overall_sentiment_score += (article.sentiment_score or 0.0)
                 total_articles += 1
 
+        # Real-time fetch if no specific news found in DB or not enough articles
+        if total_articles < 5:
+            try:
+                # Perform concurrent scraping
+                scrape_results = await asyncio.gather(
+                    scrape_yahoo_finance_news(ticker),
+                    scrape_google_news(ticker),
+                    scrape_google_news(f"{company_name} news") if company_name != ticker else asyncio.sleep(0, [])
+                )
+                
+                all_scraped = []
+                for news_list, err in scrape_results:
+                    if news_list and isinstance(news_list, list):
+                        all_scraped.extend(news_list)
+                
+                if all_scraped:
+                    # Filter out duplicates and non-relevant ones
+                    unique_scraped = []
+                    seen_titles = set(a['title'].lower() for source_list in news_by_source.values() for a in source_list)
+                    seen_urls = set(a['link'] for source_list in news_by_source.values() for a in source_list)
+                    
+                    ticker_base = ticker.split('.')[0].lower()
+                    
+                    for item in all_scraped:
+                        title_lower = item['title'].lower()
+                        summary_lower = (item.get('description') or "").lower()
+                        full_txt = f"{title_lower} {summary_lower}"
+                        
+                        # Better relevance check for scraped items
+                        rel = (ticker_base in full_txt or ticker.lower() in full_txt or company_base in full_txt)
+                        
+                        if rel and title_lower not in seen_titles and item['url'] not in seen_urls:
+                            unique_scraped.append(item)
+                            seen_titles.add(title_lower)
+                            seen_urls.add(item['url'])
+                    
+                    if unique_scraped:
+                        # Limit to top relevant items
+                        unique_scraped = unique_scraped[:10]
+                        # Analyze sentiment
+                        unique_scraped = await add_sentiment_to_news_items(unique_scraped)
+                        
+                        for item in unique_scraped:
+                            source = item.get('source', 'Web Search')
+                            if source not in news_by_source:
+                                news_by_source[source] = []
+                            
+                            # add_sentiment returns lowercase label
+                            label = item.get('sentiment', 'neutral')
+                                
+                            news_by_source[source].append({
+                                "title": item['title'],
+                                "link": item['url'],
+                                "published": item.get('publishedAt', datetime.now().isoformat()),
+                                "summary": item.get('description') or item['title'],
+                                "source": source,
+                                "sentiment_score": item.get('sentiment_score', 0.0),
+                                "sentiment_label": label
+                            })
+                            overall_sentiment_score += item.get('sentiment_score', 0.0)
+                            total_articles += 1
+            except Exception as scrape_err:
+                print(f"Real-time news scrape error for {ticker}: {scrape_err}")
+                error_messages["scraping"] = str(scrape_err)
+
         if total_articles > 0:
             overall_sentiment_score = overall_sentiment_score / total_articles
             
-        # Fallback to general market news if no ticker-specific news found
-        if total_articles == 0:
-            async with AsyncSessionLocal() as session:
-                stmt = select(NewsArticle).where(NewsArticle.category == 'market_news').order_by(NewsArticle.published_at.desc()).limit(10)
-                result = await session.execute(stmt)
-                fallback_articles = result.scalars().all()
-                if fallback_articles:
-                    news_by_source['General Market'] = [{
-                        "title": a.title,
-                        "link": a.url,
-                        "published": a.published_at.isoformat() if a.published_at else "",
-                        "summary": a.summary,
-                        "source": a.source,
-                        "sentiment_score": a.sentiment_score or 0.0,
-                        "sentiment_label": a.sentiment_label or "neutral"
-                    } for a in fallback_articles]
-                    total_articles = len(fallback_articles)
-        
         return {
             "symbol": ticker,
             "news_by_source": news_by_source,
@@ -5135,7 +5210,8 @@ async def get_company_info(symbol: str):
     """Get comprehensive company information (similar to main app.py)"""
     try:
         # Apply rate limiting
-        rate_limiter.acquire()
+        if not rate_limiter.acquire():
+            raise HTTPException(status_code=429, detail="Rate limit exceeded. Please wait a moment.")
         
         # Get comprehensive company information using the same function as main app.py
         description, sector, industry, market_cap, exchange, info_dict, financials_df, earnings_df, analyst_recs_df, analyst_price_target_dict, company_officers_list = get_about_stock_info(symbol.upper())
@@ -6262,4 +6338,13 @@ async def sell_dummy_stock(user_id: str, sell_data: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    # Fetch port from environment variable (assigned by hosting providers like Render)
+    # Default to 5000 for local development
+    port = int(os.environ.get("PORT", 5000))
+    
+    print(f"Starting server on port {port}...")
+    
+    # Run uvicorn server
+    # Use host="0.0.0.0" to make the server reachable externally in production
+    uvicorn.run(app, host="0.0.0.0", port=port)

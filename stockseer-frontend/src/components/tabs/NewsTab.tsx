@@ -74,7 +74,7 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
         url: item.url || item.link || '#',
         publishedAt: item.publishedAt || item.published || new Date().toISOString(),
         source: item.source || item.publisher || 'Unknown Source',
-        sentiment: item.sentiment || 'neutral'
+        sentiment: item.sentiment_label || item.sentiment || 'neutral'
       }));
       
       setNews(transformedNews);
@@ -289,7 +289,7 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       {filteredNews.length === 0 && (
         <div className="text-center py-12 text-slate-400">
           <Newspaper className="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <p>No news found matching your criteria</p>
+          <p className="text-sm sm:text-base">No recent news available for this stock.</p>
         </div>
       )}
     </div>

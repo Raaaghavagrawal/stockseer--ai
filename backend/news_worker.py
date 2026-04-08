@@ -69,10 +69,22 @@ def analyze_article(entry, source_name: str):
     label = "Bullish" if compound >= 0.05 else "Bearish" if compound <= -0.05 else "Neutral"
 
     found_tickers = []
+    
+    # Check for hardcoded map keywords first (high precision)
     for keyword, ticker in TICKER_MAP.items():
         if keyword.lower() in text_to_analyze.lower():
             if ticker not in found_tickers:
                 found_tickers.append(ticker)
+    
+    # Also look for uppercase tickers surrounded by boundaries (e.g., " MRF ")
+    # This helps catch tickers not in the hardcoded map
+    import re
+    for ticker_symbol in TICKER_MAP.values():
+        clean_ticker = ticker_symbol.split('.')[0] # Get base symbol like 'MRF'
+        pattern = rf'\b{re.escape(clean_ticker)}\b'
+        if re.search(pattern, text_to_analyze):
+            if ticker_symbol not in found_tickers:
+                found_tickers.append(ticker_symbol)
 
     category = "market_news"
     if found_tickers:
