@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { TrendingUp, TrendingDown, Plus, Minus, BarChart3, LineChart, BarChart, DollarSign, Coins } from 'lucide-react';
 import type { StockData, StockChartData, StockPrediction } from '../../types/stock';
-import { formatPrice, formatChange, formatChangePercent } from '../../utils/currency';
+import { formatPrice, formatChange, formatChangePercent, getCurrencyInfo } from '../../utils/currency';
 import { useDummyAccount } from '../../contexts/DummyAccountContext';
 import InvestmentModal from '../InvestmentModal';
 import CandlestickChart from '../CandlestickChart';
+import { stockAPI } from '../../utils/api';
 import { predictionsAPI } from '../../utils/api';
 import {
   Chart as ChartJS,
@@ -55,6 +56,40 @@ export default function DummyOverviewTab({
   const [showHistoricalData, setShowHistoricalData] = useState(false);
   const [prediction, setPrediction] = useState<StockPrediction | null>(null);
   const [loadingPrediction, setLoadingPrediction] = useState(false);
+
+  const [activeChartData, setActiveChartData] = useState<StockChartData[]>(chartData);
+  const [isLoadingChart, setIsLoadingChart] = useState(false);
+  
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPeriodData = async () => {
+      if (!stockData?.symbol) return;
+      
+      const isCustomPeriod = chartPeriod === '1D' || chartPeriod === '1W';
+      
+      if (!isCustomPeriod) {
+        if (isMounted) setActiveChartData(chartData);
+        return;
+      }
+      
+      if (isMounted) setIsLoadingChart(true);
+      try {
+        const period = chartPeriod === '1D' ? '1d' : '5d';
+        const interval = chartPeriod === '1D' ? '5m' : '15m'; // 1W uses 15m intervals for better fidelity! (Yahoo Finance default allows this)
+        
+        const data = await stockAPI.getStockChartData(stockData.symbol, period, interval);
+        if (isMounted) setActiveChartData(data);
+      } catch (error) {
+        console.error('Error fetching period data:', error);
+        if (isMounted) setActiveChartData(chartData); // Fallback to daily data
+      } finally {
+        if (isMounted) setIsLoadingChart(false);
+      }
+    };
+    
+    fetchPeriodData();
+    return () => { isMounted = false; };
+  }, [chartPeriod, stockData?.symbol, chartData]);
   
   // Zoom state for both charts
   const [zoomState, setZoomState] = useState({
@@ -85,35 +120,48 @@ export default function DummyOverviewTab({
     });
   };
 
+  const formatChartLabel = (dateStr: string, period: string) => {
+    const d = new Date(dateStr);
+    if (period === '1D') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (period === '1W' || period === '1M') return d.toLocaleDateString([], { day: '2-digit', month: 'short' });
+    return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
+  };
+
+  const getFilteredData = () => {
+    if (!activeChartData || activeChartData.length === 0) return [];
+    if (zoomState.isZoomed && zoomState.originalData) {
+      return zoomState.originalData.slice(zoomState.startIndex, zoomState.endIndex + 1);
+    }
+    
+    // Strict date-based filtering
+    const latestDate = new Date(activeChartData[activeChartData.length - 1].date);
+    const cutoff = new Date(latestDate);
+    
+    if (chartPeriod === '1D' || chartPeriod === '1W') {
+      // 1D and 1W fetched exactly from API with intraday accuracy, return directly
+      return activeChartData;
+    } else if (chartPeriod === '1M') {
+      cutoff.setDate(cutoff.getDate() - 30);
+    } else if (chartPeriod === '3M') {
+      cutoff.setDate(cutoff.getDate() - 90);
+    } else if (chartPeriod === '1Y') {
+      cutoff.setFullYear(cutoff.getFullYear() - 1);
+    }
+    
+    return activeChartData.filter(item => new Date(item.date) >= cutoff);
+  };
+
   // Process chart data for Chart.js
   const processedChartData = useMemo(() => {
-    if (!chartData || chartData.length === 0) return null;
-
-    let dataToProcess = chartData;
-    
-    // Apply zoom if active
-    if (zoomState.isZoomed && zoomState.originalData) {
-      dataToProcess = zoomState.originalData.slice(zoomState.startIndex, zoomState.endIndex + 1);
-    } else {
-      // Map period to actual data range
-      const periodMap: { [key: string]: number } = {
-        '1D': chartData.length, // Show all intraday data
-        '1W': 168, // 7 days * 24 hours
-        '1M': 30,
-        '3M': 90,
-        '1Y': 365
-      };
-
-      const maxPoints = periodMap[chartPeriod] || 365;
-      dataToProcess = chartData.slice(-maxPoints);
-    }
+    const filteredData = getFilteredData();
+    if (!filteredData.length) return null;
 
     return {
-      labels: dataToProcess.map(item => item.date),
+      labels: filteredData.map(item => formatChartLabel(item.date, chartPeriod)),
       datasets: [
         {
           label: 'Close Price',
-          data: dataToProcess.map(item => item.close),
+          data: filteredData.map(item => item.close),
           borderColor: 'rgb(59, 130, 246)',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
           borderWidth: 2,
@@ -122,34 +170,13 @@ export default function DummyOverviewTab({
         }
       ]
     };
-  }, [chartData, chartPeriod, zoomState]);
+  }, [activeChartData, chartPeriod, zoomState]);
 
   // Process candlestick data for custom rendering
   const candlestickData = useMemo(() => {
-    if (!chartData || chartData.length === 0) return null;
-
-    let dataToProcess = chartData;
-    
-    // Apply zoom if active
-    if (zoomState.isZoomed && zoomState.originalData) {
-      dataToProcess = zoomState.originalData.slice(zoomState.startIndex, zoomState.endIndex + 1);
-    } else {
-      // For intraday data (1D), show all data points
-      // For other periods, limit based on period
-      const periodMap: { [key: string]: number } = {
-        '1D': chartData.length, // Show all intraday data
-        '1W': 168, // 7 days * 24 hours
-        '1M': 30,
-        '3M': 90,
-        '1Y': 365
-      };
-
-      const maxPoints = periodMap[chartPeriod] || 365;
-      dataToProcess = chartData.slice(-maxPoints);
-    }
-
-    return dataToProcess;
-  }, [chartData, chartPeriod, zoomState]);
+    const filteredData = getFilteredData();
+    return filteredData.length > 0 ? filteredData : null;
+  }, [activeChartData, chartPeriod, zoomState]);
 
   if (!stockData) {
     return (
@@ -229,13 +256,6 @@ export default function DummyOverviewTab({
                 title="Invest in this stock"
               >
                 <Plus className="w-4 h-4 text-white" />
-              </button>
-              {/* Watchlist Button */}
-              <button
-                onClick={() => isInWatchlist ? onRemoveFromWatchlist(stockData.symbol) : onAddToWatchlist(stockData.symbol)}
-                className={`p-2 sm:p-3 rounded-lg transition-all duration-200 ${isInWatchlist ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-              >
-                {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
               </button>
             </div>
           </div>
@@ -324,7 +344,7 @@ export default function DummyOverviewTab({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Market Cap</div>
-          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">${stockData.marketCap ? (stockData.marketCap / 1e9).toFixed(2) : 'N/A'}B</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.marketCap ? `${getCurrencyInfo(stockData.currency || 'USD').symbol}${(stockData.marketCap / 1e9).toFixed(2)}B` : 'N/A'}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Volume</div>
@@ -336,7 +356,7 @@ export default function DummyOverviewTab({
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">52W High</div>
-          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">${stockData.high?.toFixed(2)}</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.high ? formatPrice(stockData.high, stockData.currency || 'USD') : 'N/A'}</div>
         </div>
       </div>
 
@@ -487,8 +507,8 @@ export default function DummyOverviewTab({
                         const endIndex = Math.min(dataLength - 1, startIndex + zoomRange - 1);
                         
                         // Find the actual indices in the original data
-                        const originalStartIndex = chartData.length - dataLength + startIndex;
-                        const originalEndIndex = chartData.length - dataLength + endIndex;
+                        const originalStartIndex = activeChartData.length - dataLength + startIndex;
+                        const originalEndIndex = activeChartData.length - dataLength + endIndex;
                         
                         handleZoom(originalStartIndex, originalEndIndex);
                       }
@@ -504,8 +524,8 @@ export default function DummyOverviewTab({
                   stockData={stockData}
                   onZoom={(startIndex, endIndex) => {
                     // Find the actual indices in the original data
-                    const originalStartIndex = chartData.length - candlestickData.length + startIndex;
-                    const originalEndIndex = chartData.length - candlestickData.length + endIndex;
+                    const originalStartIndex = activeChartData.length - candlestickData.length + startIndex;
+                    const originalEndIndex = activeChartData.length - candlestickData.length + endIndex;
                     handleZoom(originalStartIndex, originalEndIndex);
                   }}
                   zoomState={zoomState}
@@ -553,10 +573,10 @@ export default function DummyOverviewTab({
                     {chartData.slice(-10).map((item, index) => (
                       <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
                         <td className="py-2 text-gray-700 dark:text-gray-300">{item.date}</td>
-                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">${item.open.toFixed(2)}</td>
-                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">${item.high.toFixed(2)}</td>
-                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">${item.low.toFixed(2)}</td>
-                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">${item.close.toFixed(2)}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">{formatPrice(item.open, stockData.currency)}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">{formatPrice(item.high, stockData.currency)}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">{formatPrice(item.low, stockData.currency)}</td>
+                        <td className="py-2 text-right text-gray-700 dark:text-gray-300">{formatPrice(item.close, stockData.currency)}</td>
                         <td className="py-2 text-right text-gray-700 dark:text-gray-300">{(item.volume / 1e6).toFixed(1)}M</td>
                       </tr>
                     ))}

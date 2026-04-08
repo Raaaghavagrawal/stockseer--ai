@@ -29,11 +29,8 @@ async function requestWithRetry(fn: () => any, maxRetries = 3, baseDelayMs = 300
   throw lastError;
 }
 
-// Currency detection function
 function detectCurrencyFromSymbol(symbol: string): string {
   const symbolUpper = symbol.toUpperCase();
-  
-  // Indian stocks (NSE/BSE)
   if (symbolUpper.endsWith('.NS') || symbolUpper.endsWith('.BO')) {
     return 'INR';
   }

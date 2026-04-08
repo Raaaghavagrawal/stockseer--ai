@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-  import { Building2, Users, Globe, TrendingUp, Calendar, DollarSign, BarChart3, MapPin } from 'lucide-react';
+import { Building2, Users, Globe, TrendingUp, Calendar, DollarSign, BarChart3, MapPin } from 'lucide-react';
 import type { StockData } from '../../types/stock';
+import { getCurrencyInfo } from '../../utils/currency';
 
 interface AboutCompanyTabProps {
   selectedStock: string;
@@ -37,8 +38,8 @@ export default function AboutCompanyTab({ selectedStock, stockData }: AboutCompa
           sector: data.sector || 'N/A',
           website: data.website || '',
           ceo: ceoOfficer?.name || data.ceo || 'N/A',
-          revenue: data.totalRevenue ? `${data.currency_symbol || '₹'}${(data.totalRevenue / 1e9).toFixed(1)}B` : 'N/A',
-          marketCap: data.marketCap ? `${data.currency_symbol || '₹'}${(data.marketCap / 1e9).toFixed(1)}B` : 'N/A',
+          revenue: data.totalRevenue ? `${getCurrencyInfo(data.currency || stockData?.currency || 'INR').symbol}${(data.totalRevenue / 1e9).toFixed(1)}B` : 'N/A',
+          marketCap: data.marketCap ? `${getCurrencyInfo(data.currency || stockData?.currency || 'INR').symbol}${(data.marketCap / 1e9).toFixed(1)}B` : 'N/A',
           competitors: data.competitors || [],
           products: data.products || [],
           companyHistory: data.company_history || [],

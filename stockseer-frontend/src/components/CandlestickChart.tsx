@@ -2,6 +2,13 @@ import React from 'react';
 import type { StockChartData } from '../types/stock';
 import { formatPrice } from '../utils/currency';
 
+const formatChartLabel = (dateStr: string, period: string) => {
+  const d = new Date(dateStr);
+  if (period === '1D') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (period === '1W' || period === '1M') return d.toLocaleDateString([], { day: '2-digit', month: 'short' });
+  return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
+};
+
 interface CandlestickChartProps {
   data: StockChartData[];
   chartPeriod: string;
@@ -111,10 +118,7 @@ export default function CandlestickChart({
                     textAnchor="middle"
                     className="font-mono"
                   >
-                    {chartPeriod === '1D' 
-                      ? new Date(item.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                      : new Date(item.date).toLocaleDateString()
-                    }
+                    {formatChartLabel(item.date, chartPeriod)}
                   </text>
                 </g>
               );
@@ -197,10 +201,7 @@ export default function CandlestickChart({
                    tooltip.innerHTML = `
                      <div class="bg-slate-800 border border-slate-600 text-white p-4 rounded-lg shadow-xl min-w-[200px]">
                        <div class="font-bold text-lg mb-2 text-white">
-                         ${chartPeriod === '1D' 
-                           ? new Date(item.date).toLocaleString()
-                           : new Date(item.date).toLocaleDateString()
-                         }
+                         ${formatChartLabel(item.date, chartPeriod)}
                        </div>
                        <div class="space-y-2">
                          <div class="flex justify-between">
