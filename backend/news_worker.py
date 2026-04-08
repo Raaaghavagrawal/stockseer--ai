@@ -10,6 +10,7 @@ try:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     from database import AsyncSessionLocal, SQLALCHEMY_AVAILABLE
     from models import NewsArticle
+    from company_mappings import TICKER_TO_NAME
     WORKER_AVAILABLE = SQLALCHEMY_AVAILABLE
 except ImportError as e:
     print(f"[WARNING] News Worker dependencies not fully installed: {e}. News background fetching disabled.")
@@ -23,16 +24,18 @@ RSS_FEEDS = {
     "MoneyControl": "https://www.moneycontrol.com/rss/marketreports.xml"
 }
 
-TICKER_MAP = {
-    "Tesla": "TSLA", "Elon Musk": "TSLA", "Model 3": "TSLA",
-    "Apple": "AAPL", "iPhone": "AAPL", "Tim Cook": "AAPL",
-    "Nvidia": "NVDA", "Jensen Huang": "NVDA",
-    "Microsoft": "MSFT", "Windows": "MSFT", "Satya Nadella": "MSFT",
-    "Amazon": "AMZN", "AWS": "AMZN",
-    "Google": "GOOGL", "Alphabet": "GOOGL",
-    "Meta": "META", "Facebook": "META", "Zuckerberg": "META",
-    "Reliance": "RELIANCE.NS", "Mukesh Ambani": "RELIANCE.NS", "Jio": "RELIANCE.NS",
-    "TCS": "TCS.NS", "HDFC": "HDFCBANK.NS"
+# Use centralized mapping for high-precision detection
+TICKER_MAP_LOWER = {k.lower(): v for k, v in TICKER_TO_NAME.items()}
+# Also add common keywords that might appear in text
+KEYWORD_TO_TICKER = {
+    "reliance": "RELIANCE.NS", "mukesh ambani": "RELIANCE.NS", "jio": "RELIANCE.NS",
+    "tcs": "TCS.NS", "tata consultancy": "TCS.NS",
+    "hdfc": "HDFCBANK.NS", "infosys": "INFY.NS", "infy": "INFY.NS",
+    "tesla": "TSLA", "elon musk": "TSLA",
+    "apple": "AAPL", "iphone": "AAPL",
+    "nvidia": "NVDA", "nvidia corp": "NVDA",
+    "google": "GOOGL", "alphabet": "GOOGL",
+    "microsoft": "MSFT", "meta": "META", "facebook": "META"
 }
 
 if WORKER_AVAILABLE:
@@ -69,20 +72,27 @@ def analyze_article(entry, source_name: str):
     label = "Bullish" if compound >= 0.05 else "Bearish" if compound <= -0.05 else "Neutral"
 
     found_tickers = []
+    text_lower = text_to_analyze.lower()
     
-    # Check for hardcoded map keywords first (high precision)
-    for keyword, ticker in TICKER_MAP.items():
-        if keyword.lower() in text_to_analyze.lower():
+    # 1. Check Keywords Map with word boundaries
+    import re
+    for keyword, ticker in KEYWORD_TO_TICKER.items():
+        if re.search(rf'\b{re.escape(keyword)}\b', text_lower):
             if ticker not in found_tickers:
                 found_tickers.append(ticker)
     
-    # Also look for uppercase tickers surrounded by boundaries (e.g., " MRF ")
-    # This helps catch tickers not in the hardcoded map
+    # 2. Check Full Company Names from Global Map
+    for ticker, name in TICKER_TO_NAME.items():
+        if name.lower() in text_lower:
+            if ticker not in found_tickers:
+                found_tickers.append(ticker)
+                
+    # 3. Look for uppercase tickers in text
     import re
-    for ticker_symbol in TICKER_MAP.values():
-        clean_ticker = ticker_symbol.split('.')[0] # Get base symbol like 'MRF'
+    for ticker_symbol in TICKER_TO_NAME.keys():
+        clean_ticker = ticker_symbol.split('.')[0] 
         pattern = rf'\b{re.escape(clean_ticker)}\b'
-        if re.search(pattern, text_to_analyze):
+        if re.search(pattern, text_to_analyze): # Use original text for case-sensitivity if needed, though tickers here are upper
             if ticker_symbol not in found_tickers:
                 found_tickers.append(ticker_symbol)
 

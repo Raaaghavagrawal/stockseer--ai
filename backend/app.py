@@ -57,6 +57,7 @@ from logo_utils import (
 from about_tab import (
     render_about_tab
 )
+from company_mappings import get_company_name
 import os
 from dotenv import load_dotenv
 try:
@@ -3563,158 +3564,114 @@ async def get_technical_indicators(symbol: str, period: str = "1y"):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/stocks/{symbol}/news")
-async def get_stock_news_endpoint(symbol: str, max_articles: int = 15, user_subscription: dict = Depends(get_user_subscription_from_headers)):
-    """Get comprehensive news for a stock instantly from the background SQLite engine."""
+async def get_stock_news_endpoint(symbol: str, max_articles: int = 20, user_subscription: dict = Depends(get_user_subscription_from_headers)):
+    """Get fresh, multi-source news with real-time priority."""
     try:
         ticker = symbol.upper()
+        print(f"\n[NEWS DEBUG] === START REQUEST: {ticker} ===")
         
-        # Determine market from symbol and validate access
+        # Determine market and company
         market = get_market_from_symbol(symbol)
         validate_market_access(market, user_subscription)
+        company_name = get_company_name(ticker)
         
-        news_by_source = {}
-        error_messages = {}
-        overall_sentiment_score = 0.0
-        total_articles = 0
+        # 1. Trigger ALL sources concurrently (DB + Scrapers) for maximum speed/diversity
+        print("[NEWS DEBUG] Triggering concurrent DB + Scraper fetch...")
         
         from database import AsyncSessionLocal
         from models import NewsArticle
         from sqlalchemy import select
         
-        async with AsyncSessionLocal() as session:
-            # Get company name first for better relevance checking
-            company_name = ticker # default
-            try:
-                stock = await asyncio.to_thread(yf.Ticker, ticker)
-                stock_info = await asyncio.to_thread(lambda: stock.info)
-                company_name = stock_info.get('longName') or stock_info.get('shortName') or ticker
-            except:
-                pass
+        # Define scraper tasks
+        is_indian = ticker.endswith('.NS') or ticker.endswith('.BO')
+        region = 'IN' if is_indian else 'US'
+        target_domains = ["moneycontrol.com", "economictimes.indiatimes.com", "financialexpress.com"] if is_indian else ["finance.yahoo.com", "marketwatch.com", "reuters.com"]
+        
+        site_query = " OR ".join([f"site:{d}" for d in target_domains])
+        search_query = f"{company_name} ({ticker}) {site_query}"
+        
+        async def fetch_db_news():
+            async with AsyncSessionLocal() as session:
+                stmt = select(NewsArticle).where(NewsArticle.related_tickers.like(f"%'{ticker}'%")).order_by(NewsArticle.published_at.desc()).limit(30)
+                result = await session.execute(stmt)
+                return result.scalars().all()
 
-            # Query articles where related_tickers string contains the EXACT ticker
-            stmt = select(NewsArticle).where(NewsArticle.related_tickers.like(f"%'{ticker}'%")).order_by(NewsArticle.published_at.desc()).limit(30) # Get more then filter
-            result = await session.execute(stmt)
-            articles = result.scalars().all()
-            
-            ticker_base = ticker.split('.')[0].lower()
-            company_base = company_name.split(' ')[0].lower() if company_name else ticker_base
-
-            for article in articles:
-                # Relevance check: Does ticker or company name appear in title/summary?
-                text_content = f"{article.title} {article.summary}".lower()
-                is_relevant = (ticker_base in text_content or 
-                               ticker.lower() in text_content or 
-                               company_base in text_content)
+        # Run concurrent fetch
+        db_results, scrape_results = await asyncio.gather(
+            fetch_db_news(),
+            asyncio.gather(
+                scrape_yahoo_finance_news(ticker),
+                scrape_google_news(search_query, region=region)
+            )
+        )
+        
+        news_by_source = {}
+        processed_titles = set()
+        
+        # 2. Process Scraped Results FIRST (Ensure Freshness)
+        print(f"[NEWS DEBUG] Processing real-time results...")
+        scraped_list = []
+        for news_list, err in scrape_results:
+            if news_list and isinstance(news_list, list):
+                scraped_list.extend(news_list)
+        
+        if scraped_list:
+            enriched = await add_sentiment_to_news_items(scraped_list)
+            for item in enriched:
+                title = item.get('title')
+                if title in processed_titles: continue
                 
-                if not is_relevant:
-                    continue
-
-                source = article.source
-                if source not in news_by_source:
-                    news_by_source[source] = []
-                    
-                # Map Bullish/Bearish to positive/negative for frontend consistency
-                label = article.sentiment_label or "neutral"
-                if label == "Bullish": label = "positive"
-                elif label == "Bearish": label = "negative"
-                elif label.lower() == "neutral": label = "neutral"
-
+                source = item.get('source', 'Web')
+                if source not in news_by_source: news_by_source[source] = []
+                
+                label = item.get('sentiment', 'neutral').lower()
                 news_by_source[source].append({
-                    "title": article.title,
-                    "link": article.url,
-                    "published": article.published_at.isoformat() if article.published_at else "",
-                    "summary": article.summary,
-                    "source": article.source,
-                    "sentiment_score": article.sentiment_score or 0.0,
-                    "sentiment_label": label
+                    "title": title,
+                    "link": item.get('url'),
+                    "published": item.get('publishedAt'),
+                    "summary": item.get('description', title),
+                    "source": source,
+                    "sentiment_score": item.get('sentiment_score', 0.0),
+                    "sentiment_label": label,
+                    "sentiment": label
                 })
-                
-                overall_sentiment_score += (article.sentiment_score or 0.0)
-                total_articles += 1
-
-        # Real-time fetch if no specific news found in DB or not enough articles
-        if total_articles < 5:
-            try:
-                # Perform concurrent scraping
-                scrape_results = await asyncio.gather(
-                    scrape_yahoo_finance_news(ticker),
-                    scrape_google_news(ticker),
-                    scrape_google_news(f"{company_name} news") if company_name != ticker else asyncio.sleep(0, [])
-                )
-                
-                all_scraped = []
-                for news_list, err in scrape_results:
-                    if news_list and isinstance(news_list, list):
-                        all_scraped.extend(news_list)
-                
-                if all_scraped:
-                    # Filter out duplicates and non-relevant ones
-                    unique_scraped = []
-                    seen_titles = set(a['title'].lower() for source_list in news_by_source.values() for a in source_list)
-                    seen_urls = set(a['link'] for source_list in news_by_source.values() for a in source_list)
-                    
-                    ticker_base = ticker.split('.')[0].lower()
-                    
-                    for item in all_scraped:
-                        title_lower = item['title'].lower()
-                        summary_lower = (item.get('description') or "").lower()
-                        full_txt = f"{title_lower} {summary_lower}"
-                        
-                        # Better relevance check for scraped items
-                        rel = (ticker_base in full_txt or ticker.lower() in full_txt or company_base in full_txt)
-                        
-                        if rel and title_lower not in seen_titles and item['url'] not in seen_urls:
-                            unique_scraped.append(item)
-                            seen_titles.add(title_lower)
-                            seen_urls.add(item['url'])
-                    
-                    if unique_scraped:
-                        # Limit to top relevant items
-                        unique_scraped = unique_scraped[:10]
-                        # Analyze sentiment
-                        unique_scraped = await add_sentiment_to_news_items(unique_scraped)
-                        
-                        for item in unique_scraped:
-                            source = item.get('source', 'Web Search')
-                            if source not in news_by_source:
-                                news_by_source[source] = []
-                            
-                            # add_sentiment returns lowercase label
-                            label = item.get('sentiment', 'neutral')
-                                
-                            news_by_source[source].append({
-                                "title": item['title'],
-                                "link": item['url'],
-                                "published": item.get('publishedAt', datetime.now().isoformat()),
-                                "summary": item.get('description') or item['title'],
-                                "source": source,
-                                "sentiment_score": item.get('sentiment_score', 0.0),
-                                "sentiment_label": label
-                            })
-                            overall_sentiment_score += item.get('sentiment_score', 0.0)
-                            total_articles += 1
-            except Exception as scrape_err:
-                print(f"Real-time news scrape error for {ticker}: {scrape_err}")
-                error_messages["scraping"] = str(scrape_err)
-
-        if total_articles > 0:
-            overall_sentiment_score = overall_sentiment_score / total_articles
+                processed_titles.add(title)
+        
+        # 3. Add DB Results (Increase Volume)
+        print(f"[NEWS DEBUG] Merging {len(db_results)} articles from DB...")
+        for article in db_results:
+            if article.title in processed_titles: continue
             
+            # Map Bullish/Bearish
+            label = "positive" if article.sentiment_label == "Bullish" else "negative" if article.sentiment_label == "Bearish" else "neutral"
+            
+            source = article.source
+            if source not in news_by_source: news_by_source[source] = []
+            
+            news_by_source[source].append({
+                "title": article.title,
+                "link": article.url,
+                "published": article.published_at.isoformat() if article.published_at else "",
+                "summary": article.summary,
+                "source": article.source,
+                "sentiment_score": article.sentiment_score or 0.0,
+                "sentiment_label": label,
+                "sentiment": label
+            })
+            processed_titles.add(article.title)
+
+        total = sum(len(v) for v in news_by_source.values())
+        print(f"[NEWS DEBUG] DONE: Found {total} unique articles across {len(news_by_source)} sources.")
+        
         return {
             "symbol": ticker,
+            "company_name": company_name,
             "news_by_source": news_by_source,
-            "overall_sentiment_score": round(overall_sentiment_score, 3),
-            "overall_sentiment_label": "positive" if overall_sentiment_score > 0.05 else "negative" if overall_sentiment_score < -0.05 else "neutral",
-            "total_articles": total_articles,
-            "error_messages": error_messages,
-            "sources_available": list(news_by_source.keys()),
-            "sentiment_summary": {
-                "score": round(overall_sentiment_score, 3),
-                "label": "positive" if overall_sentiment_score > 0.05 else "negative" if overall_sentiment_score < -0.05 else "neutral",
-                "strength": "strong" if abs(overall_sentiment_score) > 0.5 else "moderate" if abs(overall_sentiment_score) > 0.1 else "weak"
-            }
+            "total_count": total
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/news/market")
@@ -6367,10 +6324,16 @@ async def sell_dummy_stock(user_id: str, sell_data: dict):
 
 if __name__ == "__main__":
     import os
-    # Fetch port from environment variable (assigned by hosting providers like Render)
-    # Default to 5000 for local development
+    import uvicorn
+
     port = int(os.environ.get("PORT", 5000))
-    
-    # Run uvicorn server
-    # Use host="0.0.0.0" to make the server reachable externally in production
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"--- STARTING FASTAPI SERVER ---")
+    print(f"Target Port: {port}")
+    print(f"Mode: {'Production' if os.environ.get('PORT') else 'Local Development'}")
+
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True if not os.environ.get("PORT") else False
+    )

@@ -34,6 +34,8 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
     
     setLoading(true);
     setError(null);
+    setNews([]);
+    setFilteredNews([]);
     
     try {
       const response = await newsAPI.getStockNews(selectedStock);
@@ -68,14 +70,21 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       console.log('Processed news data:', newsData);
       
       // Transform the data to match our interface
-      const transformedNews = newsData.map((item: any) => ({
-        title: item.title || 'No Title',
-        summary: item.summary || item.description || 'No summary available',
-        url: item.url || item.link || '#',
-        publishedAt: item.publishedAt || item.published || new Date().toISOString(),
-        source: item.source || item.publisher || 'Unknown Source',
-        sentiment: item.sentiment_label || item.sentiment || 'neutral'
-      }));
+      const transformedNews = newsData.map((item: any) => {
+        const rawSentiment = (item.sentiment_label || item.sentiment || 'neutral').toLowerCase();
+        let sentiment = 'neutral';
+        if (rawSentiment === 'positive' || rawSentiment === 'bullish') sentiment = 'positive';
+        else if (rawSentiment === 'negative' || rawSentiment === 'bearish') sentiment = 'negative';
+        
+        return {
+          title: item.title || 'No Title',
+          summary: item.summary || item.description || 'No summary available',
+          url: item.url || item.link || '#',
+          publishedAt: item.publishedAt || item.published || new Date().toISOString(),
+          source: item.source || item.publisher || 'Unknown Source',
+          sentiment: sentiment
+        };
+      });
       
       setNews(transformedNews);
       setFilteredNews(transformedNews);
@@ -87,13 +96,13 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
         setError('Request timed out. The news service is taking longer than expected. Please try again.');
       } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-        setError('Cannot connect to the server. Please make sure the backend server is running on http://localhost:8000');
+        setError('Cannot connect to the server. Please make sure the backend server is running on http://localhost:5000');
       } else if (err.response?.status === 500) {
-        setError('Server error occurred while fetching news. Please try again later.');
+        setError('Server error occurred while fetching news. The API might be Rate Limited or unreachable.');
       } else if (err.response?.status === 404) {
         setError('No news found for this stock symbol.');
       } else if (err.response?.status === 0) {
-        setError('Backend server is not running. Please start the backend server first.');
+        setError('Backend server is not running on port 5000. Please start the backend server first.');
       } else {
         setError(`Failed to fetch news: ${err.message || 'Unknown error'}. Please check your connection and try again.`);
       }

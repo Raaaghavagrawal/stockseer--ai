@@ -73,10 +73,19 @@ async def get_stock_news_from_newsapi(ticker_symbol_or_company_name, api_key=Non
     
     return news_items, error_message
 
-async def scrape_google_news(query_term):
+async def scrape_google_news(query_term, region='US'):
     news_items, error_message = [], None
-    safe_query = quote_plus(query_term + " stock news")
-    search_url = f"https://news.google.com/search?q={safe_query}&hl=en-US&gl=US&ceid=US%3Aen"
+    # Build query: add "stock news" only if not already a multi-site complex query
+    if "site:" not in query_term:
+        query_term += " stock news"
+    safe_query = quote_plus(query_term)
+    
+    # Adjust region for better localized news (e.g. for Indian stocks)
+    gl_val = 'IN' if region == 'IN' else 'US'
+    hl_val = 'en-IN' if region == 'IN' else 'en-US'
+    ceid_val = 'IN:en' if region == 'IN' else 'US:en'
+    
+    search_url = f"https://news.google.com/search?q={safe_query}&hl={hl_val}&gl={gl_val}&ceid={ceid_val}"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     
     html, _ = await fetch_url_async(search_url, headers=headers)
@@ -118,6 +127,26 @@ async def scrape_google_news(query_term):
 
 async def scrape_yahoo_finance_news(ticker_symbol):
     news_items, error_message = [], None
+    # 1. Try native yfinance news first (most reliable)
+    try:
+        stock = await asyncio.to_thread(yf.Ticker, ticker_symbol)
+        yf_news = await asyncio.to_thread(lambda: stock.news)
+        if yf_news:
+            for item in yf_news:
+                news_items.append({
+                    'title': item.get('title'),
+                    'url': item.get('link'),
+                    'source': item.get('publisher', 'Yahoo Finance'),
+                    'publisher': item.get('publisher', 'Yahoo Finance'),
+                    'publishedAt': datetime.fromtimestamp(item.get('providerPublishTime', datetime.now().timestamp())).strftime('%Y-%m-%d %H:%M'),
+                    'description': item.get('title') # Yahoo News usually just has title/link
+                })
+            if len(news_items) >= 5:
+                return news_items[:8], "Success (yfinance native)"
+    except Exception as e:
+        print(f"yfinance native news failed for {ticker_symbol}: {e}")
+
+    # 2. Fallback to scraping
     search_url = f"https://finance.yahoo.com/quote/{ticker_symbol}/news"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     
@@ -175,9 +204,9 @@ async def scrape_yahoo_finance_news(ticker_symbol):
                     break
         return items
 
-    news_items = await asyncio.to_thread(parse_html, html)
-    if not news_items:
-        error_message = f"Yahoo Finance: No articles for '{ticker_symbol}'."
+    scrape_items = await asyncio.to_thread(parse_html, html)
+    if scrape_items:
+        news_items.extend(scrape_items)
     
     return news_items, error_message
 
