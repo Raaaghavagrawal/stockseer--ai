@@ -59,7 +59,11 @@ from about_tab import (
 import os
 from dotenv import load_dotenv
 try:
-    import google.generativeai as genai
+    import warnings
+    warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai.*")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=FutureWarning)
+        import google.generativeai as genai
 except Exception:
     genai = None
 
