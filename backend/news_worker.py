@@ -141,4 +141,3 @@ def start_news_scheduler():
     scheduler = AsyncIOScheduler()
     scheduler.add_job(fetch_and_store_news, 'interval', minutes=5, id='news_fetcher_job', replace_existing=True)
     scheduler.start()
-    print("Background News Scheduler started successfully.")

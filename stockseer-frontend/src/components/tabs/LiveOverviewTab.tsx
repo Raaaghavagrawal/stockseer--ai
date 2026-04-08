@@ -196,12 +196,12 @@ export default function LiveOverviewTab({
     }
   };
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = async (type: string = 'technical') => {
     if (!stockData) return;
     
     setIsGeneratingReport(true);
     try {
-      const report = await generateAnalysisReport(stockData.symbol, 'technical');
+      const report = await generateAnalysisReport(stockData.symbol, type);
       if (report) {
         // Open modal with generated report
         setGeneratedReport(report);
@@ -297,7 +297,12 @@ export default function LiveOverviewTab({
     const content = `Initial research notes for ${stockData.name} (${stockData.symbol})`;
     const tags = [stockData.symbol, 'research', 'initial'];
     
-    await createResearchNote(stockData.symbol, title, content, tags);
+    const success = await createResearchNote(stockData.symbol, title, content, tags);
+    if (success) {
+      alert(`Research Note created successfully for ${stockData.symbol}!`);
+    } else {
+      alert('Failed to create research note. Please try again.');
+    }
   };
 
   return (
@@ -322,7 +327,7 @@ export default function LiveOverviewTab({
             <div className="flex items-center space-x-2">
               {/* Generate Report Button */}
               <button
-                onClick={handleGenerateReport}
+                onClick={() => handleGenerateReport()}
                 disabled={isGeneratingReport}
                 className="p-2 sm:p-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
                 title="Generate Analysis Report"
@@ -345,7 +350,7 @@ export default function LiveOverviewTab({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Research & Development Tools</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={handleGenerateReport}
+            onClick={() => handleGenerateReport('technical')}
             disabled={isGeneratingReport}
             className="flex items-center space-x-3 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors disabled:opacity-50"
           >
@@ -368,8 +373,9 @@ export default function LiveOverviewTab({
           </button>
           
           <button
-            onClick={() => {/* TODO: Implement fundamental analysis */}}
-            className="flex items-center space-x-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+            onClick={() => handleGenerateReport('fundamental')}
+            disabled={isGeneratingReport}
+            className="flex items-center space-x-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors disabled:opacity-50"
           >
             <BarChart3 className="w-6 h-6 text-green-600" />
             <div className="text-left">

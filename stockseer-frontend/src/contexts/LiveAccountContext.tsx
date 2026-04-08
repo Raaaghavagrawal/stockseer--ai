@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 import { useAuth } from './AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import api from '../utils/api';
 
 // Live Account Types
 export interface LiveAccountData {
@@ -139,17 +140,15 @@ export const LiveAccountProvider: React.FC<LiveAccountProviderProps> = ({ childr
 
     try {
       // Load research notes
-      const notesResponse = await fetch(`http://localhost:8000/live-research-notes/${currentUser.uid}`);
-      if (notesResponse.ok) {
-        const notes = await notesResponse.json();
-        setResearchNotes(notes);
+      const notesResponse = await api.get(`/live-research-notes/${currentUser.uid}`);
+      if (notesResponse.status === 200) {
+        setResearchNotes(notesResponse.data as ResearchNote[]);
       }
 
       // Load analysis reports
-      const reportsResponse = await fetch(`http://localhost:8000/live-analysis-reports/${currentUser.uid}`);
-      if (reportsResponse.ok) {
-        const reports = await reportsResponse.json();
-        setAnalysisReports(reports);
+      const reportsResponse = await api.get(`/live-analysis-reports/${currentUser.uid}`);
+      if (reportsResponse.status === 200) {
+        setAnalysisReports(reportsResponse.data as AnalysisReport[]);
       }
     } catch (error) {
       console.error('Error loading research data:', error);
@@ -160,20 +159,14 @@ export const LiveAccountProvider: React.FC<LiveAccountProviderProps> = ({ childr
     if (!currentUser || !isLiveAccount) return false;
 
     try {
-      const response = await fetch(`http://localhost:8000/live-research-notes/${currentUser.uid}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await api.post(`/live-research-notes/${currentUser.uid}`, {
           symbol,
           title,
           content,
           tags
-        })
       });
 
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         await loadResearchData();
         return true;
       }
@@ -188,15 +181,9 @@ export const LiveAccountProvider: React.FC<LiveAccountProviderProps> = ({ childr
     if (!currentUser || !isLiveAccount) return false;
 
     try {
-      const response = await fetch(`http://localhost:8000/live-research-notes/${currentUser.uid}/${noteId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates)
-      });
+      const response = await api.put(`/live-research-notes/${currentUser.uid}/${noteId}`, updates);
 
-      if (response.ok) {
+      if (response.status === 200) {
         await loadResearchData();
         return true;
       }
@@ -211,11 +198,9 @@ export const LiveAccountProvider: React.FC<LiveAccountProviderProps> = ({ childr
     if (!currentUser || !isLiveAccount) return false;
 
     try {
-      const response = await fetch(`http://localhost:8000/live-research-notes/${currentUser.uid}/${noteId}`, {
-        method: 'DELETE'
-      });
+      const response = await api.delete(`/live-research-notes/${currentUser.uid}/${noteId}`);
 
-      if (response.ok) {
+      if (response.status === 200) {
         await loadResearchData();
         return true;
       }
@@ -230,21 +215,14 @@ export const LiveAccountProvider: React.FC<LiveAccountProviderProps> = ({ childr
     if (!currentUser || !isLiveAccount) return null;
 
     try {
-      const response = await fetch(`http://localhost:8000/live-generate-analysis/${currentUser.uid}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await api.post(`/live-generate-analysis/${currentUser.uid}`, {
           symbol,
           reportType,
           customParams
-        })
       });
 
-      if (response.ok) {
-        const report = await response.json();
-        return report;
+      if (response.status === 200) {
+        return response.data as AnalysisReport;
       }
       return null;
     } catch (error) {
@@ -257,15 +235,9 @@ export const LiveAccountProvider: React.FC<LiveAccountProviderProps> = ({ childr
     if (!currentUser || !isLiveAccount) return false;
 
     try {
-      const response = await fetch(`http://localhost:8000/live-analysis-reports/${currentUser.uid}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(report)
-      });
+      const response = await api.post(`/live-analysis-reports/${currentUser.uid}`, report);
 
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         await loadResearchData();
         return true;
       }

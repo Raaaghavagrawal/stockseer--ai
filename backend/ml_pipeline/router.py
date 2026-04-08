@@ -89,7 +89,7 @@ async def predict_stock_movement(symbol: str):
             "signal": signal,
             "confidence": confidence,
             "sentiment": sentiment,
-            "reasoning": f"Custom scikit-learn ensemble predicts {signal} movement with {confidence}% probability based on {len(features)} technical indicators including RSI and MACD crossovers.",
+            "reasoning": f"Custom scikit-learn ensemble predicts {signal} movement with {confidence}% probability based on {len(required_features)} technical indicators including RSI and MACD crossovers.",
             "risk_level": risk_level 
         }
         
