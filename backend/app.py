@@ -5,7 +5,7 @@ import yfinance as yf
 import ta
 import numpy as np
 import numpy_financial as npf
-from transformers import pipeline
+# Heavy AI imports moved to local scope for memory efficiency on Render
 import requests
 from bs4 import BeautifulSoup
 import asyncio
@@ -60,14 +60,8 @@ from about_tab import (
 from company_mappings import get_company_name
 import os
 from dotenv import load_dotenv
-try:
-    import warnings
-    warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai.*")
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=FutureWarning)
-        import google.generativeai as genai
-except Exception:
-    genai = None
+# genai is now imported locally in _get_gemini_model to save startup memory
+genai = None
 
 # --- SUBSCRIPTION AND MARKET RESTRICTIONS ---
 SUBSCRIPTION_PLANS = {
@@ -632,24 +626,32 @@ load_dotenv()
 # --- LIFESPAN AND APP INIT ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup logic
-    try:
-        from database import engine, Base, SQLALCHEMY_AVAILABLE
-        from news_worker import start_news_scheduler
-        _DB_AVAILABLE = SQLALCHEMY_AVAILABLE
-    except ImportError as e:
-        _DB_AVAILABLE = False
-        print(f"[WARNING] Database imports failed: {e}")
+    """
+    Optimized for Render/Single-Worker. 
+    This non-blocking lifespan allows the app to report 'READY' immediately 
+    while heavy background tasks initialize.
+    """
+    print("\n[STARTUP] --- BACKEND BOOTING ---")
     
-    if _DB_AVAILABLE and engine is not None and Base is not None:
+    async def run_migrations_and_worker():
+        print("[STARTUP] Background task: Verifying Database & Scheduler...")
         try:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            start_news_scheduler()
+            from database import engine, Base, SQLALCHEMY_AVAILABLE
+            from news_worker import start_news_scheduler
+            if SQLALCHEMY_AVAILABLE and engine:
+                async with engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.create_all)
+                start_news_scheduler()
+                print("[STARTUP] DB & News Scheduler active.")
         except Exception as e:
-            print(f"[WARNING] Could not start news DB/scheduler: {e}")
+            print(f"[ERROR] Background init failed: {e}")
+
+    # Kick off background init
+    asyncio.create_task(run_migrations_and_worker())
+    
+    print("[STARTUP] Lifespan yielded. Server should be reachable via port.")
     yield
-    # Shutdown logic (optional)
+    print("\n[SHUTDOWN] Stopping processes...")
 
 # Initialize FastAPI app with lifespan
 app = FastAPI(title="StockSeer API", version="1.0.0", lifespan=lifespan)
@@ -1472,11 +1474,16 @@ class ChatResponse(BaseModel):
     reply: str
 
 def _get_gemini_model():
-    if genai is None:
-        raise HTTPException(status_code=500, detail="google-generativeai not installed. Add to requirements.")
+    """Lazy loads Gemini AI to save memory on startup."""
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        raise HTTPException(status_code=500, detail="google-generativeai not installed.")
+        
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="Missing GEMINI_API_KEY in environment. Please set it in your .env file.")
+        raise HTTPException(status_code=500, detail="Missing GEMINI_API_KEY.")
+        
     genai.configure(api_key=api_key)
     return genai.GenerativeModel("gemini-1.5-flash")
 
@@ -1819,61 +1826,88 @@ def detect_currency_from_symbol(symbol, info=None):
     return 'USD'
 
 def get_stock_info(ticker_symbol, max_retries=3):
-    """Get stock information with retry logic for rate limiting and caching"""
-    # Check cache first
+    """Get stock information using optimized fast_info to avoid 60s timeouts."""
     cache_key = f"info_{ticker_symbol}"
     if cache_key in stock_cache:
         cache_time, cache_data = stock_cache[cache_key]
         if (datetime.now() - cache_time).seconds < cache_ttl:
             return cache_data
     
+    # 1. Try Optimized Fetch (fast_info doesn't trigger heavy scraping)
     for attempt in range(max_retries):
         try:
             stock = yf.Ticker(ticker_symbol)
-            info = stock.info
+            fast = stock.fast_info
             
-            if not info:
-                if attempt == max_retries - 1:
-                    raise HTTPException(status_code=404, detail=f"Stock info not found for {ticker_symbol}")
-                continue
+            # Real-time metrics from fast_info
+            current_price = fast.get('lastPrice', fast.get('last_price', 0))
+            previous_close = fast.get('previousClose', fast.get('previous_close', 0))
             
-            # Get price data similar to main app.py
-            current_price = info.get('regularMarketPrice', info.get('currentPrice'))
-            previous_close = info.get('regularMarketPreviousClose', info.get('previousClose'))
+            # Metadata fallbacks from local mapping or fast_info
+            company_name = get_company_name(ticker_symbol)
             
-            # Calculate change and change percent like main app.py
-            today_change = None
-            today_change_percent = None
-            if current_price and previous_close and previous_close != 0:
-                today_change = current_price - previous_close
-                today_change_percent = calculate_percentage_change(current_price, previous_close)
+            # Logic for change
+            today_change = current_price - previous_close if current_price and previous_close else 0
+            today_change_percent = (today_change / previous_close * 100) if previous_close else 0
             
             result = {
                 'symbol': ticker_symbol,
-                'name': info.get('longName', info.get('shortName', ticker_symbol)),
-                'price': current_price,
-                'change': today_change if today_change is not None else info.get('regularMarketChange', 0),
-                'changePercent': today_change_percent if today_change_percent is not None else info.get('regularMarketChangePercent', 0),
-                'volume': info.get('regularMarketVolume', info.get('volume', 0)),
-                'marketCap': info.get('marketCap'),
-                'pe': info.get('trailingPE'),
-                'dividend': get_dividend_yield(info),
-                'high': info.get('dayHigh', info.get('regularMarketDayHigh')),
-                'low': info.get('dayLow', info.get('regularMarketDayLow')),
-                'open': info.get('open', info.get('regularMarketOpen')),
-                'previousClose': previous_close,
-                'sector': info.get('sector'),
-                'industry': info.get('industry'),
-                'description': info.get('longBusinessSummary'),
-                'currency': detect_currency_from_symbol(ticker_symbol, info),
-                'high52Week': info.get('fiftyTwoWeekHigh'),
-                'low52Week': info.get('fiftyTwoWeekLow'),
+                'name': company_name,
+                'price': float(current_price) if current_price else 0,
+                'change': float(today_change),
+                'changePercent': float(today_change_percent),
+                'volume': int(fast.get('lastVolume', fast.get('last_volume', 0))),
+                'marketCap': float(fast.get('market_cap', 0)),
+                'pe': None, # fast_info doesn't have PE
+                'dividend': None,
+                'high': float(fast.get('day_high', 0)),
+                'low': float(fast.get('day_low', 0)),
+                'open': float(fast.get('open', 0)),
+                'previousClose': float(previous_close),
+                'sector': None,
+                'industry': None,
+                'description': None,
+                'currency': fast.get('currency', 'USD'),
+                'high52Week': float(fast.get('year_high', 0)),
+                'low52Week': float(fast.get('year_low', 0)),
                 'timestamp': format_timestamp(datetime.now())
             }
             
-            # Cache the result
+            # 2. Lazy-load Metadata (Sector/Industry) ONLY if not in cache (Persistent Cache)
+            # For now, we just skip it to guarantee 100% success on the 60s timeout
+            
             stock_cache[cache_key] = (datetime.now(), result)
             return result
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            print(f"[RECOVERABLE ERROR] fast_info failed for {ticker_symbol}, falling back to legacy info: {e}")
+            # Fallback to legacy info if fast_info fails (last resort)
+            try:
+                info = stock.info
+                result = {
+                    'symbol': ticker_symbol,
+                    'name': info.get('longName', get_company_name(ticker_symbol)),
+                    'price': info.get('currentPrice', info.get('regularMarketPrice')),
+                    'change': info.get('regularMarketChange', 0),
+                    'changePercent': info.get('regularMarketChangePercent', 0),
+                    'volume': info.get('regularMarketVolume', 0),
+                    'marketCap': info.get('marketCap'),
+                    'pe': info.get('trailingPE'),
+                    'dividend': info.get('dividendYield'),
+                    'high': info.get('dayHigh'),
+                    'low': info.get('dayLow'),
+                    'open': info.get('open'),
+                    'previousClose': info.get('previousClose'),
+                    'currency': info.get('currency', 'USD'),
+                    'timestamp': format_timestamp(datetime.now())
+                }
+                stock_cache[cache_key] = (datetime.now(), result)
+                return result
+            except:
+                raise HTTPException(status_code=500, detail=f"Failed to fetch data for {ticker_symbol}")
             
         except Exception as e:
             error_str = str(e).lower()
@@ -3269,7 +3303,8 @@ def analyze_news_item_sentiment_vader(text):
 def analyze_sentiment_text_hf(text):
     """Analyze sentiment using Hugging Face transformers"""
     try:
-        # Load the sentiment analysis pipeline
+        from transformers import pipeline
+        # Load the sentiment analysis pipeline locally
         sentiment_pipeline = pipeline("sentiment-analysis", 
                                     model="cardiffnlp/twitter-roberta-base-sentiment-latest",
                                     return_all_scores=True)

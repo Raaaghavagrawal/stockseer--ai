@@ -17,9 +17,6 @@ except ImportError as e:
     WORKER_AVAILABLE = False
 
 RSS_FEEDS = {
-    "MarketWatch": "http://feeds.marketwatch.com/marketwatch/topstories/",
-    "Yahoo Finance": "https://finance.yahoo.com/news/rssindex",
-    "WSJ Business": "https://www.wsj.com/xml/rss/3_7014.xml",
     "Economic Times": "https://economictimes.indiatimes.com/markets/rssfeeds/2146842.cms",
     "MoneyControl": "https://www.moneycontrol.com/rss/marketreports.xml"
 }
@@ -43,7 +40,10 @@ if WORKER_AVAILABLE:
 
 async def fetch_rss_feed(source_name: str, url: str):
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        async with httpx.AsyncClient(headers=headers, timeout=15.0, follow_redirects=True) as client:
             response = await client.get(url)
             response.raise_for_status()
             feed = feedparser.parse(response.text)
@@ -149,5 +149,5 @@ def start_news_scheduler():
         print("[WARNING] News Scheduler not started — dependencies missing.")
         return
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(fetch_and_store_news, 'interval', minutes=5, id='news_fetcher_job', replace_existing=True)
+    scheduler.add_job(fetch_and_store_news, 'interval', minutes=15, id='news_fetcher_job', replace_existing=True)
     scheduler.start()
