@@ -344,7 +344,7 @@ import type {
 } from '../types/stock';
 
 // Import API functions
-import { stockAPI, handleAPIError, handleMarketRestrictionError } from '../utils/api';
+import { stockAPI, handleAPIError, handleMarketRestrictionError, sanitizeSymbol } from '../utils/api';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -525,10 +525,13 @@ export default function Dashboard() {
 
 
   const fetchStockData = async (symbol: string) => {
+    const sanitizedSymbol = sanitizeSymbol(symbol);
+    if (!sanitizedSymbol) return;
+
     setLoading(true);
     try {
       // Fetch stock data from backend with market restriction handling
-      const stockDataResponse = await stockAPI.getStockData(symbol, (restrictionDetails) => {
+      const stockDataResponse = await stockAPI.getStockData(sanitizedSymbol, (restrictionDetails) => {
         // Show market restriction modal
         showMarketRestriction(restrictionDetails);
       });
@@ -541,7 +544,7 @@ export default function Dashboard() {
       
       // Fetch chart data
       try {
-        const chartDataResponse = await stockAPI.getStockChartData(symbol, '1y', '1d');
+        const chartDataResponse = await stockAPI.getStockChartData(sanitizedSymbol, '1y', '1d');
         setChartData(chartDataResponse);
       } catch (chartError) {
         console.error('Error fetching chart data:', chartError);
@@ -576,8 +579,8 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const q = searchQuery.trim().toUpperCase();
-    if (!q) return;
+    const q = sanitizeSymbol(searchQuery);
+    if (!q || q.length < 2) return;
     const handle = setTimeout(async () => {
       // Don't check market restriction in debounced search - only when user explicitly searches
       await fetchStockData(q);
@@ -587,8 +590,12 @@ export default function Dashboard() {
   }, [searchQuery]);
 
   const handleStockSearch = async () => {
-    const q = searchQuery.trim().toUpperCase();
+    let q = sanitizeSymbol(searchQuery);
     if (q) {
+      // Market logic: If it's a 3+ letter symbol with no suffix, and the user hasn't specified one,
+      // it might be helpful to suggest or default to a market, but for now we just sanitize.
+      // If user typed "ITC", sanitized is "ITC".
+      
       // Check market restriction before searching
       if (checkMarketRestriction(q)) {
         return; // Don't proceed with search if market is restricted

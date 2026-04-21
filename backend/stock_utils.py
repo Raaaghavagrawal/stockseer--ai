@@ -7,10 +7,25 @@ from datetime import datetime, timedelta
 
 # --- Data Fetching and Processing ---
 
+# --- GLOBAL YFINANCE SESSION ---
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+def create_yf_session():
+    session = requests.Session()
+    retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    return session
+
+YF_SESSION = create_yf_session()
+
 async def fetch_stock_data_async(ticker_symbol, period='3mo', interval='1d'):
     """Fetch stock data asynchronously using threads for yfinance"""
     def _fetch():
-        stock = yf.Ticker(ticker_symbol)
+        stock = yf.Ticker(ticker_symbol, session=YF_SESSION)
         df = stock.history(period=period, interval=interval)
         df.dropna(inplace=True)
         return df
@@ -88,7 +103,7 @@ async def generate_signal_detailed_async(df):
 async def get_company_info_async(ticker_symbol):
     def _fetch():
         try:
-            stock = yf.Ticker(ticker_symbol)
+            stock = yf.Ticker(ticker_symbol, session=YF_SESSION)
             info = stock.info
             if not info: return "Info not available.", "N/A", "N/A", None, "N/A", {}
             return (info.get('longBusinessSummary', "No summary available via yfinance API."), info.get('sector', 'N/A'), info.get('industry', 'N/A'),
@@ -114,7 +129,7 @@ def get_company_info_yfinance(*args, **kwargs):
     # This matches the signature expected by app.py
     import pandas as pd
     try:
-        stock = yf.Ticker(args[0])
+        stock = yf.Ticker(args[0], session=YF_SESSION)
         info = stock.info
         if not info: return "Info not available.", "N/A", "N/A", None, "N/A", {}, pd.DataFrame(), pd.DataFrame(), None, None, pd.DataFrame(), pd.DataFrame()
         return (info.get('longBusinessSummary', "No summary available."), info.get('sector', 'N/A'), info.get('industry', 'N/A'),

@@ -33,6 +33,37 @@ import uvicorn
 import time
 from datetime import datetime, timedelta
 VERCEL_FRONTEND_URL = "https://stockseer--ai.vercel.app"
+# --- GLOBAL YFINANCE SESSION ---
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+class TimeoutAdapter(HTTPAdapter):
+    def __init__(self, *args, **kwargs):
+        self.timeout = kwargs.pop('timeout', 25) # 25s timeout for individual requests
+        super().__init__(*args, **kwargs)
+    def send(self, request, **kwargs):
+        kwargs['timeout'] = kwargs.get('timeout', self.timeout)
+        return super().send(request, **kwargs)
+
+def create_yf_session():
+    session = requests.Session()
+    retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+    adapter = TimeoutAdapter(max_retries=retries)
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    return session
+
+YF_SESSION = create_yf_session()
+
+# Monkey-patch yfinance to always use our session
+_orig_ticker = yf.Ticker
+def patched_ticker(*args, **kwargs):
+    if 'session' not in kwargs:
+        kwargs['session'] = YF_SESSION
+    return _orig_ticker(*args, **kwargs)
+yf.Ticker = patched_ticker
+
 # Import utility modules
 from stock_utils import (
     fetch_stock_data, add_technical_indicators, generate_signal_basic, 
@@ -125,12 +156,15 @@ user_sessions = {}
 
 def get_user_subscription(user_id: str = None, subscription_plan: str = "free", selected_continent: str = None):
     """Get user subscription details from headers or default to free"""
+    plan = subscription_plan.lower() if subscription_plan else "free"
+    allowed_markets = SUBSCRIPTION_PLANS.get(plan, SUBSCRIPTION_PLANS["free"])["allowed_markets"]
+    
     return {
         "user_id": user_id,
-        "plan": subscription_plan,
+        "plan": plan,
         "continent": selected_continent,
-        "allowed_markets": SUBSCRIPTION_PLANS.get(subscription_plan, SUBSCRIPTION_PLANS["free"])["allowed_markets"],
-        "plan_limits": SUBSCRIPTION_PLANS.get(subscription_plan, SUBSCRIPTION_PLANS["free"])
+        "allowed_markets": allowed_markets,
+        "plan_limits": SUBSCRIPTION_PLANS.get(plan, SUBSCRIPTION_PLANS["free"])
     }
 
 def check_market_access(user_subscription: dict, market: str) -> bool:
@@ -1027,10 +1061,20 @@ def get_user_subscription_from_headers(
     )
 
 # Dependency to validate market access
+def clean_ticker_symbol(symbol: str) -> str:
+    """Sanitize ticker symbol by stripping trailing dots, whitespace and converting to uppercase"""
+    if not symbol:
+        return ""
+    # Strip dots and whitespace from both ends, but keep internal dots (like .NS)
+    return symbol.strip().strip('.').upper()
+
 def get_market_from_symbol(symbol: str) -> str:
     """Determine market from stock symbol"""
-    symbol_upper = symbol.upper()
+    symbol_upper = clean_ticker_symbol(symbol)
     
+    if not symbol_upper:
+        return "Unknown"
+
     # Check for specific market suffixes
     if symbol_upper.endswith('.NS') or symbol_upper.endswith('.BO'):
         return "Indian"
@@ -1052,7 +1096,7 @@ def get_market_from_symbol(symbol: str) -> str:
         return "Philippine"
     elif symbol_upper.endswith('.VN'):
         return "Vietnamese"
-    elif symbol_upper.endswith('.TO'):
+    elif symbol_upper.endswith('.TO') or symbol_upper.endswith('.V'):
         return "Canadian"
     elif symbol_upper.endswith('.L'):
         return "British"
@@ -1086,288 +1130,31 @@ def get_market_from_symbol(symbol: str) -> str:
         return "Finnish"
     elif symbol_upper.endswith('.BR'):
         return "Belgian"
-    elif symbol_upper.endswith('.VI'):
-        return "Austrian"
-    elif symbol_upper.endswith('.LS'):
-        return "Portuguese"
-    elif symbol_upper.endswith('.IR'):
-        return "Irish"
-    elif symbol_upper.endswith('.WA'):
-        return "Polish"
-    elif symbol_upper.endswith('.PR'):
-        return "Czech"
-    elif symbol_upper.endswith('.BD'):
-        return "Hungarian"
-    elif symbol_upper.endswith('.AT'):
-        return "Greek"
-    elif symbol_upper.endswith('.IS'):
-        return "Turkish"
-    elif symbol_upper.endswith('.ME'):
-        return "Russian"
     elif symbol_upper.endswith('.TA'):
         return "Israeli"
-    elif symbol_upper.endswith('.AD'):
-        return "UAE"
     elif symbol_upper.endswith('.SR'):
         return "Saudi"
-    elif symbol_upper.endswith('.CA'):
-        return "Egyptian"
-    elif symbol_upper.endswith('.NG'):
-        return "Nigerian"
-    elif symbol_upper.endswith('.KE'):
-        return "Kenyan"
-    elif symbol_upper.endswith('.MA'):
-        return "Moroccan"
-    elif symbol_upper.endswith('.SN'):
-        return "Chilean"
-    elif symbol_upper.endswith('.BA'):
-        return "Argentine"
-    elif symbol_upper.endswith('.CB'):
-        return "Colombian"
-    elif symbol_upper.endswith('.LM'):
-        return "Peruvian"
-    elif symbol_upper.endswith('.VZ'):
-        return "Venezuelan"
-    elif symbol_upper.endswith('.UY'):
-        return "Uruguayan"
-    elif symbol_upper.endswith('.PY'):
-        return "Paraguayan"
-    elif symbol_upper.endswith('.BO'):
-        return "Bolivian"
-    elif symbol_upper.endswith('.EC'):
-        return "Ecuadorian"
-    elif symbol_upper.endswith('.CR'):
-        return "Costa Rican"
-    elif symbol_upper.endswith('.PA'):
-        return "Panamanian"
-    elif symbol_upper.endswith('.GT'):
-        return "Guatemalan"
-    elif symbol_upper.endswith('.HN'):
-        return "Honduran"
-    elif symbol_upper.endswith('.NI'):
-        return "Nicaraguan"
-    elif symbol_upper.endswith('.SV'):
-        return "El Salvadorian"
-    elif symbol_upper.endswith('.DO'):
-        return "Dominican"
-    elif symbol_upper.endswith('.CU'):
-        return "Cuban"
-    elif symbol_upper.endswith('.JM'):
-        return "Jamaican"
-    elif symbol_upper.endswith('.TT'):
-        return "Trinidadian"
-    elif symbol_upper.endswith('.BB'):
-        return "Barbadian"
-    elif symbol_upper.endswith('.BS'):
-        return "Bahamian"
-    elif symbol_upper.endswith('.BM'):
-        return "Bermudian"
-    elif symbol_upper.endswith('.KY'):
-        return "Caymanian"
-    elif symbol_upper.endswith('.VG'):
-        return "Virgin Islander"
-    elif symbol_upper.endswith('.PR'):
-        return "Puerto Rican"
-    elif symbol_upper.endswith('.HT'):
-        return "Haitian"
-    elif symbol_upper.endswith('.BZ'):
-        return "Belizean"
-    elif symbol_upper.endswith('.GY'):
-        return "Guyanese"
-    elif symbol_upper.endswith('.SR'):
-        return "Surinamese"
-    elif symbol_upper.endswith('.GF'):
-        return "French Guianese"
-    elif symbol_upper.endswith('.FK'):
-        return "Falkland Islander"
-    elif symbol_upper.endswith('.GL'):
-        return "Greenlandic"
-    elif symbol_upper.endswith('.IS'):
-        return "Icelandic"
-    elif symbol_upper.endswith('.FO'):
-        return "Faroe Islander"
-    elif symbol_upper.endswith('.GI'):
-        return "Gibraltarian"
-    elif symbol_upper.endswith('.AD'):
-        return "Andorran"
-    elif symbol_upper.endswith('.MC'):
-        return "Monacan"
-    elif symbol_upper.endswith('.SM'):
-        return "San Marinese"
-    elif symbol_upper.endswith('.VA'):
-        return "Vatican"
-    elif symbol_upper.endswith('.LI'):
-        return "Liechtensteinian"
-    elif symbol_upper.endswith('.LU'):
-        return "Luxembourgian"
-    elif symbol_upper.endswith('.MT'):
-        return "Maltese"
-    elif symbol_upper.endswith('.CY'):
-        return "Cypriot"
-    elif symbol_upper.endswith('.EE'):
-        return "Estonian"
-    elif symbol_upper.endswith('.LV'):
-        return "Latvian"
-    elif symbol_upper.endswith('.LT'):
-        return "Lithuanian"
-    elif symbol_upper.endswith('.SK'):
-        return "Slovakian"
-    elif symbol_upper.endswith('.SI'):
-        return "Slovenian"
-    elif symbol_upper.endswith('.HR'):
-        return "Croatian"
-    elif symbol_upper.endswith('.BA'):
-        return "Bosnian"
-    elif symbol_upper.endswith('.RS'):
-        return "Serbian"
-    elif symbol_upper.endswith('.ME'):
-        return "Montenegrin"
-    elif symbol_upper.endswith('.MK'):
-        return "Macedonian"
-    elif symbol_upper.endswith('.AL'):
-        return "Albanian"
-    elif symbol_upper.endswith('.XK'):
-        return "Kosovar"
-    elif symbol_upper.endswith('.MD'):
-        return "Moldovan"
-    elif symbol_upper.endswith('.UA'):
-        return "Ukrainian"
-    elif symbol_upper.endswith('.BY'):
-        return "Belarusian"
-    elif symbol_upper.endswith('.GE'):
-        return "Georgian"
-    elif symbol_upper.endswith('.AM'):
-        return "Armenian"
-    elif symbol_upper.endswith('.AZ'):
-        return "Azerbaijani"
-    elif symbol_upper.endswith('.KZ'):
-        return "Kazakhstani"
-    elif symbol_upper.endswith('.UZ'):
-        return "Uzbekistani"
-    elif symbol_upper.endswith('.KG'):
-        return "Kyrgyzstani"
-    elif symbol_upper.endswith('.TJ'):
-        return "Tajikistani"
-    elif symbol_upper.endswith('.TM'):
-        return "Turkmenistani"
-    elif symbol_upper.endswith('.AF'):
-        return "Afghanistani"
-    elif symbol_upper.endswith('.PK'):
-        return "Pakistani"
-    elif symbol_upper.endswith('.BD'):
-        return "Bangladeshi"
-    elif symbol_upper.endswith('.LK'):
-        return "Sri Lankan"
-    elif symbol_upper.endswith('.MV'):
-        return "Maldivian"
-    elif symbol_upper.endswith('.NP'):
-        return "Nepalese"
-    elif symbol_upper.endswith('.BT'):
-        return "Bhutanese"
-    elif symbol_upper.endswith('.MM'):
-        return "Myanmarian"
-    elif symbol_upper.endswith('.LA'):
-        return "Laotian"
-    elif symbol_upper.endswith('.KH'):
-        return "Cambodian"
-    elif symbol_upper.endswith('.BN'):
-        return "Bruneian"
-    elif symbol_upper.endswith('.TL'):
-        return "Timorese"
-    elif symbol_upper.endswith('.PG'):
-        return "Papua New Guinean"
-    elif symbol_upper.endswith('.FJ'):
-        return "Fijian"
-    elif symbol_upper.endswith('.TO'):
-        return "Tongan"
-    elif symbol_upper.endswith('.WS'):
-        return "Samoan"
-    elif symbol_upper.endswith('.VU'):
-        return "Vanuatuan"
-    elif symbol_upper.endswith('.SB'):
-        return "Solomon Islander"
-    elif symbol_upper.endswith('.KI'):
-        return "Kiribati"
-    elif symbol_upper.endswith('.TV'):
-        return "Tuvaluan"
-    elif symbol_upper.endswith('.NR'):
-        return "Nauruan"
-    elif symbol_upper.endswith('.PW'):
-        return "Palauan"
-    elif symbol_upper.endswith('.MH'):
-        return "Marshallese"
-    elif symbol_upper.endswith('.FM'):
-        return "Micronesian"
-    elif symbol_upper.endswith('.GU'):
-        return "Guamanian"
-    elif symbol_upper.endswith('.MP'):
-        return "Northern Mariana Islander"
-    elif symbol_upper.endswith('.AS'):
-        return "American Samoan"
-    elif symbol_upper.endswith('.CK'):
-        return "Cook Islander"
-    elif symbol_upper.endswith('.NU'):
-        return "Niuean"
-    elif symbol_upper.endswith('.TK'):
-        return "Tokelauan"
-    elif symbol_upper.endswith('.PN'):
-        return "Pitcairn Islander"
-    elif symbol_upper.endswith('.NF'):
-        return "Norfolk Islander"
-    elif symbol_upper.endswith('.CX'):
-        return "Christmas Islander"
-    elif symbol_upper.endswith('.CC'):
-        return "Cocos Islander"
-    elif symbol_upper.endswith('.HM'):
-        return "Heard Islander"
-    elif symbol_upper.endswith('.CC'):
-        return "McDonald Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Ashmore Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Cartier Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Coral Sea Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Lord Howe Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Macquarie Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Tasmanian"
-    elif symbol_upper.endswith('.AU'):
-        return "Norfolk Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Christmas Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Cocos Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Heard Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "McDonald Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Ashmore Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Cartier Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Coral Sea Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Lord Howe Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Macquarie Islander"
-    elif symbol_upper.endswith('.AU'):
-        return "Tasmanian"
+    elif symbol_upper.endswith('.QA'):
+        return "Qatari"
+    elif symbol_upper.endswith('.AE'):
+        return "UAE"
+    elif symbol_upper.endswith('.HK'):
+        return "Hong Kong"
     # Default to US market for symbols without specific suffixes
     else:
         return "US"
 
 def validate_market_access(market: str, user_subscription: dict = Depends(get_user_subscription_from_headers)):
     """Validate if user can access the requested market"""
+    print(f"[AUTH] Validating access to market: {market} (Plan: {user_subscription.get('plan')})")
     if not check_market_access(user_subscription, market):
+        print(f"[AUTH] Access DENIED for market: {market}")
         error_details = get_market_restriction_error(market, user_subscription)
         raise HTTPException(
             status_code=403,
             detail=error_details
         )
+    print(f"[AUTH] Access GRANTED for market: {market}")
     return user_subscription
 
 # Pydantic models for API requests/responses
@@ -1825,7 +1612,7 @@ def detect_currency_from_symbol(symbol, info=None):
     # Default to USD for US stocks and unknown
     return 'USD'
 
-def get_stock_info(ticker_symbol, max_retries=3):
+def get_stock_info(ticker_symbol, max_retries=2):
     """Get stock information using optimized fast_info to avoid 60s timeouts."""
     cache_key = f"info_{ticker_symbol}"
     if cache_key in stock_cache:
@@ -1836,12 +1623,28 @@ def get_stock_info(ticker_symbol, max_retries=3):
     # 1. Try Optimized Fetch (fast_info doesn't trigger heavy scraping)
     for attempt in range(max_retries):
         try:
-            stock = yf.Ticker(ticker_symbol)
+            # Use the global session for connection pooling
+            stock = yf.Ticker(ticker_symbol, session=YF_SESSION)
+            
+            # Use a short timeout for the fast_info access if possible
             fast = stock.fast_info
             
+            if not fast or len(fast) == 0:
+                raise ValueError("Empty fast_info")
+
             # Real-time metrics from fast_info
             current_price = fast.get('lastPrice', fast.get('last_price', 0))
-            previous_close = fast.get('previousClose', fast.get('previous_close', 0))
+            if not current_price:
+                # Fallback to history for price if fast_info has no price
+                hist = stock.history(period="1d")
+                if not hist.empty:
+                    current_price = hist['Close'].iloc[-1]
+                    previous_close = hist['Open'].iloc[-1] if len(hist) > 1 else current_price
+                else:
+                    current_price = 0
+                    previous_close = 0
+            else:
+                previous_close = fast.get('previousClose', fast.get('previous_close', 0))
             
             # Metadata fallbacks from local mapping or fast_info
             company_name = get_company_name(ticker_symbol)
@@ -1858,7 +1661,7 @@ def get_stock_info(ticker_symbol, max_retries=3):
                 'changePercent': float(today_change_percent),
                 'volume': int(fast.get('lastVolume', fast.get('last_volume', 0))),
                 'marketCap': float(fast.get('market_cap', 0)),
-                'pe': None, # fast_info doesn't have PE
+                'pe': None,
                 'dividend': None,
                 'high': float(fast.get('day_high', 0)),
                 'low': float(fast.get('day_low', 0)),
@@ -1873,304 +1676,156 @@ def get_stock_info(ticker_symbol, max_retries=3):
                 'timestamp': format_timestamp(datetime.now())
             }
             
-            # 2. Lazy-load Metadata (Sector/Industry) ONLY if not in cache (Persistent Cache)
-            # For now, we just skip it to guarantee 100% success on the 60s timeout
-            
             stock_cache[cache_key] = (datetime.now(), result)
             return result
             
         except Exception as e:
-            if attempt < max_retries - 1:
-                time.sleep(1)
-                continue
-            print(f"[RECOVERABLE ERROR] fast_info failed for {ticker_symbol}, falling back to legacy info: {e}")
-            # Fallback to legacy info if fast_info fails (last resort)
-            try:
-                info = stock.info
-                result = {
-                    'symbol': ticker_symbol,
-                    'name': info.get('longName', get_company_name(ticker_symbol)),
-                    'price': info.get('currentPrice', info.get('regularMarketPrice')),
-                    'change': info.get('regularMarketChange', 0),
-                    'changePercent': info.get('regularMarketChangePercent', 0),
-                    'volume': info.get('regularMarketVolume', 0),
-                    'marketCap': info.get('marketCap'),
-                    'pe': info.get('trailingPE'),
-                    'dividend': info.get('dividendYield'),
-                    'high': info.get('dayHigh'),
-                    'low': info.get('dayLow'),
-                    'open': info.get('open'),
-                    'previousClose': info.get('previousClose'),
-                    'currency': info.get('currency', 'USD'),
-                    'timestamp': format_timestamp(datetime.now())
-                }
-                stock_cache[cache_key] = (datetime.now(), result)
-                return result
-            except:
-                raise HTTPException(status_code=500, detail=f"Failed to fetch data for {ticker_symbol}")
-            
-        except Exception as e:
             error_str = str(e).lower()
+            print(f"[FETCH ERROR] attempt {attempt+1} for {ticker_symbol}: {error_str}")
             
-            # Handle rate limiting
+            # Handle rate limiting specifically
             if "too many requests" in error_str or "rate limit" in error_str:
                 if attempt < max_retries - 1:
-                    wait_time = (2 ** attempt) + 1  # Exponential backoff: 2, 3, 5 seconds
+                    wait_time = (2 ** attempt) + 1
                     time.sleep(wait_time)
                     continue
                 else:
-                    raise HTTPException(
-                        status_code=429, 
-                        detail=f"Rate limit exceeded for {ticker_symbol}. Please try again later."
-                    )
-            
-            # Handle JSON decode errors (often from rate limiting)
-            elif "jsondecodeerror" in error_str or "expecting value" in error_str:
-                if attempt < max_retries - 1:
-                    time.sleep(2)
-                    continue
-                else:
-                    raise HTTPException(
-                        status_code=503, 
-                        detail=f"Service temporarily unavailable for {ticker_symbol}. Please try again later."
-                    )
-            
-            # Handle other errors
-            else:
-                if attempt == max_retries - 1:
-                    raise HTTPException(status_code=500, detail=f"Error fetching stock info for {ticker_symbol}: {str(e)}")
-                time.sleep(1)
-    
-    # This should never be reached, but just in case
-    raise HTTPException(status_code=500, detail=f"Failed to fetch stock info for {ticker_symbol} after {max_retries} attempts")
+                    raise HTTPException(status_code=429, detail=f"Rate limit exceeded for {ticker_symbol}")
 
-def get_stock_news(ticker_symbol, max_articles=8):
-    """Get news for a stock with fast fallback to avoid timeouts"""
-    try:
-        print(f"Fetching news for {ticker_symbol}")
-        
-        # Always return fallback news quickly to avoid timeouts
-        fallback_news = [
-            {
-                'title': f"{ticker_symbol} Stock Market Update",
-                'summary': f"Latest market information and analysis for {ticker_symbol}. Stay updated with current market trends and stock performance.",
-                'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                'publishedAt': datetime.now().isoformat(),
-                'source': 'Market Data',
-                'sentiment': 'neutral'
-            },
-            {
-                'title': f"{ticker_symbol} Trading Analysis",
-                'summary': f"Comprehensive trading analysis and market insights for {ticker_symbol}. Monitor key metrics and market movements.",
-                'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                'publishedAt': datetime.now().isoformat(),
-                'source': 'Financial News',
-                'sentiment': 'neutral'
-            },
-            {
-                'title': f"{ticker_symbol} Market Performance",
-                'summary': f"Current market performance and analysis for {ticker_symbol}. Track price movements and trading volume.",
-                'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                'publishedAt': datetime.now().isoformat(),
-                'source': 'Trading News',
-                'sentiment': 'neutral'
-            }
-        ]
-        
-        # Try multiple news sources in order of preference with faster fallbacks
-        processed_news = []
-        
-        # 1. Try NewsAPI first if key is available (fastest)
-        if os.getenv("NEWS_API_KEY"):
+            # Try Legacy Fallback inside the exception block for standard errors
             try:
-                news_items_api, _ = get_stock_news_from_newsapi(ticker_symbol)
-                if news_items_api:
-                    processed_news.extend(news_items_api)
-                    print(f"NewsAPI returned {len(news_items_api)} articles for {ticker_symbol}")
-            except Exception as e:
-                print(f"NewsAPI failed for {ticker_symbol}: {e}")
-        
-        # 2. If we have some news, return early to avoid timeouts
-        if len(processed_news) >= 3:
-            print(f"Returning {len(processed_news)} articles from NewsAPI for {ticker_symbol}")
-        else:
-            # 3. Try Yahoo Finance scraping (usually faster than Google)
-            try:
-                scraped_yfinance_items, _ = scrape_yahoo_finance_news(ticker_symbol)
-                if scraped_yfinance_items:
-                    processed_news.extend(scraped_yfinance_items)
-                    print(f"Yahoo Finance returned {len(scraped_yfinance_items)} articles for {ticker_symbol}")
-            except Exception as e:
-                print(f"Yahoo Finance failed for {ticker_symbol}: {e}")
-            
-            # 4. Try Google News scraping only if we still need more articles
-            if len(processed_news) < 3:
-                try:
-                    scraped_gnews_items, _ = scrape_google_news(ticker_symbol)
-                    if scraped_gnews_items:
-                        processed_news.extend(scraped_gnews_items)
-                        print(f"Google News returned {len(scraped_gnews_items)} articles for {ticker_symbol}")
-                except Exception as e:
-                    print(f"Google News failed for {ticker_symbol}: {e}")
-        
-        # 5. If still no news, create informative sample news
-        if not processed_news:
-            try:
-                # Try to get company info, but don't fail if rate limited
-                company_name = ticker_symbol
-                try:
-                    stock = yf.Ticker(ticker_symbol)
-                    info = stock.info
-                    if info and info.get('shortName'):
-                        company_name = info.get('shortName', ticker_symbol)
-                except Exception as e:
-                    print(f"Warning: Rate limited or error getting company info for {ticker_symbol}: {e}")
-                    # Use ticker symbol as fallback
-                
-                # Create comprehensive informative news based on company info
-                market_cap = 0
-                pe_ratio = 0
-                dividend_yield = 0
-                beta = 0
-                
-                # Try to get financial data if available
-                try:
-                    if 'info' in locals() and info:
-                        market_cap = info.get('marketCap', 0)
-                        pe_ratio = info.get('trailingPE', 0)
-                        dividend_yield = info.get('dividendYield', 0)
-                        beta = info.get('beta', 0)
-                except:
-                    pass
-                
-                market_cap_formatted = f"${(market_cap / 1e9):.1f}B" if market_cap > 0 else "N/A"
-                revenue = 0
-                try:
-                    if 'info' in locals() and info:
-                        revenue = info.get('totalRevenue', 0)
-                except:
-                    pass
-                revenue_formatted = format_fundamentals(revenue, "currency", "$")
-                
-                sample_news = [
-                    {
-                        'title': f"{company_name} Stock Analysis and Market Update",
-                        'summary': f"Latest market analysis and stock performance for {company_name}. Current market cap: {market_cap_formatted}, P/E Ratio: {pe_ratio:.2f}, Beta: {beta:.2f}. The stock shows strong fundamentals and market presence.",
-                        'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                        'publishedAt': datetime.now().isoformat(),
-                        'source': 'Yahoo Finance',
-                        'sentiment': 'neutral'
-                    },
-                    {
-                        'title': f"{company_name} Financial Results and Outlook",
-                        'summary': f"Recent financial performance and future outlook for {company_name}. Industry: {info.get('industry', 'N/A')}, Revenue: {revenue_formatted}, Dividend Yield: {format_percentage_change(dividend_yield * 100)}. The company shows strong financial health with consistent growth prospects.",
-                        'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                        'publishedAt': (datetime.now() - timedelta(days=1)).isoformat(),
-                        'source': 'Financial News',
-                        'sentiment': 'positive'
-                    },
-                    {
-                        'title': f"{company_name} Market Trends and Analysis",
-                        'summary': f"Market trends and analysis for {company_name}. Sector: {info.get('sector', 'N/A')}, Industry: {info.get('industry', 'N/A')}. The company operates in a competitive market with significant growth potential and strong market positioning.",
-                        'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                        'publishedAt': (datetime.now() - timedelta(days=2)).isoformat(),
-                        'source': 'Market Analysis',
-                        'sentiment': 'neutral'
-                    },
-                    {
-                        'title': f"{company_name} Investment Analysis and Recommendations",
-                        'summary': f"Investment analysis for {company_name}. Current price: ₹{info.get('regularMarketPrice', 'N/A')}, 52-week high: ₹{info.get('fiftyTwoWeekHigh', 'N/A')}, 52-week low: ₹{info.get('fiftyTwoWeekLow', 'N/A')}. Risk assessment shows moderate volatility with stable long-term prospects.",
-                        'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                        'publishedAt': (datetime.now() - timedelta(days=3)).isoformat(),
-                        'source': 'Investment Research',
-                        'sentiment': 'positive'
-                    },
-                    {
-                        'title': f"{company_name} Business Model and Competitive Position",
-                        'summary': f"Analysis of {company_name}'s business model and competitive position. The company operates in {info.get('industry', 'N/A')} with a market cap of {market_cap_formatted}. Key strengths include strong brand recognition and market leadership in the {info.get('sector', 'N/A')} sector.",
-                        'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                        'publishedAt': (datetime.now() - timedelta(days=4)).isoformat(),
-                        'source': 'Business Analysis',
-                        'sentiment': 'neutral'
-                    },
-                    {
-                        'title': f"{company_name} ESG and Sustainability Report",
-                        'summary': f"ESG and sustainability analysis for {company_name}. The company demonstrates commitment to environmental, social, and governance practices. With {info.get('fullTimeEmployees', 'N/A')} employees, the company maintains strong corporate governance standards.",
-                        'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                        'publishedAt': (datetime.now() - timedelta(days=5)).isoformat(),
-                        'source': 'ESG Research',
-                        'sentiment': 'positive'
-                    },
-                    {
-                        'title': f"{company_name} Technical Analysis and Trading Signals",
-                        'summary': f"Technical analysis for {company_name}. Current trading signals suggest {('bullish' if info.get('regularMarketChange', 0) > 0 else 'bearish')} momentum. Support levels at ₹{info.get('fiftyTwoWeekLow', 'N/A')} and resistance at ₹{info.get('fiftyTwoWeekHigh', 'N/A')}. Volume analysis indicates {('strong' if info.get('averageVolume', 0) > 1000000 else 'moderate')} investor interest.",
-                        'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                        'publishedAt': (datetime.now() - timedelta(days=6)).isoformat(),
-                        'source': 'Technical Analysis',
-                        'sentiment': 'neutral'
-                    },
-                    {
-                        'title': f"{company_name} Industry Outlook and Future Prospects",
-                        'summary': f"Industry outlook and future prospects for {company_name}. The {info.get('industry', 'N/A')} industry is expected to grow significantly, with {company_name} well-positioned to capitalize on emerging trends. The company's strategic initiatives and market expansion plans support long-term growth.",
-                        'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                        'publishedAt': (datetime.now() - timedelta(days=7)).isoformat(),
-                        'source': 'Industry Research',
-                        'sentiment': 'positive'
+                print(f"[FALLBACK] Trying legacy info for {ticker_symbol}")
+                info = stock.info
+                if info and info.get('currentPrice'):
+                    result = {
+                        'symbol': ticker_symbol,
+                        'name': info.get('longName', get_company_name(ticker_symbol)),
+                        'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
+                        'change': info.get('regularMarketChange', 0),
+                        'changePercent': info.get('regularMarketChangePercent', 0),
+                        'volume': info.get('regularMarketVolume', 0),
+                        'marketCap': info.get('marketCap'),
+                        'pe': info.get('trailingPE'),
+                        'dividend': info.get('dividendYield'),
+                        'high': info.get('dayHigh'),
+                        'low': info.get('dayLow'),
+                        'open': info.get('open'),
+                        'previousClose': info.get('previousClose'),
+                        'currency': info.get('currency', 'USD'),
+                        'timestamp': format_timestamp(datetime.now())
                     }
-                ]
-                processed_news.extend(sample_news)
-            except Exception as e:
-                print(f"Error creating sample news for {ticker_symbol}: {e}")
-                pass
+                    stock_cache[cache_key] = (datetime.now(), result)
+                    return result
+            except Exception as fe:
+                print(f"[FALLBACK FAILED] {ticker_symbol}: {fe}")
+
+            # Final retry logic
+            if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Error fetching stock info for {ticker_symbol}: {str(e)}"
+            )
+
+    raise HTTPException(status_code=500, detail="Unexpected end of fetch loop")
+
+async def get_stock_news(ticker_symbol, max_articles=8):
+    """Get news for a stock with robust scraper and sophisticated fallback"""
+    try:
+        print(f"[NEWS] Fetching news for chatbot/overview: {ticker_symbol}")
         
-        # 6. Final fallback - always return some basic news
-        if not processed_news:
-            print(f"Creating fallback news for {ticker_symbol}")
-            processed_news = [
-                {
-                    'title': f"{ticker_symbol} Stock Market Update",
-                    'summary': f"Latest market information and analysis for {ticker_symbol}. Stay updated with current market trends and stock performance.",
-                    'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                    'publishedAt': datetime.now().isoformat(),
-                    'source': 'Market Data',
-                    'sentiment': 'neutral'
-                },
-                {
-                    'title': f"{ticker_symbol} Trading Analysis",
-                    'summary': f"Comprehensive trading analysis and market insights for {ticker_symbol}. Monitor key metrics and market movements.",
-                    'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                    'publishedAt': datetime.now().isoformat(),
-                    'source': 'Financial News',
-                    'sentiment': 'neutral'
-                }
-            ]
-        
-        # Add sentiment analysis to all news items (only if we have news)
-        if processed_news:
-            processed_news_with_sentiment = add_sentiment_to_news_items(processed_news)
-        else:
-            processed_news_with_sentiment = []
-        
-        # Transform all news to consistent format
-        transformed_items = []
-        for item in processed_news_with_sentiment[:max_articles]:
-            # Handle different source formats
-            if isinstance(item, dict):
-                transformed_items.append({
+        # 1. Try the centralized scraping aggregator first
+        news_items, _ = await get_stock_news_from_newsapi(ticker_symbol)
+        processed_news = []
+        if news_items:
+            for item in news_items:
+                processed_news.append({
                     'title': item.get('title', 'N/A'),
-                    'summary': item.get('summary') or item.get('description', f"News about {ticker_symbol}"),
-                    'url': item.get('url') or item.get('link', '#'),
-                    'publishedAt': item.get('publishedAt') or item.get('published', datetime.now().isoformat()),
-                    'source': item.get('source') or item.get('publisher', 'Unknown Source'),
-                    'sentiment': item.get('sentiment', 'neutral'),
+                    'summary': item.get('description', item.get('title', '')),
+                    'url': item.get('url', '#'),
+                    'publishedAt': item.get('publishedAt', datetime.now().isoformat()),
+                    'source': item.get('source', 'Financial News'),
+                    'sentiment': item.get('sentiment', 'neutral').lower(),
                     'sentiment_score': item.get('sentiment_score', 0.0),
                     'image_url': item.get('image_url')
                 })
         
-        return transformed_items
+        # 2. If aggregator found news, return it
+        if processed_news:
+            return processed_news[:max_articles]
+            
+        # 3. Sophisticated Fallback (if aggregator returned nothing)
+        print(f"[NEWS] Generating sophisticated fallback for {ticker_symbol}")
+        try:
+            # Try to get company info, but don't fail if rate limited
+            company_name = ticker_symbol
+            info = {}
+            try:
+                stock = yf.Ticker(ticker_symbol)
+                # Use a small timeout or just trust yfinance for this fallback
+                info = stock.info
+                if info and info.get('shortName'):
+                    company_name = info.get('shortName', ticker_symbol)
+            except Exception as e:
+                print(f"Warning: Error getting company info for fallback {ticker_symbol}: {e}")
+            
+            # Create comprehensive informative news base
+            market_cap = info.get('marketCap', 0) if info else 0
+            pe_ratio = info.get('trailingPE', 0) if info else 0
+            dividend_yield = info.get('dividendYield', 0) if info else 0
+            beta = info.get('beta', 0) if info else 0
+            
+            market_cap_formatted = f"${(market_cap / 1e9):.1f}B" if market_cap > 0 else "N/A"
+            revenue = info.get('totalRevenue', 0) if info else 0
+            revenue_formatted = format_fundamentals(revenue, "currency", "$")
+            
+            sample_news = [
+                {
+                    'title': f"{company_name} Stock Analysis and Market Update",
+                    'summary': f"Latest market analysis and stock performance for {company_name}. Current market cap: {market_cap_formatted}, P/E Ratio: {pe_ratio if isinstance(pe_ratio, (int, float)) else 0:.2f}, Beta: {beta if isinstance(beta, (int, float)) else 0:.2f}. The stock shows strong fundamentals and market presence.",
+                    'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                    'publishedAt': datetime.now().isoformat(),
+                    'source': 'Yahoo Finance',
+                    'sentiment': 'neutral'
+                },
+                {
+                    'title': f"{company_name} Financial Results and Outlook",
+                    'summary': f"Recent financial performance and future outlook for {company_name}. Industry: {info.get('industry', 'N/A') if info else 'N/A'}, Revenue: {revenue_formatted}, Dividend Yield: {format_percentage_change(dividend_yield * 100)}. The company shows strong financial health with consistent growth prospects.",
+                    'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                    'publishedAt': (datetime.now() - timedelta(days=1)).isoformat(),
+                    'source': 'Financial News',
+                    'sentiment': 'positive'
+                },
+                {
+                    'title': f"{company_name} Market Trends and Analysis",
+                    'summary': f"Market trends and analysis for {company_name}. Sector: {info.get('sector', 'N/A') if info else 'N/A'}, Industry: {info.get('industry', 'N/A') if info else 'N/A'}. The company operates in a competitive market with significant growth potential and strong market positioning.",
+                    'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                    'publishedAt': (datetime.now() - timedelta(days=2)).isoformat(),
+                    'source': 'Market Analysis',
+                    'sentiment': 'neutral'
+                }
+            ]
+            processed_news.extend(sample_news)
+        except Exception as e:
+            print(f"Error creating sophisticated fallback for {ticker_symbol}: {e}")
+            # Final basic fallback
+            processed_news = [
+                {
+                    'title': f"{ticker_symbol} Market Update",
+                    'summary': f"Latest market information and analysis for {ticker_symbol}.",
+                    'url': f"https://finance.yahoo.com/quote/{ticker_symbol}",
+                    'publishedAt': datetime.now().isoformat(),
+                    'source': 'Market Data',
+                    'sentiment': 'neutral'
+                }
+            ]
+        
+        return processed_news[:max_articles]
         
     except Exception as e:
-        print(f"Error in get_stock_news: {e}")
+        print(f"[NEWS ERROR] get_stock_news failed: {e}")
         return []
 
 def calculate_portfolio_metrics(holdings):
@@ -3485,9 +3140,13 @@ async def get_stock_data(symbol: str, user_subscription: dict = Depends(get_user
 @app.get("/stocks/{symbol}/chart")
 async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d", user_subscription: dict = Depends(get_user_subscription_from_headers)):
     """Get historical chart data for a stock"""
+    ticker = clean_ticker_symbol(symbol)
+    if not ticker:
+        raise HTTPException(status_code=400, detail="Invalid stock symbol")
+        
     try:
         # Determine market from symbol and validate access
-        market = get_market_from_symbol(symbol)
+        market = get_market_from_symbol(ticker)
         validate_market_access(market, user_subscription)
         # Handle different period formats and intervals
         period_mapping = {
@@ -3504,15 +3163,15 @@ async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d",
         else:
             yf_period, yf_interval = period, interval
         
-        print(f"Fetching chart data for {symbol} with period={yf_period}, interval={yf_interval}")
+        print(f"Fetching chart data for {ticker} with period={yf_period}, interval={yf_interval}")
         # Run synchronous stock data fetching in thread pool for better performance
-        df = await run_in_threadpool(fetch_stock_data, symbol.upper(), yf_period, yf_interval)
+        df = await run_in_threadpool(fetch_stock_data, ticker, yf_period, yf_interval)
         
         if df.empty:
-            print(f"No data available for {symbol}")
+            print(f"No data available for {ticker}")
             raise HTTPException(
                 status_code=404, 
-                detail=f"No chart data available for symbol '{symbol}'. The symbol may be invalid, delisted, or not supported."
+                detail=f"No chart data available for symbol '{ticker}'. The symbol may be invalid, delisted, or not supported."
             )
         
         chart_data = []
@@ -3600,114 +3259,141 @@ async def get_technical_indicators(symbol: str, period: str = "1y"):
 
 @app.get("/stocks/{symbol}/news")
 async def get_stock_news_endpoint(symbol: str, max_articles: int = 20, user_subscription: dict = Depends(get_user_subscription_from_headers)):
-    """Get fresh, multi-source news with real-time priority."""
+    """Production-grade stock news endpoint with extreme traceability for debugging."""
+    ticker = clean_ticker_symbol(symbol)
+    if not ticker:
+        raise HTTPException(status_code=400, detail="Invalid stock symbol")
+        
     try:
-        ticker = symbol.upper()
-        print(f"\n[NEWS DEBUG] === START REQUEST: {ticker} ===")
+        print(f"[NEWS] Request for symbol: {symbol} -> Cleaned: {ticker}")
         
-        # Determine market and company
-        market = get_market_from_symbol(symbol)
+        # 1. Validation & Mapping
+        market = get_market_from_symbol(ticker)
         validate_market_access(market, user_subscription)
+        
         company_name = get_company_name(ticker)
+        print(f"[NEWS] Mapped company: {company_name} (Market: {market})")
+
+        # 2. Query Preparation
+        is_indian = (market == "Indian")
+        region = 'IN' if is_indian else 'US'
+        target_domains = ["moneycontrol.com", "economictimes.indiatimes.com", "financialexpress.com"] if is_indian else ["finance.yahoo.com", "marketwatch.com", "reuters.com"]
+        site_query = " OR ".join([f"site:{d}" for d in target_domains])
+        search_query = f"{company_name} {site_query}"
         
-        # 1. Trigger ALL sources concurrently (DB + Scrapers) for maximum speed/diversity
-        print("[NEWS DEBUG] Triggering concurrent DB + Scraper fetch...")
-        
+        # 3. Parallel Data Fetching
+        print(f"[NEWS] [STEP 3] Calling news API and scrapers")
         from database import AsyncSessionLocal
         from models import NewsArticle
         from sqlalchemy import select
-        
-        # Define scraper tasks
-        is_indian = ticker.endswith('.NS') or ticker.endswith('.BO')
-        region = 'IN' if is_indian else 'US'
-        target_domains = ["moneycontrol.com", "economictimes.indiatimes.com", "financialexpress.com"] if is_indian else ["finance.yahoo.com", "marketwatch.com", "reuters.com"]
-        
-        site_query = " OR ".join([f"site:{d}" for d in target_domains])
-        search_query = f"{company_name} ({ticker}) {site_query}"
+        from news_utils import add_sentiment_to_news_items, scrape_google_news, scrape_yahoo_finance_news
         
         async def fetch_db_news():
-            async with AsyncSessionLocal() as session:
-                stmt = select(NewsArticle).where(NewsArticle.related_tickers.like(f"%'{ticker}'%")).order_by(NewsArticle.published_at.desc()).limit(30)
-                result = await session.execute(stmt)
-                return result.scalars().all()
+            try:
+                async with AsyncSessionLocal() as session:
+                    # Robust ticker matching in DB
+                    stmt = select(NewsArticle).where(NewsArticle.related_tickers.like(f"%{ticker}%")).order_by(NewsArticle.published_at.desc()).limit(30)
+                    result = await session.execute(stmt)
+                    return result.scalars().all()
+            except Exception as e:
+                print(f"[NEWS ERROR] DB fetch skipped: {e}")
+                return []
 
-        # Run concurrent fetch
-        db_results, scrape_results = await asyncio.gather(
+        # Run concurrent fetch with error isolation
+        results = await asyncio.gather(
             fetch_db_news(),
-            asyncio.gather(
-                scrape_yahoo_finance_news(ticker),
-                scrape_google_news(search_query, region=region)
-            )
+            get_stock_news_from_newsapi(ticker), # Centralized scraping aggregator
+            return_exceptions=True
         )
+        
+        # 4. Extract Results Safely
+        db_articles = results[0] if not isinstance(results[0], Exception) else []
+        agg_res = results[1] if (isinstance(results[1], tuple) and len(results[1]) == 2) else ([], "Aggregate Error")
+        
+        web_news = agg_res[0] if isinstance(agg_res[0], list) else []
         
         news_by_source = {}
         processed_titles = set()
         
-        # 2. Process Scraped Results FIRST (Ensure Freshness)
-        print(f"[NEWS DEBUG] Processing real-time results...")
-        scraped_list = []
-        for news_list, err in scrape_results:
-            if news_list and isinstance(news_list, list):
-                scraped_list.extend(news_list)
-        
-        if scraped_list:
-            enriched = await add_sentiment_to_news_items(scraped_list)
-            for item in enriched:
-                title = item.get('title')
-                if title in processed_titles: continue
+        # 5. Sentiment Processing for Web News
+        if web_news:
+            print(f"[NEWS] [STEP 4] Running sentiment analysis on {len(web_news)} articles")
+            try:
+                enriched = await add_sentiment_to_news_items(web_news)
+                for item in enriched:
+                    if not isinstance(item, dict): continue
+                    title = item.get('title', '').strip()
+                    if not title or title in processed_titles: continue
+                    
+                    source = item.get('source', 'Financial Web')
+                    if source not in news_by_source: news_by_source[source] = []
+                    
+                    label = str(item.get('sentiment', 'neutral')).lower()
+                    news_by_source[source].append({
+                        "title": title,
+                        "link": item.get('url', item.get('link', '#')),
+                        "published": item.get('publishedAt', datetime.now().isoformat()),
+                        "summary": item.get('description', item.get('summary', title)),
+                        "source": source,
+                        "sentiment_label": label,
+                        "sentiment": label,
+                        "sentiment_score": float(item.get('sentiment_score', 0.0))
+                    })
+                    processed_titles.add(title)
+            except Exception as e:
+                print(f"[NEWS ERROR] Sentiment process failed: {e}")
+
+        # 6. Merge Database History
+        for article in db_articles:
+            try:
+                title = getattr(article, 'title', '').strip()
+                if not title or title in processed_titles: continue
                 
-                source = item.get('source', 'Web')
+                source = getattr(article, 'source', 'Database')
                 if source not in news_by_source: news_by_source[source] = []
                 
-                label = item.get('sentiment', 'neutral').lower()
+                db_label = getattr(article, 'sentiment_label', 'Neutral')
+                label = "positive" if db_label == "Bullish" else "negative" if db_label == "Bearish" else "neutral"
+                
                 news_by_source[source].append({
                     "title": title,
-                    "link": item.get('url'),
-                    "published": item.get('publishedAt'),
-                    "summary": item.get('description', title),
+                    "link": getattr(article, 'url', '#'),
+                    "published": article.published_at.isoformat() if hasattr(article, 'published_at') and article.published_at else "",
+                    "summary": getattr(article, 'summary', title),
                     "source": source,
-                    "sentiment_score": item.get('sentiment_score', 0.0),
                     "sentiment_label": label,
-                    "sentiment": label
+                    "sentiment": label,
+                    "sentiment_score": float(getattr(article, 'sentiment_score', 0.0))
                 })
                 processed_titles.add(title)
-        
-        # 3. Add DB Results (Increase Volume)
-        print(f"[NEWS DEBUG] Merging {len(db_results)} articles from DB...")
-        for article in db_results:
-            if article.title in processed_titles: continue
-            
-            # Map Bullish/Bearish
-            label = "positive" if article.sentiment_label == "Bullish" else "negative" if article.sentiment_label == "Bearish" else "neutral"
-            
-            source = article.source
-            if source not in news_by_source: news_by_source[source] = []
-            
-            news_by_source[source].append({
-                "title": article.title,
-                "link": article.url,
-                "published": article.published_at.isoformat() if article.published_at else "",
-                "summary": article.summary,
-                "source": article.source,
-                "sentiment_score": article.sentiment_score or 0.0,
-                "sentiment_label": label,
-                "sentiment": label
-            })
-            processed_titles.add(article.title)
+            except Exception as e:
+                print(f"[NEWS ERROR] DB article skip: {e}")
 
-        total = sum(len(v) for v in news_by_source.values())
-        print(f"[NEWS DEBUG] DONE: Found {total} unique articles across {len(news_by_source)} sources.")
+        articles_count = sum(len(v) for v in news_by_source.values())
+        print(f"[NEWS] Articles successfully fetched: {articles_count}")
         
         return {
             "symbol": ticker,
             "company_name": company_name,
             "news_by_source": news_by_source,
-            "total_count": total
+            "total_count": articles_count,
+            "status": "success" if articles_count > 0 else "no_news_found"
         }
+
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
+        print("="*50)
+        print("[NEWS ENDPOINT ERROR]")
+        print(f"Symbol: {symbol}")
+        print(f"Error: {str(e)}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        print("="*50)
+        raise HTTPException(
+            status_code=500,
+            detail=f"News fetch failed: {str(e)}"
+        )
 
 @app.get("/api/news/market")
 async def get_market_news(max_articles: int = 50):
@@ -4421,18 +4107,17 @@ async def get_enhanced_stock_news(symbol: str, max_articles: int = 8):
         news_by_source = {}
         error_messages = {}
         
-        # 1. NewsAPI
+        # 1. Scraping Aggregator (Replaces NewsAPI)
         news_items_api = []
         news_error_message_api = None
-        if os.getenv("NEWS_API_KEY"):
-            try:
-                news_items_api, news_error_message_api = get_stock_news_from_newsapi(ticker)
-                if news_items_api:
-                    news_by_source['NewsAPI'] = news_items_api
-                if news_error_message_api:
-                    error_messages['NewsAPI'] = news_error_message_api
-            except Exception as e:
-                error_messages['NewsAPI'] = f"NewsAPI error: {str(e)}"
+        try:
+            news_items_api, news_error_message_api = await get_stock_news_from_newsapi(ticker)
+            if news_items_api:
+                news_by_source['Aggregated Web'] = news_items_api
+            if news_error_message_api:
+                error_messages['Aggregator'] = news_error_message_api
+        except Exception as e:
+            error_messages['Aggregator'] = f"Aggregator error: {str(e)}"
         
         # 2. Yahoo Finance
         scraped_yfinance_items = []
@@ -4525,16 +4210,13 @@ async def get_news_sentiment_for_trading(symbol: str):
         news_by_source = {}
         error_messages = {}
         
-        # 1. NewsAPI
-        if os.getenv("NEWS_API_KEY"):
-            try:
-                news_items_api, error_message_api = get_stock_news_from_newsapi(ticker)
-                if news_items_api:
-                    news_by_source['NewsAPI'] = news_items_api
-                if error_message_api:
-                    error_messages['NewsAPI'] = error_message_api
-            except Exception as e:
-                error_messages['NewsAPI'] = f"NewsAPI error: {str(e)}"
+        # 1. Scraping Aggregator (Replaces NewsAPI)
+        try:
+            news_items_api, error_message_api = await get_stock_news_from_newsapi(ticker)
+            if news_items_api:
+                news_by_source['Aggregated Web'] = news_items_api
+        except Exception as e:
+            error_messages['Aggregator'] = f"Aggregator error: {str(e)}"
         
         # 2. Yahoo Finance
         try:

@@ -21,7 +21,8 @@ except ImportError:
     # Graceful fallback — backend runs without the news DB
     print("[WARNING] SQLAlchemy not available. News DB features will be disabled.")
     SQLALCHEMY_AVAILABLE = False
-    Base = None
+    class Base:
+        pass
     engine = None
     AsyncSessionLocal = None
 

@@ -139,15 +139,42 @@ def format_percentage_change(percentage):
     except:
         return "N/A"
 
+def clean_ticker(ticker):
+    """Clean and sanitize ticker symbol."""
+    if not ticker:
+        return ""
+    
+    # Trim whitespace and convert to uppercase
+    cleaned = str(ticker).strip().upper()
+    
+    # Remove trailing dots (e.g., "ITC." -> "ITC")
+    while cleaned.endswith('.'):
+        cleaned = cleaned[:-1]
+        
+    # Prevent duplicate suffixes (e.g., "ITC.NS.NS" -> "ITC.NS")
+    # Common suffixes in Yahoo Finance
+    suffixes = ['.NS', '.BO', '.T', '.TO', '.V', '.L', '.PA', '.DE', '.AS', '.BR', '.MI', '.MC', '.AX', '.HK', '.SI', '.SW', '.KS', '.SA', '.MX', '.ME', '.SS', '.SZ', '.IS', '.JO', '.TA', '.BK', '.KL', '.JK', '.PS', '.VN']
+    
+    for suffix in suffixes:
+        if cleaned.endswith(suffix + suffix):
+            cleaned = cleaned.replace(suffix + suffix, suffix)
+            
+    return cleaned
+
 def validate_ticker_symbol(ticker):
     """Validate ticker symbol format."""
     if not ticker:
         return False
     
+    # Clean first
+    cleaned = clean_ticker(ticker)
+    if not cleaned:
+        return False
+        
     # Basic validation: alphanumeric characters and common symbols
     import re
     pattern = r'^[A-Za-z0-9.-]+$'
-    return bool(re.match(pattern, ticker))
+    return bool(re.match(pattern, cleaned))
 
 def get_market_status():
     """Get current market status (open/closed)."""

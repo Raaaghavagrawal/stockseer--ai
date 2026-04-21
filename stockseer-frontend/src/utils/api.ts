@@ -1,5 +1,31 @@
 import axios from 'axios';
 
+/**
+ * Sanitizes a stock symbol by trimming whitespace, converting to uppercase,
+ * and removing trailing dots.
+ */
+export function sanitizeSymbol(symbol: string): string {
+  if (!symbol) return '';
+  
+  let sanitized = symbol.trim().toUpperCase();
+  
+  // Remove trailing dots recursively (e.g., "ITC..." -> "ITC")
+  while (sanitized.endsWith('.')) {
+    sanitized = sanitized.slice(0, -1);
+  }
+  
+  // Prevent duplicate suffixes (e.g., "ITC.NS.NS" -> "ITC.NS")
+  const suffixes = ['.NS', '.BO', '.T', '.TO', '.L', '.PA', '.DE', '.AS', '.BR', '.MI', '.MC', '.AX', '.HK', '.SI', '.SW', '.KS', '.SA', '.MX', '.ME', '.SS', '.SZ', '.IS', '.JO', '.TA', '.BK', '.KL', '.JK', '.PS', '.VN'];
+  
+  for (const suffix of suffixes) {
+    if (sanitized.endsWith(suffix + suffix)) {
+      sanitized = sanitized.replace(suffix + suffix, suffix);
+    }
+  }
+  
+  return sanitized;
+}
+
 // Simple in-memory cache with TTL
 type CacheEntry<T> = { data: T; timestamp: number };
 const STOCK_TTL_MS = 60_000; // 1 minute
@@ -18,7 +44,17 @@ async function requestWithRetry(fn: () => any, maxRetries = 3, baseDelayMs = 300
     } catch (error: any) {
       lastError = error;
       const status = error?.response?.status;
-      if (status !== 429 && status !== 503) break;
+      const isTimeout = error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout');
+      
+      // Retry on Rate Limit (429), Service Unavailable (503), or Timeout
+      if (status !== 429 && status !== 503 && !isTimeout) break;
+      
+      console.warn(`API call failed (Attempt ${attempt + 1}/${maxRetries + 1}). Retrying...`, {
+        status,
+        isTimeout,
+        error: error.message
+      });
+
       const retryAfterHeader = error?.response?.headers?.['retry-after'];
       const retryAfter = retryAfterHeader ? Number(retryAfterHeader) * 1000 : null;
       const delayMs = retryAfter ?? baseDelayMs * Math.pow(2, attempt);
@@ -155,14 +191,17 @@ export const stockAPI = {
   // Get real-time stock data
   getStockData: async (symbol: string, onMarketRestriction?: (details: any) => void): Promise<StockData> => {
     try {
-      const cacheKey = symbol.toUpperCase();
+      const sanitizedSymbol = sanitizeSymbol(symbol);
+      if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
+
+      const cacheKey = sanitizedSymbol;
       const cached = stockDataCache.get(cacheKey);
       const now = Date.now();
       if (cached && now - cached.timestamp < STOCK_TTL_MS) {
         return cached.data as StockData;
       }
 
-      const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}`));
+      const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}`));
       const data = response.data as StockData;
       stockDataCache.set(cacheKey, { data, timestamp: now });
       return data;
@@ -205,14 +244,17 @@ export const stockAPI = {
   // Get historical chart data
   getStockChartData: async (symbol: string, period: string = '3mo', interval: string = '1d'): Promise<StockChartData[]> => {
     try {
-      const cacheKey = `${symbol.toUpperCase()}|${period}|${interval}`;
+      const sanitizedSymbol = sanitizeSymbol(symbol);
+      if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
+
+      const cacheKey = `${sanitizedSymbol}|${period}|${interval}`;
       const cached = chartDataCache.get(cacheKey);
       const now = Date.now();
       if (cached && now - cached.timestamp < CHART_TTL_MS) {
         return cached.data as StockChartData[];
       }
 
-      const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/chart`, { params: { period, interval } }));
+      const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/chart`, { params: { period, interval } }));
       const data = (response.data as { data: StockChartData[] }).data;
       chartDataCache.set(cacheKey, { data, timestamp: now });
       return data;
@@ -239,7 +281,9 @@ export const stockAPI = {
 
   // Get technical indicators
   getTechnicalIndicators: async (symbol: string): Promise<TechnicalIndicators> => {
-    const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/technical`));
+    const sanitizedSymbol = sanitizeSymbol(symbol);
+    if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
+    const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/technical`));
     return response.data as TechnicalIndicators;
   },
 
@@ -251,13 +295,17 @@ export const stockAPI = {
 
   // Get company info
   getCompanyInfo: async (symbol: string): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/info`));
+    const sanitizedSymbol = sanitizeSymbol(symbol);
+    if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
+    const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/info`));
     return response.data;
   },
 
   // Get advanced metrics
   getAdvancedMetrics: async (symbol: string, period: string = '1y', riskFreeRate: number = 0.03): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/advanced-metrics`, { params: { period, risk_free_rate: riskFreeRate } }));
+    const sanitizedSymbol = sanitizeSymbol(symbol);
+    if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
+    const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/advanced-metrics`, { params: { period, risk_free_rate: riskFreeRate } }));
     return response.data;
   },
 };
@@ -320,8 +368,10 @@ export const notesAPI = {
 export const predictionsAPI = {
   // Get AI predictions for a stock
   getStockPrediction: async (symbol: string): Promise<StockPrediction> => {
+    const sanitizedSymbol = sanitizeSymbol(symbol);
+    if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
     // Backend exposes /predictions/{symbol}
-    const response: any = await requestWithRetry(() => api.get(`/predictions/${symbol}`));
+    const response: any = await requestWithRetry(() => api.get(`/predictions/${sanitizedSymbol}`));
     return response.data as StockPrediction;
   },
 
@@ -366,7 +416,9 @@ export const portfolioAPI = {
 export const newsAPI = {
   // Get stock-specific news
   getStockNews: async (symbol: string): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.get(`/stocks/${symbol}/news`));
+    const sanitizedSymbol = sanitizeSymbol(symbol);
+    if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
+    const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/news`));
     return response.data;
   },
 
@@ -413,7 +465,9 @@ export const mlAPI = {
     p_bull: number;
     volatility: { sharpe: number; max_drawdown: number };
   }> => {
-    const response: any = await requestWithRetry(() => api.get(`/ml/predict/${symbol}`));
+    const sanitizedSymbol = sanitizeSymbol(symbol);
+    if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
+    const response: any = await requestWithRetry(() => api.get(`/ml/predict/${sanitizedSymbol}`));
     return response.data as any;
   }
 };
