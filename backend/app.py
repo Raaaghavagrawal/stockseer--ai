@@ -40,29 +40,18 @@ from urllib3.util.retry import Retry
 
 class TimeoutAdapter(HTTPAdapter):
     def __init__(self, *args, **kwargs):
-        self.timeout = kwargs.pop('timeout', 25) # 25s timeout for individual requests
+        self.timeout = kwargs.pop('timeout', 8) # 8s timeout for individual requests to prevent hanging
         super().__init__(*args, **kwargs)
     def send(self, request, **kwargs):
         kwargs['timeout'] = kwargs.get('timeout', self.timeout)
         return super().send(request, **kwargs)
 
 def create_yf_session():
-    session = requests.Session()
-    retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
-    adapter = TimeoutAdapter(max_retries=retries)
-    session.mount('https://', adapter)
-    session.mount('http://', adapter)
-    return session
+    # Disabled to allow yfinance to use its default curl_cffi sessions
+    return None
 
-YF_SESSION = create_yf_session()
+YF_SESSION = None
 
-# Monkey-patch yfinance to always use our session
-_orig_ticker = yf.Ticker
-def patched_ticker(*args, **kwargs):
-    if 'session' not in kwargs:
-        kwargs['session'] = YF_SESSION
-    return _orig_ticker(*args, **kwargs)
-yf.Ticker = patched_ticker
 
 # Import utility modules
 from stock_utils import (

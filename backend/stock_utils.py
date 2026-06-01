@@ -12,15 +12,20 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-def create_yf_session():
-    session = requests.Session()
-    retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
-    adapter = HTTPAdapter(max_retries=retries)
-    session.mount('https://', adapter)
-    session.mount('http://', adapter)
-    return session
+class TimeoutAdapter(HTTPAdapter):
+    def __init__(self, *args, **kwargs):
+        self.timeout = kwargs.pop('timeout', 25)
+        super().__init__(*args, **kwargs)
+    def send(self, request, **kwargs):
+        kwargs['timeout'] = kwargs.get('timeout', self.timeout)
+        return super().send(request, **kwargs)
 
-YF_SESSION = create_yf_session()
+def create_yf_session():
+    # Disabled to allow yfinance to use its default curl_cffi sessions
+    return None
+
+YF_SESSION = None
+
 
 async def fetch_stock_data_async(ticker_symbol, period='3mo', interval='1d'):
     """Fetch stock data asynchronously using threads for yfinance"""
