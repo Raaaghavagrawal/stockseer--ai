@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     define: {
-      'process.env': {}
+      'process.env': {},
+      'process.env.VITE_API_URL': JSON.stringify(API_BASE_URL)
     },
     resolve: {
       alias: {
@@ -42,8 +43,6 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       sourcemap: true,
     },
-    define: {
-      'process.env.VITE_API_URL': JSON.stringify(API_BASE_URL),
-    },
+
   };
 });
