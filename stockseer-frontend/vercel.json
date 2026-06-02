@@ -4,6 +4,20 @@
     {
       "source": "/api/(.*)",
       "destination": "https://stockseer-ai-1.onrender.com/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "VITE_API_BASE_URL": "https://stockseer-ai-1.onrender.com",
+    "VITE_FIREBASE_PROJECT_ID": "stockseer-ai-main",
+    "VITE_FIREBASE_STORAGE_BUCKET": "stockseer-ai-main.firebasestorage.app",
+    "VITE_FIREBASE_MESSAGING_SENDER_ID": "76440709751",
+    "VITE_FIREBASE_APP_ID": "1:76440709751:web:20ee742a93d7a28b94f472",
+    "VITE_FIREBASE_MEASUREMENT_ID": "G-50DSMG8CF4",
+    "VITE_FIREBASE_API_KEY": "AIzaSyDslR5MBHWo_3QyyrI8kBEvB4ARguCTDHI",
+    "VITE_FIREBASE_AUTH_DOMAIN": "stockseer-ai-main.firebaseapp.com"
+  }
 }
