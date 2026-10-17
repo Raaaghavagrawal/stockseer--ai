@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -62,12 +60,12 @@ const METAL_CONFIG = {
 };
 
 // API Configuration
-const METALS_API_KEY = process.env.NEXT_PUBLIC_METALS_API_KEY;
+const METALS_API_KEY = import.meta.env.VITE_METALS_API_KEY || '';
 
 // Fetch real-time metals data from our Python backend (which scrapes Yahoo Finance)
 const fetchMetalsData = async (currency: string): Promise<MetalPrice[]> => {
   try {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
     const url = `${baseUrl}/api/metals?currency=${currency}`;
     
     console.log('Fetching real-time metals data from backend:', url);

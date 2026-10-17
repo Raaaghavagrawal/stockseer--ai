@@ -105,7 +105,7 @@ class ExchangeRateService {
   }
 
   private async fetchFromFixerIO(): Promise<Record<string, number>> {
-    const apiKey = process.env.NEXT_PUBLIC_FIXER_API_KEY;
+    const apiKey = import.meta.env.VITE_FIXER_API_KEY;
     if (!apiKey) throw new Error('Fixer API key not available');
     
     const response = await fetch(`https://api.fixer.io/latest?access_key=${apiKey}&base=USD`);
@@ -115,7 +115,7 @@ class ExchangeRateService {
   }
 
   private async fetchFromCurrencyLayer(): Promise<Record<string, number>> {
-    const apiKey = process.env.NEXT_PUBLIC_CURRENCY_LAYER_API_KEY;
+    const apiKey = import.meta.env.VITE_CURRENCY_LAYER_API_KEY;
     if (!apiKey) throw new Error('CurrencyLayer API key not available');
     
     const response = await fetch(`https://api.currencylayer.com/live?access_key=${apiKey}&source=USD`);
@@ -195,7 +195,7 @@ class MetalsDataService {
 
   private async fetchMetalsFromMultipleSources(countryCode: string = 'US'): Promise<MetalPrice[]> {
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
       const countryConfig = COUNTRIES_CONFIG[countryCode as keyof typeof COUNTRIES_CONFIG] || COUNTRIES_CONFIG['US'];
       const response = await fetch(`${baseUrl}/api/metals?currency=${countryConfig.currency}`, {
         method: 'GET',
