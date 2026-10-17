@@ -3,6 +3,19 @@ import { Building2, Users, Globe, TrendingUp, Calendar, DollarSign, BarChart3, M
 import type { StockData } from '../../types/stock';
 import { getCurrencyInfo } from '../../utils/currency';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
+const getSubscriptionHeaders = () => {
+  const plan = localStorage.getItem('stockseer_subscription_plan') ?? 'free';
+  const continent = localStorage.getItem('stockseer_selected_continent') ?? '';
+  const userId = localStorage.getItem('stockseer_user_id') ?? '';
+
+  return {
+    'X-Subscription-Plan': plan,
+    'X-Selected-Continent': continent,
+    'X-User-Id': userId,
+  };
+};
+
 interface AboutCompanyTabProps {
   selectedStock: string;
   stockData: StockData | null;
@@ -15,7 +28,9 @@ export default function AboutCompanyTab({ selectedStock, stockData }: AboutCompa
     if (!selectedStock) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/stocks/${selectedStock}/info`);
+      const response = await fetch(`${API_BASE_URL}/stocks/${selectedStock}/info`, {
+        headers: getSubscriptionHeaders(),
+      });
       if (response.ok) {
         const data = await response.json();
         // Extract CEO from company officers

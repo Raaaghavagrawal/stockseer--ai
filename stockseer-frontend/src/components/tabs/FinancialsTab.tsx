@@ -11,6 +11,19 @@ import type { StockData, FinancialData } from '@/types/stock';
 import { formatCurrency as formatCurrencyUtil } from '../../utils/currency';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
+const getSubscriptionHeaders = () => {
+  const plan = localStorage.getItem('stockseer_subscription_plan') ?? 'free';
+  const continent = localStorage.getItem('stockseer_selected_continent') ?? '';
+  const userId = localStorage.getItem('stockseer_user_id') ?? '';
+
+  return {
+    'X-Subscription-Plan': plan,
+    'X-Selected-Continent': continent,
+    'X-User-Id': userId,
+  };
+};
+
 interface FinancialsTabProps {
   stockData: StockData | null;
   selectedStock: string;
@@ -29,7 +42,9 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
   const fetchFinancialData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/stocks/${selectedStock}/financials`);
+      const response = await fetch(`${API_BASE_URL}/stocks/${selectedStock}/financials`, {
+        headers: getSubscriptionHeaders(),
+      });
       if (response.ok) {
         const data = await response.json();
         console.log('Financial data received:', data); // Debug log
