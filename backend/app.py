@@ -32,7 +32,11 @@ import uvicorn
 # Rate limiting for Yahoo Finance API
 import time
 from datetime import datetime, timedelta
-VERCEL_FRONTEND_URL = "https://stockseer--ai.vercel.app"
+VERCEL_FRONTEND_URLS = [
+    "https://stockseer-ai.vercel.app",
+    "https://stockseer--ai.vercel.app",
+]
+VERCEL_FRONTEND_URL = VERCEL_FRONTEND_URLS[0]
 # --- GLOBAL YFINANCE SESSION ---
 import requests
 from requests.adapters import HTTPAdapter
@@ -1030,7 +1034,16 @@ def ml_predict_alias(symbol: str, days: int = 5):
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173", "http://127.0.0.1:4173", VERCEL_FRONTEND_URL],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+        *VERCEL_FRONTEND_URLS,
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

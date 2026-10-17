@@ -64,7 +64,7 @@ const ASSET_CONFIG = {
 // Fetch all market data
 export const fetchAllMarketData = async (): Promise<PriceData[]> => {
   const results: PriceData[] = [];
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
   
   // 1. Fetch metals data from our backend scraper
   try {
