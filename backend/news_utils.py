@@ -9,6 +9,18 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import asyncio
 from company_mappings import get_company_name
 
+
+def strip_html_text(value):
+    """Convert HTML fragments like '<a href="...">...</a>' into plain readable text."""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        value = str(value)
+
+    cleaned = BeautifulSoup(value, "html.parser").get_text(" ", strip=True)
+    return cleaned.replace("\xa0", " ").strip()
+
+
 async def fetch_url_async(url: str, headers: dict = None, timeout: int = 15):
     """Async URL fetcher with robust error handling and browser-like headers."""
     if not headers:
@@ -113,19 +125,46 @@ async def get_stock_news_from_newsapi(ticker_symbol_or_company_name, api_key=Non
     return news_items[:15], None
 
 async def scrape_google_news(query_term, region='US'):
-    """Scrapes Google News search results with improved parsing."""
+    """Fetch Google News results using the lightweight RSS feed endpoint to avoid empty HTML parses."""
     try:
-        news_items, error_message = [], None
+        news_items = []
         safe_query = quote_plus(query_term)
-        
-        # Localization parameters
+
         gl_val = 'IN' if region == 'IN' else 'US'
         hl_val = 'en-IN' if region == 'IN' else 'en-US'
         ceid_val = 'IN:en' if region == 'IN' else 'US:en'
-        
+
+        rss_url = f"https://news.google.com/rss/search?q={safe_query}&hl={hl_val}&gl={gl_val}&ceid={ceid_val}"
+        print(f"[NEWS] Scraping Google News RSS: {query_term}")
+
+        feed = feedparser.parse(rss_url)
+        if feed.entries:
+            for entry in feed.entries[:8]:
+                title = (entry.get('title') or '').strip()
+                link = (entry.get('link') or '').strip()
+                if not title or not link:
+                    continue
+
+                source_name = 'Google News'
+                if isinstance(entry.get('source'), dict):
+                    source_name = entry['source'].get('title', source_name)
+                elif isinstance(entry.get('source'), str):
+                    source_name = entry['source']
+
+                news_items.append({
+                    'title': strip_html_text(title),
+                    'url': link,
+                    'source': strip_html_text(source_name),
+                    'publisher': strip_html_text(source_name),
+                    'publishedAt': (entry.get('published') or entry.get('updated') or datetime.now().strftime('%Y-%m-%d %H:%M')),
+                    'description': strip_html_text(entry.get('summary') or title)
+                })
+
+            if news_items:
+                return news_items, None
+
+        # Fallback to the HTML search endpoint if RSS returns no results.
         search_url = f"https://news.google.com/search?q={safe_query}&hl={hl_val}&gl={gl_val}&ceid={ceid_val}"
-        print(f"[NEWS] Scraping Google News: {query_term}")
-        
         html, _ = await fetch_url_async(search_url)
         if not html:
             return [], "Fetch Failed"
@@ -137,29 +176,30 @@ async def scrape_google_news(query_term, region='US'):
                 articles = soup.find_all('article', limit=15)
                 for art in articles:
                     link_tag = art.find('a', href=True)
-                    if not link_tag: continue
-                    
+                    if not link_tag:
+                        continue
+
                     title = art.find(['h4', 'h3'])
                     title_text = title.get_text(strip=True) if title else link_tag.get_text(strip=True)
-                    
-                    if len(title_text) < 15: continue
-                    
-                    # Convert internal relative link to full link
+                    if len(title_text) < 15:
+                        continue
+
                     rel_link = link_tag['href']
                     full_link = rel_link if rel_link.startswith('http') else f"https://news.google.com{rel_link[1:]}"
-                    
+
                     source_tag = art.find('div', string=lambda s: s and len(s) < 30) or art.find('time')
                     source_name = source_tag.previous_sibling.get_text(strip=True) if source_tag and source_tag.previous_sibling else "Google News"
-                    
+
                     items.append({
-                        'title': title_text,
+                        'title': strip_html_text(title_text),
                         'url': full_link,
-                        'source': source_name,
-                        'publisher': source_name,
+                        'source': strip_html_text(source_name),
+                        'publisher': strip_html_text(source_name),
                         'publishedAt': datetime.now().strftime('%Y-%m-%d %H:%M'),
-                        'description': title_text
+                        'description': strip_html_text(title_text)
                     })
-                    if len(items) >= 8: break
+                    if len(items) >= 8:
+                        break
             except Exception as e:
                 print(f"[GOOGLE PARSE ERROR] {e}")
             return items
@@ -183,13 +223,15 @@ async def scrape_yahoo_finance_news(ticker_symbol):
             yf_news = await asyncio.to_thread(lambda: stock.news)
             if yf_news:
                 for item in yf_news:
+                    title = strip_html_text(item.get('title'))
+                    description = strip_html_text(item.get('title'))
                     news_items.append({
-                        'title': item.get('title'),
+                        'title': title,
                         'url': item.get('link'),
-                        'source': item.get('publisher', 'Yahoo Finance'),
-                        'publisher': item.get('publisher', 'Yahoo Finance'),
+                        'source': strip_html_text(item.get('publisher', 'Yahoo Finance')),
+                        'publisher': strip_html_text(item.get('publisher', 'Yahoo Finance')),
                         'publishedAt': datetime.fromtimestamp(item.get('providerPublishTime', datetime.now().timestamp())).strftime('%Y-%m-%d %H:%M'),
-                        'description': item.get('title')
+                        'description': description
                     })
                 if len(news_items) >= 5:
                     return news_items, None
@@ -206,12 +248,12 @@ async def scrape_yahoo_finance_news(ticker_symbol):
                     feed = feedparser.parse(res.text)
                     for entry in feed.entries[:5]:
                         news_items.append({
-                            'title': entry.get('title', 'N/A'),
+                            'title': strip_html_text(entry.get('title', 'N/A')),
                             'url': entry.get('link', ''),
                             'source': 'Yahoo Finance (RSS)',
                             'publisher': 'Yahoo Finance',
                             'publishedAt': datetime.now().strftime('%Y-%m-%d %H:%M'),
-                            'description': entry.get('summary', entry.get('title', ''))
+                            'description': strip_html_text(entry.get('summary', entry.get('title', '')))
                         })
         except Exception as e:
             print(f"[YAHOO RSS ERROR] {e}")
@@ -253,13 +295,21 @@ async def add_sentiment_to_news_items(news_items):
     def process_sentiment(items):
         for item in items:
             try:
+                title = strip_html_text(item.get('title', ''))
+                description = strip_html_text(item.get('description', ''))
+                item['title'] = title
+                item['description'] = description
+                item['summary'] = description or title
                 # Use title and description for context
-                text = f"{item.get('title', '')} {item.get('description', '')}"
+                text = f"{title} {description}"
                 res = analyze_news_item_sentiment_vader(text)
                 item['sentiment'] = res['sentiment']
                 item['sentiment_score'] = res['compound']
                 item['vader_sentiment'] = res
             except:
+                item['title'] = strip_html_text(item.get('title', ''))
+                item['description'] = strip_html_text(item.get('description', ''))
+                item['summary'] = strip_html_text(item.get('summary') or item.get('description') or item.get('title') or '')
                 item['sentiment'] = 'Neutral'
                 item['sentiment_score'] = 0.0
         return items

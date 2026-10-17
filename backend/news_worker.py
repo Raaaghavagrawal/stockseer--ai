@@ -18,7 +18,6 @@ except ImportError as e:
 
 RSS_FEEDS = {
     "Economic Times": "https://economictimes.indiatimes.com/markets/rssfeeds/2146842.cms",
-    "MoneyControl": "https://www.moneycontrol.com/rss/marketreports.xml"
 }
 
 # Use centralized mapping for high-precision detection
@@ -45,11 +44,20 @@ async def fetch_rss_feed(source_name: str, url: str):
         }
         async with httpx.AsyncClient(headers=headers, timeout=15.0, follow_redirects=True) as client:
             response = await client.get(url)
+            if response.status_code in (403, 429):
+                print(f"[RSS WARNING] {source_name} denied the request ({response.status_code}); skipping source.")
+                return source_name, []
             response.raise_for_status()
             feed = feedparser.parse(response.text)
             return source_name, feed.entries
+    except httpx.HTTPStatusError as e:
+        if e.response is not None and e.response.status_code in (403, 429):
+            print(f"[RSS WARNING] {source_name} denied the request ({e.response.status_code}); skipping source.")
+            return source_name, []
+        print(f"[RSS ERROR] {source_name}: {e}")
+        return source_name, []
     except Exception as e:
-        print(f"Error fetching {source_name}: {e}")
+        print(f"[RSS ERROR] {source_name}: {e}")
         return source_name, []
 
 def analyze_article(entry, source_name: str):
