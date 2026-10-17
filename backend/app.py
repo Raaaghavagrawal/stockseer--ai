@@ -1630,8 +1630,12 @@ def get_stock_info(ticker_symbol, max_retries=2):
             
             # Use a short timeout for the fast_info access if possible
             fast = stock.fast_info
-            
-            if not fast or len(fast) == 0:
+
+            # Some yfinance versions return non-sized or non-dict-like fast_info objects.
+            # Guard against len() and .get() access before falling back to legacy info.
+            if fast is None or not hasattr(fast, 'get'):
+                raise ValueError("fast_info unavailable")
+            if hasattr(fast, '__len__') and len(fast) == 0:
                 raise ValueError("Empty fast_info")
 
             # Real-time metrics from fast_info
@@ -1647,6 +1651,12 @@ def get_stock_info(ticker_symbol, max_retries=2):
                     previous_close = 0
             else:
                 previous_close = fast.get('previousClose', fast.get('previous_close', 0))
+
+            market_cap = fast.get('marketCap', fast.get('market_cap', 0))
+            day_high = fast.get('dayHigh', fast.get('day_high', 0))
+            day_low = fast.get('dayLow', fast.get('day_low', 0))
+            year_high = fast.get('yearHigh', fast.get('year_high', 0))
+            year_low = fast.get('yearLow', fast.get('year_low', 0))
             
             # Metadata fallbacks from local mapping or fast_info
             company_name = get_company_name(ticker_symbol)
@@ -1655,6 +1665,10 @@ def get_stock_info(ticker_symbol, max_retries=2):
             today_change = current_price - previous_close if current_price and previous_close else 0
             today_change_percent = (today_change / previous_close * 100) if previous_close else 0
             
+            legacy_info = getattr(stock, 'info', {}) or {}
+            trailing_pe = fast.get('trailingPE', fast.get('trailing_pe', legacy_info.get('trailingPE', legacy_info.get('trailing_pe', 0))))
+            dividend_yield = fast.get('dividendYield', fast.get('dividend_yield', legacy_info.get('dividendYield', legacy_info.get('dividend_yield', 0))))
+
             result = {
                 'symbol': ticker_symbol,
                 'name': company_name,
@@ -1662,19 +1676,19 @@ def get_stock_info(ticker_symbol, max_retries=2):
                 'change': float(today_change),
                 'changePercent': float(today_change_percent),
                 'volume': int(fast.get('lastVolume', fast.get('last_volume', 0))),
-                'marketCap': float(fast.get('market_cap', 0)),
-                'pe': None,
-                'dividend': None,
-                'high': float(fast.get('day_high', 0)),
-                'low': float(fast.get('day_low', 0)),
+                'marketCap': float(market_cap),
+                'pe': float(trailing_pe) if trailing_pe not in (None, '', 0) else None,
+                'dividend': float(dividend_yield) if dividend_yield not in (None, '', 0) else None,
+                'high': float(day_high),
+                'low': float(day_low),
                 'open': float(fast.get('open', 0)),
                 'previousClose': float(previous_close),
                 'sector': None,
                 'industry': None,
                 'description': None,
                 'currency': fast.get('currency', 'USD'),
-                'high52Week': float(fast.get('year_high', 0)),
-                'low52Week': float(fast.get('year_low', 0)),
+                'high52Week': float(year_high),
+                'low52Week': float(year_low),
                 'timestamp': format_timestamp(datetime.now())
             }
             
@@ -1683,7 +1697,9 @@ def get_stock_info(ticker_symbol, max_retries=2):
             
         except Exception as e:
             error_str = str(e).lower()
-            print(f"[FETCH ERROR] attempt {attempt+1} for {ticker_symbol}: {error_str}")
+            should_fallback_silently = "fast_info unavailable" in error_str or "empty fast_info" in error_str
+            if not should_fallback_silently:
+                print(f"[FETCH ERROR] attempt {attempt+1} for {ticker_symbol}: {error_str}")
             
             # Handle rate limiting specifically
             if "too many requests" in error_str or "rate limit" in error_str:
@@ -1707,12 +1723,12 @@ def get_stock_info(ticker_symbol, max_retries=2):
                         'changePercent': info.get('regularMarketChangePercent', 0),
                         'volume': info.get('regularMarketVolume', 0),
                         'marketCap': info.get('marketCap'),
-                        'pe': info.get('trailingPE'),
-                        'dividend': info.get('dividendYield'),
-                        'high': info.get('dayHigh'),
-                        'low': info.get('dayLow'),
+                        'pe': info.get('trailingPE', info.get('trailing_pe')),
+                        'dividend': info.get('dividendYield', info.get('dividend_yield')),
+                        'high': info.get('dayHigh', info.get('day_high')),
+                        'low': info.get('dayLow', info.get('day_low')),
                         'open': info.get('open'),
-                        'previousClose': info.get('previousClose'),
+                        'previousClose': info.get('previousClose', info.get('previous_close')),
                         'currency': info.get('currency', 'USD'),
                         'timestamp': format_timestamp(datetime.now())
                     }
