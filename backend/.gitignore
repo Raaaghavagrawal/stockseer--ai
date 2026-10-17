@@ -1,0 +1,4 @@
+stockseer.db
+*.db
+*.sqlite
+*.sqlite3
