@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import type { StockScreenerCriteria, ScreenedStock } from '@/types/stock';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
+
 export default function MarketScreenerTab() {
   const { canAccessPremium } = useFeatureAccess();
   const [criteria, setCriteria] = useState<StockScreenerCriteria>({
@@ -75,10 +77,13 @@ export default function MarketScreenerTab() {
     setLoading(true);
     try {
       // Call the backend screener API
-      const response = await fetch('http://localhost:8000/screener/run', {
+      const response = await fetch(`${API_BASE_URL}/screener/run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Subscription-Plan': localStorage.getItem('stockseer_subscription_plan') || 'free',
+          'X-Selected-Continent': localStorage.getItem('stockseer_selected_continent') || '',
+          'X-User-Id': localStorage.getItem('stockseer_user_id') || '',
         },
         body: JSON.stringify(criteria),
       });

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -38,9 +40,14 @@ const ChatWidget: React.FC = () => {
     setLoading(true);
 
     try {
-      const resp = await fetch('http://localhost:8000/chat', {
+      const resp = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Subscription-Plan': localStorage.getItem('stockseer_subscription_plan') || 'free',
+          'X-Selected-Continent': localStorage.getItem('stockseer_selected_continent') || '',
+          'X-User-Id': localStorage.getItem('stockseer_user_id') || '',
+        },
         body: JSON.stringify({ message: text, history: newHistory.slice(-12) }),
       });
       const data = await resp.json();
