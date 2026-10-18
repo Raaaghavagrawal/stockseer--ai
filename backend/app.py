@@ -58,13 +58,15 @@ YF_SESSION = None
 
 
 # Import utility modules
+import news_utils
 from stock_utils import (
     fetch_stock_data, add_technical_indicators, generate_signal_basic, 
     generate_signal_detailed, get_company_info_yfinance, 
     get_company_profile_scraping, get_stock_news_feedparser, plot_stock_chart_simple
 )
 from news_utils import (
-    get_stock_news_from_newsapi, scrape_google_news, scrape_yahoo_finance_news, add_sentiment_to_news_items
+    get_stock_news_from_newsapi, scrape_google_news, scrape_yahoo_finance_news, add_sentiment_to_news_items,
+    strip_html_text
 )
 from signal_utils import (
     generate_signal
@@ -86,6 +88,8 @@ import os
 from dotenv import load_dotenv
 # genai is now imported locally in _get_gemini_model to save startup memory
 genai = None
+# Optional Hugging Face pipeline; initialized lazily to avoid startup memory cost.
+pipeline = None
 
 # --- SUBSCRIPTION AND MARKET RESTRICTIONS ---
 SUBSCRIPTION_PLANS = {
@@ -2628,177 +2632,13 @@ def generate_enhanced_signal(df, news_sentiment=0.0, company_name="the company")
     except Exception as e:
         return "N/A", f"Error in enhanced signal generation: {str(e)}"
 
-def scrape_google_news(query_term):
-    """Scrape Google News for stock-related articles"""
-    news_items, error_message = [], None
-    safe_query = quote_plus(query_term + " stock news")
-    search_url = f"https://news.google.com/search?q={safe_query}&hl=en-US&gl=US&ceid=US%3Aen"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-    
-    try:
-        response = requests.get(search_url, headers=headers, timeout=15)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        articles_tags = soup.find_all('article', limit=15)
-        processed_urls = set()
-        
-        for article_tag in articles_tags:
-            link_tag = article_tag.find('a', href=True)
-            if link_tag and link_tag['href'].startswith('./articles/'):
-                title_text = sanitize_text(link_tag.get_text(strip=True) or (article_tag.find(['h3', 'h4']) and article_tag.find(['h3', 'h4']).get_text(strip=True)) or article_tag.get_text(separator=' ', strip=True).split(' temporally ')[0])
-                full_link = "https://news.google.com" + link_tag['href'][1:]
-                
-                # Try to get image from article
-                image_url = None
-                try:
-                    article_response = requests.get(full_link, headers=headers, timeout=5)
-                    if article_response.status_code == 200:
-                        article_soup = BeautifulSoup(article_response.text, 'html.parser')
-                        # Try to find the first valid image
-                        for img in article_soup.find_all('img'):
-                            if img.get('src') and img['src'].startswith('http'):
-                                image_url = img['src']
-                                break
-                except:
-                    pass
-                
-                if full_link not in processed_urls and len(title_text) > 15:
-                    news_items.append({
-                        'title': title_text,
-                        'link': full_link,
-                        'source': 'Google News (Scraped)',
-                        'publisher': 'Google News Aggregated',
-                        'image_url': image_url
-                    })
-                    processed_urls.add(full_link)
-                    
-            if len(news_items) >= 7:
-                break
-                
-        if not news_items:
-            potential_links = soup.find_all('a', href=lambda href: href and href.startswith('./articles/'), limit=50)
-            for link_tag in potential_links:
-                title_text = sanitize_text(link_tag.get_text(strip=True) or (link_tag.find(['h3','h4','div'], recursive=False) and link_tag.find(['h3','h4','div'], recursive=False).get_text(strip=True)) or (link_tag.img and link_tag.img.get('alt')))
-                full_link = "https://news.google.com" + link_tag['href'][1:]
-                
-                # Try to get image from article
-                image_url = None
-                try:
-                    article_response = requests.get(full_link, headers=headers, timeout=5)
-                    if article_response.status_code == 200:
-                        article_soup = BeautifulSoup(article_response.text, 'html.parser')
-                        # Try to find the first valid image
-                        for img in article_soup.find_all('img'):
-                            if img.get('src') and img['src'].startswith('http'):
-                                image_url = img['src']
-                                break
-                except:
-                    pass
-                
-                if full_link not in processed_urls and title_text and len(title_text) > 20 and (query_term.split()[0].lower() in title_text.lower() or query_term.lower() in title_text.lower()):
-                    news_items.append({
-                        'title': title_text,
-                        'link': full_link,
-                        'source': 'Google News (Scraped)',
-                        'publisher': 'Google News Aggregated',
-                        'image_url': image_url
-                    })
-                    processed_urls.add(full_link)
-                    
-                if len(news_items) >= 7:
-                    break
-                    
-        if not news_items:
-            error_message = f"Google News: No articles for '{query_term}'."
-            
-    except requests.exceptions.Timeout:
-        error_message = f"Google News: Timeout for '{query_term}'."
-    except requests.exceptions.RequestException as e:
-        error_message = f"Google News Error for '{query_term}': {str(e)}"
-    except Exception as e:
-        error_message = f"Google News Unexpected Error for '{query_term}': {str(e)}"
-    
-    return news_items[:7], error_message
+async def scrape_google_news(query_term, region='US'):
+    """Async delegate to the robust news_utils scraper implementation."""
+    return await news_utils.scrape_google_news(query_term, region=region)
 
-def scrape_yahoo_finance_news(ticker_symbol):
-    """Scrape Yahoo Finance news for a specific ticker"""
-    news_items, error_message = [], None
-    search_url = f"https://finance.yahoo.com/quote/{ticker_symbol}/news"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-    
-    try:
-        response = requests.get(search_url, headers=headers, timeout=15)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        article_containers = soup.find_all('li', class_=lambda x: x and 'stream-item' in x.lower(), limit=15)
-        
-        if not article_containers:
-            article_containers = soup.select('div.Cf div.js-stream-content > div', limit=15)
-            
-        processed_urls = set()
-        
-        for item_container in article_containers:
-            link_tag = item_container.find('a', href=True)
-            title_tag = item_container.find(['h3', 'h2'])
-            
-            if link_tag and title_tag and link_tag['href']:
-                raw_link = link_tag['href']
-                title_text = title_tag.get_text(strip=True)
-                full_link = ""
-                
-                if raw_link.startswith('/news/'):
-                    full_link = "https://finance.yahoo.com" + raw_link
-                elif raw_link.startswith(('http://', 'https://')) and 'yahoo.com' in raw_link:
-                    full_link = raw_link
-                else:
-                    continue
-                
-                # Try to get image from article
-                image_url = None
-                try:
-                    article_response = requests.get(full_link, headers=headers, timeout=5)
-                    if article_response.status_code == 200:
-                        article_soup = BeautifulSoup(article_response.text, 'html.parser')
-                        # Try to find the first valid image
-                        for img in article_soup.find_all('img'):
-                            if img.get('src') and img['src'].startswith('http'):
-                                image_url = img['src']
-                                break
-                except:
-                    pass
-                
-                if full_link not in processed_urls and title_text and len(title_text) > 15:
-                    news_items.append({
-                        'title': title_text,
-                        'link': full_link,
-                        'source': 'Yahoo Finance',
-                        'publisher': 'Yahoo Finance',
-                        'image_url': image_url
-                    })
-                    processed_urls.add(full_link)
-                    
-                if len(news_items) >= 10:
-                    break
-                    
-        if not news_items:
-            error_message = f"Yahoo Finance: No articles for '{ticker_symbol}'."
-            
-    except requests.exceptions.Timeout:
-        error_message = f"Yahoo Finance: Timeout for '{ticker_symbol}'."
-    except requests.exceptions.RequestException as e:
-        error_message = f"Yahoo Finance Error for '{ticker_symbol}': {str(e)}"
-    except Exception as e:
-        error_message = f"Yahoo Finance Unexpected Error for '{ticker_symbol}': {str(e)}"
-    
-    return news_items[:10], error_message
+async def scrape_yahoo_finance_news(ticker_symbol):
+    """Async delegate to the robust news_utils scraper implementation."""
+    return await news_utils.scrape_yahoo_finance_news(ticker_symbol)
 
 def get_chatbot_response(user_query, stock_data_bundle_local, current_ticker_symbol, stock_currency_sym):
     """Generate a response to a user's query about a stock"""
@@ -2895,74 +2735,9 @@ def get_chatbot_response(user_query, stock_data_bundle_local, current_ticker_sym
     
     return response
 
-def get_stock_news_from_newsapi(ticker_symbol_or_company_name):
-    """Get stock news from NewsAPI with enhanced image handling"""
-    news_items, error_message = [], None
-    if not os.getenv("NEWS_API_KEY"): 
-        return news_items, "NEWS_API_KEY not configured."
-    
-    query_term = ticker_symbol_or_company_name
-    try:
-        stock_info_temp = yf.Ticker(ticker_symbol_or_company_name).info
-        if stock_info_temp and stock_info_temp.get('shortName'):
-            company_name_for_search = stock_info_temp['shortName'].replace(" Inc.", "").replace(" Corp.", "").replace(" Ltd.", "")
-            if len(company_name_for_search) > 3: 
-                query_term = company_name_for_search
-    except: 
-        pass
-    
-    to_date = datetime.now().strftime('%Y-%m-%d')
-    from_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-    url = f"https://newsapi.org/v2/everything?q={query_term}&from={from_date}&to={to_date}&language=en&sortBy=relevancy&pageSize=15&apiKey={os.getenv('NEWS_API_KEY')}"
-    
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        articles_data = response.json().get("articles", [])
-        
-        if not articles_data: 
-            error_message = f"No recent news for '{query_term}' via NewsAPI."
-        else:
-            for item in articles_data:
-                publish_time_readable = pd.to_datetime(item['publishedAt']).strftime('%Y-%m-%d %H:%M') if item.get('publishedAt') else "N/A"
-                
-                # Enhanced image URL handling
-                image_url = item.get('urlToImage')
-                if not image_url or not image_url.startswith('http'):
-                    # Try to get image from article URL
-                    try:
-                        article_response = requests.get(item.get('url', ''), timeout=5)
-                        if article_response.status_code == 200:
-                            soup = BeautifulSoup(article_response.text, 'html.parser')
-                            # Try to find the first valid image
-                            for img in soup.find_all('img'):
-                                if img.get('src') and img['src'].startswith('http'):
-                                    image_url = img['src']
-                                    break
-                    except:
-                        pass
-                
-                news_items.append({
-                    'title': item.get('title', 'N/A'), 
-                    'description': item.get('description'), 
-                    'link': item.get('url', '#'), 
-                    'published': publish_time_readable, 
-                    'publisher': item.get('source', {}).get('name', 'N/A'), 
-                    'source_api': 'NewsAPI',
-                    'image_url': image_url
-                })
-            news_items = news_items[:10] 
-    except requests.exceptions.RequestException as e:
-        error_message = f"NewsAPI Error for '{query_term}': {str(e)}"
-        if hasattr(e, 'response') and e.response is not None:
-            if e.response.status_code == 401: 
-                error_message += " (Invalid Key?)"
-            elif e.response.status_code == 429: 
-                error_message += " (Rate Limit?)"
-    except Exception as e: 
-        error_message = f"NewsAPI Unexpected Error for '{query_term}': {str(e)}"
-    
-    return news_items, error_message
+async def get_stock_news_from_newsapi(ticker_symbol_or_company_name):
+    """Async delegate to the robust news_utils aggregating implementation."""
+    return await news_utils.get_stock_news_from_newsapi(ticker_symbol_or_company_name)
 
 def analyze_news_item_sentiment_vader(text):
     """Analyze sentiment using VADER sentiment analyzer"""
@@ -2975,21 +2750,36 @@ def analyze_news_item_sentiment_vader(text):
 
 def analyze_sentiment_text_hf(text):
     """Analyze sentiment using Hugging Face transformers"""
+    global pipeline
     try:
-        from transformers import pipeline
+        if pipeline is None:
+            import importlib
+            pipeline = importlib.import_module("transformers").pipeline
         # Load the sentiment analysis pipeline locally
-        sentiment_pipeline = pipeline("sentiment-analysis", 
-                                    model="cardiffnlp/twitter-roberta-base-sentiment-latest",
-                                    return_all_scores=True)
-        
+        sentiment_pipeline = pipeline(
+            "sentiment-analysis",
+            model="cardiffnlp/twitter-roberta-base-sentiment-latest",
+            return_all_scores=True,
+        )
+
         # Analyze the text
         results = sentiment_pipeline(text)
-        
-        # Extract sentiment scores (LABEL_0: negative, LABEL_1: neutral, LABEL_2: positive)
-        scores = {result['label']: result['score'] for result in results[0]}
-        
+
+        # Hugging Face can return either a flat list of dicts or a nested list when
+        # return_all_scores=True is used. Normalize both shapes before extracting scores.
+        normalized_results = results
+        if isinstance(normalized_results, list) and normalized_results and isinstance(normalized_results[0], list):
+            normalized_results = normalized_results[0]
+
+        scores = {}
+        for item in normalized_results if isinstance(normalized_results, list) else []:
+            if isinstance(item, dict):
+                label = item.get('label', 'LABEL_0')
+                score = float(item.get('score', 0.0))
+                scores[label] = score
+
         # Calculate compound score (-1 to 1)
-        compound_score = scores.get('LABEL_2', 0) - scores.get('LABEL_0', 0)
+        compound_score = scores.get('LABEL_2', 0.0) - scores.get('LABEL_0', 0.0)
         return compound_score
     except Exception as e:
         print(f"Error in HF sentiment analysis: {e}")
@@ -3009,10 +2799,16 @@ def load_lottiefile(filepath: str):
 
 def load_hf_sentiment_model():
     """Load Hugging Face sentiment model"""
+    global pipeline
     try:
+        if pipeline is None:
+            import importlib
+            pipeline = importlib.import_module("transformers").pipeline
         # Load the sentiment analysis pipeline
-        sentiment_pipeline = pipeline("sentiment-analysis", 
-                                    model="cardiffnlp/twitter-roberta-base-sentiment-latest")
+        sentiment_pipeline = pipeline(
+            "sentiment-analysis",
+            model="cardiffnlp/twitter-roberta-base-sentiment-latest",
+        )
         return sentiment_pipeline
     except Exception as e:
         print(f"Error loading HF model: {e}")
@@ -3317,13 +3113,17 @@ async def get_stock_news_endpoint(symbol: str, max_articles: int = 20, user_subs
                 print(f"[NEWS ERROR] DB fetch skipped: {e}")
                 return []
 
-        # Run concurrent fetch with error isolation
+        async def fetch_newsapi_result():
+            return await get_stock_news_from_newsapi(ticker)
+
+        # Run concurrent fetch with error isolation. The helper is async and must be
+        # awaited before the tuple is processed.
         results = await asyncio.gather(
             fetch_db_news(),
-            get_stock_news_from_newsapi(ticker), # Centralized scraping aggregator
-            return_exceptions=True
+            fetch_newsapi_result(),
+            return_exceptions=True,
         )
-        
+
         # 4. Extract Results Safely
         db_articles = results[0] if not isinstance(results[0], Exception) else []
         agg_res = results[1] if (isinstance(results[1], tuple) and len(results[1]) == 2) else ([], "Aggregate Error")
@@ -3340,18 +3140,19 @@ async def get_stock_news_endpoint(symbol: str, max_articles: int = 20, user_subs
                 enriched = await add_sentiment_to_news_items(web_news)
                 for item in enriched:
                     if not isinstance(item, dict): continue
-                    title = item.get('title', '').strip()
+                    title = strip_html_text(item.get('title', '')).strip()
                     if not title or title in processed_titles: continue
-                    
-                    source = item.get('source', 'Financial Web')
+
+                    source = strip_html_text(item.get('source', 'Financial Web'))
                     if source not in news_by_source: news_by_source[source] = []
-                    
+
+                    summary = strip_html_text(item.get('description', item.get('summary', title)))
                     label = str(item.get('sentiment', 'neutral')).lower()
                     news_by_source[source].append({
                         "title": title,
                         "link": item.get('url', item.get('link', '#')),
                         "published": item.get('publishedAt', datetime.now().isoformat()),
-                        "summary": item.get('description', item.get('summary', title)),
+                        "summary": summary or title,
                         "source": source,
                         "sentiment_label": label,
                         "sentiment": label,
@@ -3364,20 +3165,21 @@ async def get_stock_news_endpoint(symbol: str, max_articles: int = 20, user_subs
         # 6. Merge Database History
         for article in db_articles:
             try:
-                title = getattr(article, 'title', '').strip()
+                title = strip_html_text(getattr(article, 'title', '')).strip()
                 if not title or title in processed_titles: continue
-                
-                source = getattr(article, 'source', 'Database')
+
+                source = strip_html_text(getattr(article, 'source', 'Database'))
                 if source not in news_by_source: news_by_source[source] = []
-                
+
                 db_label = getattr(article, 'sentiment_label', 'Neutral')
                 label = "positive" if db_label == "Bullish" else "negative" if db_label == "Bearish" else "neutral"
-                
+                summary = strip_html_text(getattr(article, 'summary', title)) or title
+
                 news_by_source[source].append({
                     "title": title,
                     "link": getattr(article, 'url', '#'),
                     "published": article.published_at.isoformat() if hasattr(article, 'published_at') and article.published_at else "",
-                    "summary": getattr(article, 'summary', title),
+                    "summary": summary,
                     "source": source,
                     "sentiment_label": label,
                     "sentiment": label,
@@ -4091,7 +3893,7 @@ async def get_company_images(query: str, max_images: int = 9):
 async def scrape_google_news_endpoint(query: str):
     """Scrape Google News for a query"""
     try:
-        news_items, error_message = scrape_google_news(query)
+        news_items, error_message = await scrape_google_news(query)
         return {
             "query": query,
             "news": news_items,
@@ -4105,7 +3907,7 @@ async def scrape_google_news_endpoint(query: str):
 async def scrape_yahoo_news_endpoint(symbol: str):
     """Scrape Yahoo Finance news for a symbol"""
     try:
-        news_items, error_message = scrape_yahoo_finance_news(symbol)
+        news_items, error_message = await scrape_yahoo_finance_news(symbol)
         return {
             "symbol": symbol,
             "news": news_items,
@@ -4141,7 +3943,7 @@ async def get_enhanced_stock_news(symbol: str, max_articles: int = 8):
         scraped_yfinance_items = []
         scraped_yfinance_error = None
         try:
-            scraped_yfinance_items, scraped_yfinance_error = scrape_yahoo_finance_news(ticker)
+            scraped_yfinance_items, scraped_yfinance_error = await scrape_yahoo_finance_news(ticker)
             if scraped_yfinance_items:
                 news_by_source['Yahoo Finance'] = scraped_yfinance_items
             if scraped_yfinance_error:
@@ -4153,7 +3955,7 @@ async def get_enhanced_stock_news(symbol: str, max_articles: int = 8):
         scraped_gnews_items = []
         scraped_gnews_error = None
         try:
-            scraped_gnews_items, scraped_gnews_error = scrape_google_news(ticker)
+            scraped_gnews_items, scraped_gnews_error = await scrape_google_news(ticker)
             if scraped_gnews_items:
                 news_by_source['Google News'] = scraped_gnews_items
             if scraped_gnews_error:
@@ -4238,7 +4040,7 @@ async def get_news_sentiment_for_trading(symbol: str):
         
         # 2. Yahoo Finance
         try:
-            scraped_yfinance_items, yfinance_error = scrape_yahoo_finance_news(ticker)
+            scraped_yfinance_items, yfinance_error = await scrape_yahoo_finance_news(ticker)
             if scraped_yfinance_items:
                 news_by_source['Yahoo Finance'] = scraped_yfinance_items
             if yfinance_error:
@@ -4248,7 +4050,7 @@ async def get_news_sentiment_for_trading(symbol: str):
         
         # 3. Google News
         try:
-            scraped_gnews_items, gnews_error = scrape_google_news(ticker)
+            scraped_gnews_items, gnews_error = await scrape_google_news(ticker)
             if scraped_gnews_items:
                 news_by_source['Google News'] = scraped_gnews_items
             if gnews_error:

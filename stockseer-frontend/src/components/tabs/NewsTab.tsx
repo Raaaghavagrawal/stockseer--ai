@@ -70,18 +70,27 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       console.log('Processed news data:', newsData);
       
       // Transform the data to match our interface
+      const stripHtml = (value: unknown) => {
+        if (typeof value !== 'string') return '';
+        const doc = new DOMParser().parseFromString(value, 'text/html');
+        return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      };
+
       const transformedNews = newsData.map((item: any) => {
         const rawSentiment = (item.sentiment_label || item.sentiment || 'neutral').toLowerCase();
         let sentiment = 'neutral';
         if (rawSentiment === 'positive' || rawSentiment === 'bullish') sentiment = 'positive';
         else if (rawSentiment === 'negative' || rawSentiment === 'bearish') sentiment = 'negative';
-        
+
+        const plainTitle = stripHtml(item.title) || 'No Title';
+        const plainSummary = stripHtml(item.summary || item.description) || 'No summary available';
+
         return {
-          title: item.title || 'No Title',
-          summary: item.summary || item.description || 'No summary available',
+          title: plainTitle,
+          summary: plainSummary,
           url: item.url || item.link || '#',
           publishedAt: item.publishedAt || item.published || new Date().toISOString(),
-          source: item.source || item.publisher || 'Unknown Source',
+          source: stripHtml(item.source || item.publisher) || 'Unknown Source',
           sentiment: sentiment
         };
       });
