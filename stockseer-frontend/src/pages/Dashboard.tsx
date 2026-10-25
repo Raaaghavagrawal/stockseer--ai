@@ -554,8 +554,6 @@ export default function Dashboard() {
       }
       
     } catch (error) {
-      console.error('Error fetching stock data:', error);
-      
       // Check if it's a market restriction error
       const restrictionError = handleMarketRestrictionError(error);
       if (restrictionError.isMarketRestricted) {
@@ -566,7 +564,6 @@ export default function Dashboard() {
       
       // For other errors, show error message and reset data
       const errorMessage = handleAPIError(error);
-      console.error('API Error:', errorMessage);
       setStockFetchError(errorMessage || `Could not fetch market data for ${sanitizedSymbol}.`);
       setStockData(null);
       setChartData([]);

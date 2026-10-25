@@ -4,7 +4,8 @@ if (!configuredApiUrl && !import.meta.env.DEV) {
   throw new Error('VITE_API_BASE_URL must be set for deployed builds.');
 }
 
-export const API_BASE_URL = (configuredApiUrl || 'http://localhost:8000').replace(/\/+$/, '');
+const configuredBaseUrl = configuredApiUrl || 'http://127.0.0.1:8000';
+export const API_BASE_URL = configuredBaseUrl.replace(/\/+$/, '');
 
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}/${path.replace(/^\/+/, '')}`;

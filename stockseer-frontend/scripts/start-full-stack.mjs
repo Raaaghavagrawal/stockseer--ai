@@ -129,8 +129,8 @@ function startBackend(pythonCmd) {
   return new Promise((resolve, reject) => {
     logInfo('Starting FastAPI backend...');
     
-    const backend = spawn(pythonCmd, ['backend_api.py'], {
-      cwd: path.join(__dirname, '..'),
+    const backend = spawn(pythonCmd, ['start_backend.py'], {
+      cwd: path.join(__dirname, '..', '..', 'backend'),
       stdio: 'pipe'
     });
     
@@ -150,6 +150,12 @@ function startBackend(pythonCmd) {
     
     backend.stderr.on('data', (data) => {
       const output = data.toString();
+      if (output.includes('Uvicorn running') || output.includes('Application startup complete')) {
+        backendReady = true;
+        logSuccess('FastAPI backend is running on http://localhost:8000');
+        logInfo('API documentation available at: http://localhost:8000/docs');
+        resolve(backend);
+      }
       if (!output.includes('INFO:') && !output.includes('WARNING:')) {
         process.stderr.write(`[Backend Error] ${output}`);
       }

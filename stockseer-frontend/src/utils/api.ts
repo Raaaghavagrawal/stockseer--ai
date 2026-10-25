@@ -184,7 +184,7 @@ const stockDataCache: Map<string, CacheEntry<StockData>> = new Map();
 const chartDataCache: Map<string, CacheEntry<StockChartData[]>> = new Map();
 
 // Retry helper for transient errors (e.g., 429/503)
-async function requestWithRetry<T>(fn: () => PromiseLike<T> | T, maxRetries = 3, baseDelayMs = 300): Promise<T> {
+async function requestWithRetry<T>(fn: () => PromiseLike<T> | T, maxRetries = 2, baseDelayMs = 300): Promise<T> {
   let attempt = 0;
   let lastError: unknown;
   while (attempt <= maxRetries) {
@@ -195,10 +195,11 @@ async function requestWithRetry<T>(fn: () => PromiseLike<T> | T, maxRetries = 3,
       lastError = error;
       const axiosError = error as AxiosLikeError;
       const status = axiosError?.response?.status;
-      const isTimeout = axiosError.code === 'ECONNABORTED' || (axiosError.message ? axiosError.message.toLowerCase().includes('timeout') : false);
+      const isTimeout = axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT';
       
-      // Retry on Rate Limit (429), Service Unavailable (503), or Timeout
-      if (status !== 429 && status !== 503 && !isTimeout) break;
+      // A refused connection is a backend availability/configuration issue; retrying
+      // it only delays useful feedback. Retry bounded transient responses/timeouts.
+      if (![429, 502, 503, 504].includes(status ?? 0) && !isTimeout) break;
       
       console.warn(`API call failed (Attempt ${attempt + 1}/${maxRetries + 1}). Retrying...`, {
         status,
@@ -207,8 +208,10 @@ async function requestWithRetry<T>(fn: () => PromiseLike<T> | T, maxRetries = 3,
       });
 
       const retryAfterHeader = axiosError?.response?.headers?.['retry-after'];
-      const retryAfter = retryAfterHeader ? Number(retryAfterHeader) * 1000 : null;
-      const delayMs = retryAfter ?? baseDelayMs * Math.pow(2, attempt);
+      const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+      const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
+        ? Math.min(retryAfterSeconds * 1000, 3000)
+        : baseDelayMs * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, delayMs));
       attempt += 1;
     }
@@ -362,8 +365,6 @@ export const stockAPI = {
       stockDataCache.set(cacheKey, { data, timestamp: now });
       return data;
     } catch (error) {
-      console.error('API Error in getStockData:', error);
-      
       // Handle market restriction errors
       if (onMarketRestriction) {
         const restrictionError = handleMarketRestrictionError(error);
@@ -603,6 +604,7 @@ export const mlAPI = {
 export const handleAPIError = (error: unknown): string => {
   const err = error as AxiosLikeError;
   if (err?.response) {
+    const status = err.response.status ?? 0;
     const body = err.response.data;
     const detail = body?.detail && typeof body.detail === 'object'
       ? body.detail as NonNullable<AxiosLikeError['response']>['data']
@@ -610,9 +612,20 @@ export const handleAPIError = (error: unknown): string => {
     if (err.response.status === 403 && detail?.error === 'market_restricted') {
       return `Market Access Restricted: ${detail.message || ''}`;
     }
-    return detail?.message || body?.message || `Error ${err.response.status}: ${err.response.statusText || ''}`;
+    if (typeof detail === 'string') {
+      if (status === 400) return `Invalid stock symbol: ${detail}`;
+      if (status >= 500) return 'The stock data service is temporarily unavailable. Please try again shortly.';
+      return detail;
+    }
+    if (status === 400) return 'Invalid stock symbol. Check the ticker and exchange suffix (for example, TCS.NS).';
+    if (status === 429) return 'Too many requests. Please wait a moment and try again.';
+    if (status >= 500) return detail?.message || body?.message || 'The stock data service is temporarily unavailable. Please try again shortly.';
+    return detail?.message || body?.message || `Request failed (${status}).`;
   } else if (err?.request) {
-    return 'No response from server. Please check your connection.';
+    if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      return 'The backend did not respond in time. Please try again shortly.';
+    }
+    return `Cannot reach the StockSeer backend at ${API_BASE_URL}. Check that the backend is running and VITE_API_BASE_URL points to it.`;
   } else if (err instanceof Error || typeof err?.message === 'string') {
     return err.message || 'An unexpected error occurred.';
   }

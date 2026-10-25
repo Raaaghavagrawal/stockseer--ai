@@ -189,20 +189,22 @@ NEWS_API_KEY=your_newsapi_key_here
 ```
 
 ### API Configuration
-The frontend uses a centralized API URL from `VITE_API_BASE_URL`. Local development defaults to `http://localhost:8000`.
+The frontend uses a centralized API URL from `VITE_API_BASE_URL`. Local development uses `http://127.0.0.1:8000` (the FastAPI startup script's default). Production builds require `VITE_API_BASE_URL` and never fall back to a local address.
 
 ### Separate development and production deployments
 
-The Vite frontend reads `VITE_API_BASE_URL` from the Vercel project environment. Configure it independently in each project (Production environment scope):
+The Vite frontend reads `VITE_API_BASE_URL` from the Vercel project environment. Keep this existing variable name; the source does not read `VITE_API_URL`. Set it independently in each Vercel project (Production environment scope):
 
-- Development Vercel project (`master`, `https://stockseerai-dev.vercel.app`): set it to the public URL of the development Render service.
-- Production Vercel project (`main`, `https://stockseer-ai.vercel.app`): keep it set to `https://stockseer-ai-1.onrender.com`.
+- Development Vercel project (`master`, `https://stockseerai-dev.vercel.app`): `VITE_API_BASE_URL=https://stockseer--ai-dev.onrender.com`.
+- Production Vercel project (`main`, `https://stockseer-ai.vercel.app`): keep `VITE_API_BASE_URL=https://stockseer-ai-1.onrender.com`.
 
-Set `CORS_ALLOWED_ORIGINS` independently on each Render service as a comma-separated exact origin list. For development use `https://stockseerai-dev.vercel.app,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173`; for production use `https://stockseer-ai.vercel.app,https://stockseer--ai.vercel.app,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173`. No wildcard or Vercel-wide origin pattern is enabled. The API URL is public frontend configuration; never put backend credentials there.
+For each Render service, set the root directory to `backend`, install with `pip install -r requirements.txt`, and start with `python start_backend.py`; the startup script binds to `0.0.0.0` and uses the platform-provided `PORT` in deployed environments. Set `CORS_ALLOWED_ORIGINS` independently on each Render service as a comma-separated exact origin list. The development service must include `https://stockseerai-dev.vercel.app`; the production service must continue including `https://stockseer-ai.vercel.app`. Local origins may also be included as needed. The FastAPI middleware preserves credentials and handles preflight requests with the configured methods and headers. No wildcard or Vercel-wide origin pattern is used. The API URL is public frontend configuration; never put backend credentials there.
+
+Changing either Vercel environment variable requires a new deployment because Vite embeds it into the frontend build. Keep the development and production Vercel projects and Render services mapped to their matching branches and URLs.
 
 Set `PYTHON_VERSION=3.11.9` on the development Render service to pin its runtime without changing production. The repo has no Python runtime pin file; do not add a root `.python-version` unless both services should use that same version.
 
-Local Vite development uses `stockseer-frontend/.env.development` and `http://localhost:8000`. Copy `.env.example` as a reference for other environments. Frontend build command: `npm run build` from `stockseer-frontend`.
+Local Vite development reads `stockseer-frontend/.env.development`, which should set `VITE_API_BASE_URL=http://127.0.0.1:8000`. Start the backend in one terminal with `cd backend` then `python start_backend.py` (Windows users may use `py start_backend.py`); in another, run `cd stockseer-frontend`, `npm install`, and `npm run dev`. The backend health check is `GET http://127.0.0.1:8000/health`. Copy `.env.example` as a reference for other environments. Frontend build command: `npm run build` from `stockseer-frontend`.
 
 ### AI & Risk analysis methodology
 
