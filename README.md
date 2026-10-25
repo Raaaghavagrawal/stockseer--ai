@@ -204,6 +204,16 @@ Set `PYTHON_VERSION=3.11.9` on the development Render service to pin its runtime
 
 Local Vite development uses `stockseer-frontend/.env.development` and `http://localhost:8000`. Copy `.env.example` as a reference for other environments. Frontend build command: `npm run build` from `stockseer-frontend`.
 
+### AI & Risk analysis methodology
+
+`GET /api/ml/analysis/{ticker}?period=2y&horizon=5` returns ticker-keyed daily analytics based on Yahoo Finance history. Allowed periods are `1y`, `2y`, and `5y`; forecast horizons are 1, 5, and 20 trading sessions. The analysis drops invalid OHLC observations, deduplicates timestamps, uses adjusted close when complete, and returns a structured 503 when data cannot support analysis. A 15-minute in-process cache is keyed by ticker, period, horizon, and analysis version; cache entries are not persisted across service restarts.
+
+The risk score averages three equally weighted trailing-history percentiles: 63-session annualized volatility, 63-session maximum drawdown, and 63-session historical 95% VaR. Equal weights are explicit because the inputs share one percentile scale and this repository has no outcome-calibrated weighting study; the score does not claim learned weights. It requires all three percentile histories (at least 60 rolling observations) and is a relative historical rank, not a probability. Classification bands are quintiles of that 0–100 rank: Low (0–20), Moderate (20–40), Elevated (40–60), High (60–80), and Very High (80–100). Annualized statistics use 252 trading sessions; Sharpe assumes a zero risk-free rate. Historical VaR/CVaR use the empirical daily-return tail.
+
+Forecasts use standardized ridge regression (alpha 1) with lagged returns, SMA gap, RSI, and rolling volatility. The model is evaluated on expanding-window, chronological, non-overlapping forecast origins; training labels are purged until their horizon outcome is known. The zero-return forecast is the baseline. A point estimate is shown only with at least 60 test origins, lower MAE than the baseline, and directional accuracy above 50%; otherwise the estimate is withheld. The fit and evaluation are cached in process for 15 minutes. No probability or prediction interval is claimed. The previous TSLA-model fallback and unvalidated `/ml/predict` and `/predictions/{ticker}` endpoints now return HTTP 410. Forecast-versus-actual history is not charted because forecasts are not persisted before outcomes occur.
+
+Run the same offline evaluation from the backend with `python -m ml_pipeline.train --ticker TCS.NS --period 5y --horizon 5` after installing `backend/requirements.txt`. It requires provider history and exits with status 2 when data cannot support an evaluation; it does not write a model artifact.
+
 ## 🐛 Troubleshooting
 
 ### Backend Issues

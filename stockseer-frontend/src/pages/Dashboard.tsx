@@ -364,6 +364,7 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<StockChartData[]>([]);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [stockFetchError, setStockFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -529,6 +530,7 @@ export default function Dashboard() {
     if (!sanitizedSymbol) return;
 
     setLoading(true);
+    setStockFetchError(null);
     try {
       // Fetch stock data from backend with market restriction handling
       const stockDataResponse = await stockAPI.getStockData(sanitizedSymbol, (restrictionDetails) => {
@@ -565,6 +567,7 @@ export default function Dashboard() {
       // For other errors, show error message and reset data
       const errorMessage = handleAPIError(error);
       console.error('API Error:', errorMessage);
+      setStockFetchError(errorMessage || `Could not fetch market data for ${sanitizedSymbol}.`);
       setStockData(null);
       setChartData([]);
     } finally {
@@ -580,7 +583,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     const q = sanitizeSymbol(searchQuery);
-    if (!q || q.length < 2) return;
+    const marketSuffixes = ['.NS', '.BO', '.SS', '.SZ', '.T', '.KS', '.SI', '.BK', '.JK', '.KL', '.PS', '.VN', '.TO', '.V', '.L', '.DE', '.PA', '.AX', '.SA', '.MX', '.JO', '.SW', '.AS', '.MC', '.MI', '.ST', '.OL', '.CO', '.HE', '.BR', '.TA', '.SR', '.QA', '.AE', '.HK'];
+    // Bare symbols are ambiguous (for example, TCS can be a US ticker or an
+    // Indian ticker). Wait for an explicit Search click instead of issuing a
+    // transient request while the user is still typing an exchange suffix.
+    if (!q || !marketSuffixes.some((suffix) => q.endsWith(suffix))) return;
     const handle = setTimeout(async () => {
       // Don't check market restriction in debounced search - only when user explicitly searches
       await fetchStockData(q);
@@ -766,6 +773,11 @@ export default function Dashboard() {
               )}
               {sidebarOpen && <span className="ml-2">Search</span>}
             </button>
+            {sidebarOpen && stockFetchError && (
+              <p role="alert" className="text-xs text-red-500 break-words" aria-live="polite">
+                {stockFetchError}
+              </p>
+            )}
           </div>
         </div>
 
