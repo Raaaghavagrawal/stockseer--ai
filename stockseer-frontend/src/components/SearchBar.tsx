@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, TrendingUp, TrendingDown } from 'lucide-react';
 import { stockAPI } from '../utils/api';
 import { debounce } from '../utils/helpers';
+import { formatPrice } from '../utils/currency';
 
 interface SearchResult {
   symbol: string;
   name: string;
   price?: number;
   change?: number;
+  currency?: string;
 }
 
 const SearchBar: React.FC = () => {
@@ -168,7 +170,7 @@ const SearchBar: React.FC = () => {
                     {result.price && (
                       <div className="text-right">
                         <div className="font-medium text-gray-900 dark:text-white">
-                          ${result.price.toFixed(2)}
+                          {formatPrice(result.price, result.currency || 'USD')}
                         </div>
                         {result.change !== undefined && (
                           <div className={`text-sm flex items-center ${

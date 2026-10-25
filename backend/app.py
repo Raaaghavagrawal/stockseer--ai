@@ -14,14 +14,14 @@ import os
 from dotenv import load_dotenv
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import plotly.express as px
 import random
 import re
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, Depends, Request, Header
+from fastapi import FastAPI, HTTPException, Depends, Request, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
@@ -72,7 +72,7 @@ from signal_utils import (
     generate_signal
 )
 from utils import (
-    get_currency_symbol, format_large_number, get_about_stock_info,
+    get_currency_symbol, get_currency_for_symbol, format_large_number, get_about_stock_info,
     format_fundamentals, calculate_percentage_change, format_percentage_change,
     validate_ticker_symbol, get_market_status, calculate_risk_metrics,
     format_timestamp, sanitize_text
@@ -690,14 +690,60 @@ app = FastAPI(title="StockSeer API", version="1.0.0", lifespan=lifespan)
 from ml_pipeline.router import router as ml_router
 app.include_router(ml_router)
 
-@app.get("/")
-async def root_health():
-    """Basic health check for Render port detection"""
+@app.get("/health")
+@app.head("/health")
+async def health_check(response: Response):
+    """Lightweight, fast health check for Render and external uptime pingers"""
+    response.headers["Cache-Control"] = "no-store"
     return {
-        "status": "online", 
-        "mode": "production" if os.environ.get("PORT") else "development",
-        "timestamp": datetime.now().isoformat()
+        "status": "ok",
+        "service": "stockseer-backend",
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
+
+@app.get("/")
+@app.head("/")
+async def root_health(response: Response):
+    """Root route returning standard health check for Render port detection"""
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "status": "ok",
+        "service": "stockseer-backend",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+@app.get("/health/deep")
+async def health_deep(response: Response):
+    """Deep health check that verifies database connectivity with SELECT 1"""
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        from database import engine, SQLALCHEMY_AVAILABLE
+        from sqlalchemy import text
+        if SQLALCHEMY_AVAILABLE and engine:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        else:
+            import sqlite3
+            conn = sqlite3.connect("stockseer.db")
+            conn.execute("SELECT 1")
+            conn.close()
+        return {
+            "status": "ok",
+            "service": "stockseer-backend",
+            "database": "connected",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "error",
+                "service": "stockseer-backend",
+                "database": "disconnected",
+                "error": str(e),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
 
 _live_research_notes_store = {}
 _live_analysis_reports_store = {}
@@ -720,13 +766,14 @@ async def get_metals(currency: str = 'USD'):
             'XPD': {'symbol': 'PA=F', 'name': 'Palladium'}
         }
         
-        # Country exchange rates (approximate fallbacks if currency conversion needed)
+        # Preserve the requested currency parameter for older clients. LiveMetalPrices
+        # requests USD and applies its own live, cached FX conversion for display.
+        output_currency = currency.upper()
         exchange_rates = {
             'USD': 1.0, 'INR': 83.5, 'EUR': 0.92, 'GBP': 0.79,
             'JPY': 150.0, 'AUD': 1.52, 'CAD': 1.36, 'CNY': 7.25
         }
-        
-        rate = exchange_rates.get(currency.upper(), 1.0)
+        rate = exchange_rates.get(output_currency, 1.0)
         results = []
         
         for code, info in metal_tickers.items():
@@ -745,20 +792,14 @@ async def get_metals(currency: str = 'USD'):
                     change24h = current_price - prev_close
                     changePercent24h = (change24h / prev_close) * 100
                 
-                # Convert to Kilograms (1 kg = 32.1507 troy ounces)
-                kg_multiplier = 32.1507
-                current_price_kg = current_price * kg_multiplier
-                change24h_kg = change24h * kg_multiplier
-                
-                # Convert to requested currency
-                converted_price = current_price_kg * rate
-                converted_change = change24h_kg * rate
+                converted_price = current_price * rate
+                converted_change = change24h * rate
                 
                 results.append({
                     "symbol": code,
-                    "name": f"{info['name']} (per kg)",
+                    "name": info['name'],
                     "price": converted_price,
-                    "currency": currency.upper(),
+                    "currency": output_currency,
                     "change24h": converted_change,
                     "changePercent24h": changePercent24h,
                     "lastUpdated": datetime.now().isoformat(),
@@ -1202,6 +1243,7 @@ class StockPrediction(BaseModel):
     timeframe: str
     reasoning: str
     timestamp: str
+    currency: Optional[str] = None
 
 class PortfolioHolding(BaseModel):
     symbol: str
@@ -1211,6 +1253,7 @@ class PortfolioHolding(BaseModel):
     totalValue: float
     gainLoss: float
     gainLossPercent: float
+    currency: str = 'USD'
 
 class NewsItem(BaseModel):
     title: str
@@ -1227,6 +1270,7 @@ class StockSearchResult(BaseModel):
     change: Optional[float] = None
     sector: Optional[str] = None
     relevance: Optional[int] = None
+    currency: Optional[str] = None
 
 # Dummy Account Models
 class UserAccount(BaseModel):
@@ -1618,6 +1662,28 @@ def detect_currency_from_symbol(symbol, info=None):
     # Default to USD for US stocks and unknown
     return 'USD'
 
+def get_source_currency(ticker_symbol):
+    """Return the provider's raw currency code when available (GBp is distinct from GBP)."""
+    cache_key = f"source_currency_{ticker_symbol.upper()}"
+    cached = stock_cache.get(cache_key)
+    if cached and (datetime.now() - cached[0]).seconds < cache_ttl:
+        return cached[1]
+
+    try:
+        ticker = yf.Ticker(ticker_symbol, session=YF_SESSION)
+        fast = ticker.fast_info
+        raw_currency = None
+        if fast is not None and hasattr(fast, 'get'):
+            raw_currency = fast.get('currency') or fast.get('Currency')
+        if not raw_currency:
+            raw_currency = (getattr(ticker, 'info', {}) or {}).get('currency')
+        stock_cache[cache_key] = (datetime.now(), raw_currency)
+        return raw_currency
+    except Exception as error:
+        print(f"[CURRENCY FETCH ERROR] {ticker_symbol}: {error}")
+        return None
+
+
 def get_stock_info(ticker_symbol, max_retries=2):
     """Get stock information using optimized fast_info to avoid 60s timeouts."""
     cache_key = f"info_{ticker_symbol}"
@@ -1661,6 +1727,15 @@ def get_stock_info(ticker_symbol, max_retries=2):
             day_low = fast.get('dayLow', fast.get('day_low', 0))
             year_high = fast.get('yearHigh', fast.get('year_high', 0))
             year_low = fast.get('yearLow', fast.get('year_low', 0))
+            source_currency = fast.get('currency') or fast.get('Currency')
+            price_scale = 0.01 if source_currency == 'GBp' else 1
+            if price_scale != 1:
+                current_price = float(current_price or 0) * price_scale
+                previous_close = float(previous_close or 0) * price_scale
+                day_high = float(day_high or 0) * price_scale
+                day_low = float(day_low or 0) * price_scale
+                year_high = float(year_high or 0) * price_scale
+                year_low = float(year_low or 0) * price_scale
             
             # Metadata fallbacks from local mapping or fast_info
             company_name = get_company_name(ticker_symbol)
@@ -1685,12 +1760,20 @@ def get_stock_info(ticker_symbol, max_retries=2):
                 'dividend': float(dividend_yield) if dividend_yield not in (None, '', 0) else None,
                 'high': float(day_high),
                 'low': float(day_low),
-                'open': float(fast.get('open', 0)),
+                'open': float(fast.get('open', 0) or 0) * price_scale,
                 'previousClose': float(previous_close),
                 'sector': None,
                 'industry': None,
                 'description': None,
-                'currency': fast.get('currency', 'USD'),
+                'currency': (
+                    'GBP'
+                    if (fast.get('currency') or fast.get('Currency')) == 'GBp'
+                    else (
+                        str(fast.get('currency') or fast.get('Currency')).upper()
+                        if fast.get('currency') or fast.get('Currency')
+                        else get_currency_for_symbol(ticker_symbol)
+                    )
+                ),
                 'high52Week': float(year_high),
                 'low52Week': float(year_low),
                 'timestamp': format_timestamp(datetime.now())
@@ -1719,21 +1802,26 @@ def get_stock_info(ticker_symbol, max_retries=2):
                 print(f"[FALLBACK] Trying legacy info for {ticker_symbol}")
                 info = stock.info
                 if info and info.get('currentPrice'):
+                    source_currency = info.get('currency')
+                    price_scale = 0.01 if source_currency == 'GBp' else 1
                     result = {
                         'symbol': ticker_symbol,
                         'name': info.get('longName', get_company_name(ticker_symbol)),
-                        'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
-                        'change': info.get('regularMarketChange', 0),
+                        'price': info.get('currentPrice', info.get('regularMarketPrice', 0)) * price_scale,
+                        'change': info.get('regularMarketChange', 0) * price_scale,
                         'changePercent': info.get('regularMarketChangePercent', 0),
                         'volume': info.get('regularMarketVolume', 0),
                         'marketCap': info.get('marketCap'),
                         'pe': info.get('trailingPE', info.get('trailing_pe')),
                         'dividend': info.get('dividendYield', info.get('dividend_yield')),
-                        'high': info.get('dayHigh', info.get('day_high')),
-                        'low': info.get('dayLow', info.get('day_low')),
-                        'open': info.get('open'),
-                        'previousClose': info.get('previousClose', info.get('previous_close')),
-                        'currency': info.get('currency', 'USD'),
+                        'high': info.get('dayHigh', info.get('day_high')) * price_scale if info.get('dayHigh', info.get('day_high')) else None,
+                        'low': info.get('dayLow', info.get('day_low')) * price_scale if info.get('dayLow', info.get('day_low')) else None,
+                        'open': info.get('open') * price_scale if info.get('open') else None,
+                        'previousClose': info.get('previousClose', info.get('previous_close')) * price_scale if info.get('previousClose', info.get('previous_close')) else None,
+                        'currency': (
+                            'GBP' if info.get('currency') == 'GBp'
+                            else (str(info.get('currency')).upper() if info.get('currency') else get_currency_for_symbol(ticker_symbol))
+                        ),
                         'timestamp': format_timestamp(datetime.now())
                     }
                     stock_cache[cache_key] = (datetime.now(), result)
@@ -2409,6 +2497,7 @@ def screen_stocks(criteria):
                             'symbol': symbol,
                             'name': stock_info.get('name', symbol),
                             'price': stock_info.get('price'),
+                            'currency': stock_info.get('currency') or get_currency_for_symbol(symbol),
                             'marketCap': stock_info.get('marketCap'),
                             'pe': stock_info.get('pe'),
                             'dividendYield': stock_info.get('dividend'),
@@ -2987,6 +3076,11 @@ async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d",
                 status_code=404, 
                 detail=f"No chart data available for symbol '{ticker}'. The symbol may be invalid, delisted, or not supported."
             )
+
+        if await run_in_threadpool(get_source_currency, ticker) == 'GBp':
+            df = df.copy()
+            price_columns = [column for column in ('Open', 'High', 'Low', 'Close') if column in df.columns]
+            df[price_columns] = df[price_columns] / 100
         
         chart_data = []
         for index, row in df.iterrows():
@@ -3012,6 +3106,7 @@ async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d",
             "symbol": symbol.upper(),
             "period": period,
             "interval": yf_interval,
+            "currency": get_currency_for_symbol(ticker),
             "data": chart_data,
             "simple_chart": simple_chart
         }
@@ -3548,10 +3643,18 @@ async def search_stocks_simple(q: str):
                             live_data_results.append(StockSearchResult(
                                 symbol=result['symbol'],
                                 name=result['name'],
-                                price=cache_data.get('regularMarketPrice'),
+                                price=(
+                                    cache_data.get('regularMarketPrice') / 100
+                                    if cache_data.get('currency') == 'GBp'
+                                    else cache_data.get('regularMarketPrice')
+                                ),
                                 change=cache_data.get('regularMarketChangePercent', 0),
                                 sector=result.get('sector'),
-                                relevance=result.get('relevance')
+                                relevance=result.get('relevance'),
+                                currency=(
+                                    'GBP' if cache_data.get('currency') == 'GBp'
+                                    else (str(cache_data.get('currency')).upper() if cache_data.get('currency') else get_currency_for_symbol(result['symbol']))
+                                )
                             ))
                             continue
                 
@@ -3568,10 +3671,18 @@ async def search_stocks_simple(q: str):
                         live_data_results.append(StockSearchResult(
                             symbol=result['symbol'],
                             name=result['name'],
-                            price=info.get('regularMarketPrice'),
+                            price=(
+                                info.get('regularMarketPrice') / 100
+                                if info.get('currency') == 'GBp'
+                                else info.get('regularMarketPrice')
+                            ),
                             change=info.get('regularMarketChangePercent', 0),
                             sector=result.get('sector'),
-                            relevance=result.get('relevance')
+                            relevance=result.get('relevance'),
+                            currency=(
+                                'GBP' if info.get('currency') == 'GBp'
+                                else (str(info.get('currency')).upper() if info.get('currency') else get_currency_for_symbol(result['symbol']))
+                            )
                         ))
                     else:
                         # Add without live data
@@ -3581,7 +3692,8 @@ async def search_stocks_simple(q: str):
                             price=None,
                             change=None,
                             sector=result.get('sector'),
-                            relevance=result.get('relevance')
+                            relevance=result.get('relevance'),
+                            currency=get_currency_for_symbol(result['symbol'])
                         ))
                         
                 except Exception as api_error:
@@ -3799,7 +3911,8 @@ async def get_stock_prediction(symbol: str):
             confidence=confidence,
             timeframe="1 week",
             reasoning=reasoning,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
+            currency=get_currency_for_symbol(symbol)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -3833,7 +3946,8 @@ async def add_portfolio_holding(symbol: str, shares: int, avg_price: float):
             currentPrice=current_price,
             totalValue=total_value,
             gainLoss=gain_loss,
-            gainLossPercent=gain_loss_percent
+            gainLossPercent=gain_loss_percent,
+            currency=stock_info.get('currency') or get_currency_for_symbol(symbol.upper())
         )
         
         portfolio_holdings[symbol.upper()] = holding
@@ -4750,9 +4864,15 @@ async def get_company_info(symbol: str):
         except Exception:
             scraped_profile = ""
 
+        raw_currency = info_dict.get('currency')
+        currency_code = (
+            'GBP' if raw_currency == 'GBp'
+            else (str(raw_currency).upper() if raw_currency else get_currency_for_symbol(symbol))
+        )
+
         # Format large numbers to utilize format_large_number
         try:
-            currency_sym = get_currency_symbol(info_dict.get('currency', 'USD'))
+            currency_sym = get_currency_symbol(currency_code)
             market_cap_formatted = format_large_number(market_cap or 0, currency_sym)
         except Exception:
             market_cap_formatted = None
@@ -4775,8 +4895,8 @@ async def get_company_info(symbol: str):
             "marketCap": market_cap,
             "marketCap_formatted": market_cap_formatted,
             "exchange": exchange,
-            "currency": info_dict.get('currency', 'USD'),
-            "currency_symbol": info_dict.get('currency_symbol', '$'),
+            "currency": currency_code,
+            "currency_symbol": currency_sym,
             "logo_url": info_dict.get('logo_url', ''),
             "logo_valid": is_valid_url(info_dict.get('logo_url', '')),
             "website": info_dict.get('website', ''),

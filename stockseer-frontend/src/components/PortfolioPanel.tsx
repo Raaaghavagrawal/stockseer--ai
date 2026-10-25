@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { Wallet, Plus, Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { portfolioAPI } from '../utils/api';
 import type { PortfolioHolding } from '../types/stock';
-import { formatCurrency, formatPercentage, getChangeColor } from '../utils/helpers';
+import { formatPercentage, getChangeColor } from '../utils/helpers';
+import { formatCurrency } from '../utils/currency';
 
 const PortfolioPanel: React.FC = () => {
   const [holdings, setHoldings] = useState<PortfolioHolding[]>([]);
@@ -69,7 +70,7 @@ const PortfolioPanel: React.FC = () => {
         >
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Total Value</h3>
           <div className="text-3xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(totalValue)}
+            {formatCurrency(totalValue, 'USD')}
           </div>
         </motion.div>
         
@@ -81,7 +82,7 @@ const PortfolioPanel: React.FC = () => {
         >
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Total Gain/Loss</h3>
           <div className={`text-3xl font-bold ${getChangeColor(totalGainLoss)}`}>
-            {formatCurrency(totalGainLoss)}
+            {formatCurrency(totalGainLoss, 'USD')}
           </div>
           <div className={`text-sm ${getChangeColor(totalGainLossPercent, true)}`}>
             {formatPercentage(totalGainLossPercent)}
@@ -143,17 +144,17 @@ const PortfolioPanel: React.FC = () => {
                     {holding.shares.toLocaleString()}
                   </td>
                   <td className="py-4 px-4 text-right text-gray-900 dark:text-white">
-                    {formatCurrency(holding.avgPrice)}
+                    {formatCurrency(holding.avgPrice, holding.currency)}
                   </td>
                   <td className="py-4 px-4 text-right text-gray-900 dark:text-white">
-                    {formatCurrency(holding.currentPrice)}
+                    {formatCurrency(holding.currentPrice, holding.currency)}
                   </td>
                   <td className="py-4 px-4 text-right text-gray-900 dark:text-white">
-                    {formatCurrency(holding.totalValue)}
+                    {formatCurrency(holding.totalValue, holding.currency)}
                   </td>
                   <td className="py-4 px-4 text-right">
                     <div className={`font-medium ${getChangeColor(holding.gainLoss)}`}>
-                      {formatCurrency(holding.gainLoss)}
+                      {formatCurrency(holding.gainLoss, holding.currency)}
                     </div>
                     <div className={`text-sm ${getChangeColor(holding.gainLossPercent, true)}`}>
                       {formatPercentage(holding.gainLossPercent)}

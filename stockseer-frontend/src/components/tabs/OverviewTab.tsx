@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Download, BarChart3, LineChart, BarChart } from 'lucide-react';
 import type { StockData, StockChartData } from '../../types/stock';
-import { formatPrice, formatChange, formatChangePercent, getCurrencyInfo } from '../../utils/currency';
+import { formatPrice, formatChange, formatChangePercent, formatCompactCurrency, getCurrencyInfo } from '../../utils/currency';
 import FeatureAccessGuard from '../FeatureAccessGuard';
 import CandlestickChart from '../CandlestickChart';
 import { stockAPI } from '../../utils/api';
@@ -202,7 +202,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Market Cap</div>
-          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.marketCap ? `${getCurrencyInfo(stockData.currency || 'USD').symbol}${(stockData.marketCap / 1e9).toFixed(2)}B` : 'N/A'}</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.marketCap ? formatCompactCurrency(stockData.marketCap, stockData.currency || 'USD') : 'N/A'}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Volume</div>
@@ -356,7 +356,7 @@ export default function OverviewTab({ stockData, watchlist, chartData, onAddToWa
                         ticks: {
                           color: 'rgba(255, 255, 255, 0.7)',
                           callback: function(value) {
-                            return '$' + Number(value).toFixed(2);
+                            return formatCompactCurrency(Number(value), stockData?.currency || 'USD');
                           },
                         },
                       },

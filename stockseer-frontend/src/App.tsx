@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -19,12 +20,18 @@ import ContinentSelectionModal from './components/ContinentSelectionModal';
 import ChatWidget from './components/ChatWidget';
 import './App.css';
 import About from './pages/About';
+import { warmUpBackend } from './utils/api';
 
 // Component to handle continent selection modal
 function AppContent() {
   const navigate = useNavigate();
   const { showContinentModal, setShowContinentModal } = useAuth();
   const { setSelectedContinent, getContinentPlan, setCurrentPlan, setShowFreePlanNotification } = useSubscription();
+
+  useEffect(() => {
+    // Warm up Render backend on app load (silent, non-blocking)
+    warmUpBackend();
+  }, []);
 
   const handleContinentSelect = (continent: string) => {
     setSelectedContinent(continent as any);

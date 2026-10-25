@@ -39,7 +39,7 @@ export interface AnalysisReport {
   symbol: string;
   reportType: 'technical' | 'fundamental' | 'sentiment' | 'custom';
   title: string;
-  content: string;
+  content: string | { summary?: string; highlights?: string[]; [key: string]: any };
   metrics: Record<string, any>;
   timestamp: string;
 }

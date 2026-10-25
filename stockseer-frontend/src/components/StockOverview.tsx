@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, BarChart3, Activity } from 'lucide-react';
 import { stockAPI } from '../utils/api';
 import type { StockData, StockChartData } from '../types/stock';
-import { formatCurrency, formatPercentage, getChangeColor } from '../utils/helpers';
+import { formatPercentage, getChangeColor } from '../utils/helpers';
+import { formatCurrency, formatCompactCurrency } from '../utils/currency';
 
 const StockOverview: React.FC = () => {
   const [selectedStock, setSelectedStock] = useState('AAPL');
@@ -33,14 +34,14 @@ const StockOverview: React.FC = () => {
   const kpiCards = [
     {
       title: 'Current Price',
-      value: stockData?.price ? formatCurrency(stockData.price) : '--',
+      value: stockData?.price ? formatCurrency(stockData.price, stockData.currency) : '--',
       change: stockData?.changePercent || 0,
       icon: TrendingUp,
       color: 'primary'
     },
     {
       title: 'Market Cap',
-      value: stockData?.marketCap ? `$${(stockData.marketCap / 1e9).toFixed(2)}B` : '--',
+      value: stockData?.marketCap ? formatCompactCurrency(stockData.marketCap, stockData.currency) : '--',
       change: 0,
       icon: BarChart3,
       color: 'blue'

@@ -1,7 +1,8 @@
 import yfinance as yf
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import pandas as pd
+from typing import Optional
 
 def get_currency_symbol(currency_code):
     """Get currency symbol from currency code."""
@@ -15,9 +16,119 @@ def get_currency_symbol(currency_code):
         'HKD': 'HK$',
         'SGD': 'S$',
         'AUD': 'A$',
-        'CAD': 'C$'
+        'CAD': 'C$',
+        'KRW': '₩',
+        'BRL': 'R$',
+        'MXN': 'MX$',
+        'CHF': 'Fr',
+        'SEK': 'kr',
+        'NOK': 'kr',
+        'DKK': 'kr',
+        'NZD': 'NZ$',
+        'ZAR': 'R',
+        'TRY': '₺',
+        'ILS': '₪',
+        'THB': '฿',
+        'MYR': 'RM',
+        'IDR': 'Rp',
+        'PHP': '₱',
+        'VND': '₫',
     }
     return currency_symbols.get(currency_code, currency_code)
+
+
+# ---------------------------------------------------------------------------
+# Symbol-suffix -> ISO 4217 currency code mapping
+# ---------------------------------------------------------------------------
+_SUFFIX_CURRENCY_MAP = {
+    '.NS': 'INR',   # NSE India
+    '.BO': 'INR',   # BSE India
+    '.L':  'GBP',   # London Stock Exchange (prices in GBp; divide by 100 handled elsewhere)
+    '.T':  'JPY',   # Tokyo
+    '.HK': 'HKD',   # Hong Kong
+    '.TO': 'CAD',   # Toronto
+    '.V':  'CAD',   # TSX Venture
+    '.AX': 'AUD',   # Australia
+    '.DE': 'EUR',   # Frankfurt XETRA
+    '.PA': 'EUR',   # Euronext Paris
+    '.AS': 'EUR',   # Euronext Amsterdam
+    '.MI': 'EUR',   # Milan
+    '.MC': 'EUR',   # Madrid
+    '.BR': 'EUR',   # Brussels
+    '.SI': 'SGD',   # Singapore
+    '.SS': 'CNY',   # Shanghai
+    '.SZ': 'CNY',   # Shenzhen
+    '.KS': 'KRW',   # Korea
+    '.SA': 'BRL',   # Brazil
+    '.MX': 'MXN',   # Mexico
+    '.ME': 'RUB',   # Moscow
+    '.IS': 'TRY',   # Istanbul
+    '.JO': 'ZAR',   # Johannesburg
+    '.TA': 'ILS',   # Tel Aviv
+    '.BK': 'THB',   # Bangkok
+    '.KL': 'MYR',   # Kuala Lumpur
+    '.JK': 'IDR',   # Jakarta
+    '.PS': 'PHP',   # Manila
+    '.VN': 'VND',   # Vietnam
+    '.SW': 'CHF',   # Switzerland
+}
+
+# In-memory cache: symbol -> (currency_code, expiry_datetime)
+_currency_cache: dict = {}
+_CURRENCY_CACHE_TTL_HOURS = 6
+
+
+def _get_currency_from_suffix(symbol: str) -> str:
+    """Derive ISO 4217 currency code from the exchange suffix of *symbol*."""
+    upper = symbol.upper()
+    for suffix, code in _SUFFIX_CURRENCY_MAP.items():
+        if upper.endswith(suffix):
+            return code
+    return 'USD'  # US/unknown default
+
+
+def get_currency_for_symbol(symbol: str) -> str:
+    """Return the ISO 4217 currency code for *symbol*.
+
+    Resolution order:
+    1. In-memory cache (valid for _CURRENCY_CACHE_TTL_HOURS hours).
+    2. yfinance fast_info['currency']  (authoritative, avoids suffix edge-cases).
+    3. Suffix-based mapping from _SUFFIX_CURRENCY_MAP.
+    4. Default: 'USD'.
+
+    LSE stocks often quote in pence ('GBp') – we normalise those to 'GBP'.
+    """
+    key = symbol.upper()
+
+    # 1. Check cache
+    cached = _currency_cache.get(key)
+    if cached:
+        code, expiry = cached
+        if datetime.now() < expiry:
+            return code
+
+    # 2. Try yfinance
+    try:
+        ticker = yf.Ticker(symbol)
+        fast = ticker.fast_info
+        raw = None
+        if fast is not None and hasattr(fast, 'get'):
+            raw = fast.get('currency') or fast.get('Currency')
+        if not raw:
+            info = ticker.info
+            raw = (info or {}).get('currency')
+        if raw:
+            # Normalise pence -> GBP
+            currency = 'GBP' if raw.upper() == 'GBP' or raw == 'GBp' else raw.upper()
+            _currency_cache[key] = (currency, datetime.now() + timedelta(hours=_CURRENCY_CACHE_TTL_HOURS))
+            return currency
+    except Exception:
+        pass  # Fall through to suffix lookup
+
+    # 3. Suffix mapping
+    currency = _get_currency_from_suffix(symbol)
+    _currency_cache[key] = (currency, datetime.now() + timedelta(hours=_CURRENCY_CACHE_TTL_HOURS))
+    return currency
 
 def format_large_number(number):
     """Format large numbers into K, M, B, T format."""
