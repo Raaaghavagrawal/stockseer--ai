@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '../utils/currency';
+import { apiUrl } from '../utils/apiConfig';
 
 // Types
 interface MetalPrice {
@@ -86,8 +87,7 @@ const getUsdExchangeRate = async (currency: string): Promise<number> => {
 // Fetch real-time metals data from our Python backend (which scrapes Yahoo Finance)
 const fetchMetalsData = async (): Promise<MetalPrice[]> => {
   try {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
-    const url = `${baseUrl}/api/metals?currency=USD`;
+    const url = apiUrl('/api/metals?currency=USD');
     
     console.log('Fetching real-time metals data from backend:', url);
     

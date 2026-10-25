@@ -105,7 +105,7 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
         setError('Request timed out. The news service is taking longer than expected. Please try again.');
       } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-        setError('Cannot connect to the server. Please make sure the backend server is running on http://localhost:5000');
+        setError('Cannot connect to the server. Please make sure the backend server is running on http://localhost:8000');
       } else if (err.response?.status === 500) {
         setError('Server error occurred while fetching news. The API might be Rate Limited or unreachable.');
       } else if (err.response?.status === 404) {

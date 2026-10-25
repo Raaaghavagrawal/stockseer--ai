@@ -189,7 +189,20 @@ NEWS_API_KEY=your_newsapi_key_here
 ```
 
 ### API Configuration
-The frontend is configured to connect to the backend at `http://localhost:8000`. This can be changed in `stockseer-frontend/src/utils/api.ts`.
+The frontend uses a centralized API URL from `VITE_API_BASE_URL`. Local development defaults to `http://localhost:8000`.
+
+### Separate development and production deployments
+
+The Vite frontend reads `VITE_API_BASE_URL` from the Vercel project environment. Configure it independently in each project (Production environment scope):
+
+- Development Vercel project (`master`, `https://stockseerai-dev.vercel.app`): set it to the public URL of the development Render service.
+- Production Vercel project (`main`, `https://stockseer-ai.vercel.app`): keep it set to `https://stockseer-ai-1.onrender.com`.
+
+Set `CORS_ALLOWED_ORIGINS` independently on each Render service as a comma-separated exact origin list. For development use `https://stockseerai-dev.vercel.app,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173`; for production use `https://stockseer-ai.vercel.app,https://stockseer--ai.vercel.app,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173`. No wildcard or Vercel-wide origin pattern is enabled. The API URL is public frontend configuration; never put backend credentials there.
+
+Set `PYTHON_VERSION=3.11.9` on the development Render service to pin its runtime without changing production. The repo has no Python runtime pin file; do not add a root `.python-version` unless both services should use that same version.
+
+Local Vite development uses `stockseer-frontend/.env.development` and `http://localhost:8000`. Copy `.env.example` as a reference for other environments. Frontend build command: `npm run build` from `stockseer-frontend`.
 
 ## 🐛 Troubleshooting
 

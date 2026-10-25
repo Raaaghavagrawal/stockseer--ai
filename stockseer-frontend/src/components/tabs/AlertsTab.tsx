@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { apiUrl } from '../../utils/apiConfig';
 
 import { 
   Bell,
@@ -29,7 +30,7 @@ export default function AlertsTab() {
   // Fetch real alerts data
   const fetchAlerts = async () => {
     try {
-      const response = await fetch('/api/alerts');
+      const response = await fetch(apiUrl('/alerts'));
       if (response.ok) {
         const data = await response.json();
         setAlerts(data.alerts || []);

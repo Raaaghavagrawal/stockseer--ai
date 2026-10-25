@@ -1,5 +1,6 @@
 // Real-time Metals Data Service
 // Fetches live metals data from multiple sources including web scraping and APIs
+import { apiUrl } from './apiConfig';
 
 export interface MetalPrice {
   symbol: string;
@@ -195,9 +196,8 @@ class MetalsDataService {
 
   private async fetchMetalsFromMultipleSources(countryCode: string = 'US'): Promise<MetalPrice[]> {
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
       const countryConfig = COUNTRIES_CONFIG[countryCode as keyof typeof COUNTRIES_CONFIG] || COUNTRIES_CONFIG['US'];
-      const response = await fetch(`${baseUrl}/api/metals?currency=${countryConfig.currency}`, {
+      const response = await fetch(apiUrl(`/api/metals?currency=${countryConfig.currency}`), {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         signal: AbortSignal.timeout(15000)

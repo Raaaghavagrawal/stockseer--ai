@@ -32,11 +32,35 @@ import uvicorn
 # Rate limiting for Yahoo Finance API
 import time
 from datetime import datetime, timedelta
-VERCEL_FRONTEND_URLS = [
+DEFAULT_CORS_ORIGINS = [
     "https://stockseer-ai.vercel.app",
     "https://stockseer--ai.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
 ]
-VERCEL_FRONTEND_URL = VERCEL_FRONTEND_URLS[0]
+configured_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS")
+if configured_cors_origins:
+    CORS_ALLOWED_ORIGINS = []
+    for configured_origin in configured_cors_origins.split(","):
+        origin = configured_origin.strip().rstrip("/")
+        parsed_origin = urlparse(origin)
+        if (
+            parsed_origin.scheme in {"http", "https"}
+            and parsed_origin.netloc
+            and not parsed_origin.username
+            and not parsed_origin.password
+            and not parsed_origin.path
+            and not parsed_origin.query
+            and not parsed_origin.fragment
+            and origin not in CORS_ALLOWED_ORIGINS
+        ):
+            CORS_ALLOWED_ORIGINS.append(origin)
+else:
+    CORS_ALLOWED_ORIGINS = DEFAULT_CORS_ORIGINS
 # --- GLOBAL YFINANCE SESSION ---
 import requests
 from requests.adapters import HTTPAdapter
@@ -1079,16 +1103,7 @@ def ml_predict_alias(symbol: str, days: int = 5):
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:4173",
-        "http://127.0.0.1:4173",
-        *VERCEL_FRONTEND_URLS,
-    ],
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

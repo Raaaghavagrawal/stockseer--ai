@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Building2, Users, Globe, TrendingUp, Calendar, DollarSign, BarChart3, MapPin } from 'lucide-react';
 import type { StockData } from '../../types/stock';
 import { getCurrencyInfo } from '../../utils/currency';
+import { apiUrl } from '../../utils/apiConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
 const getSubscriptionHeaders = () => {
   const plan = localStorage.getItem('stockseer_subscription_plan') ?? 'free';
   const continent = localStorage.getItem('stockseer_selected_continent') ?? '';
@@ -28,7 +28,7 @@ export default function AboutCompanyTab({ selectedStock, stockData }: AboutCompa
     if (!selectedStock) return;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/stocks/${selectedStock}/info`, {
+      const response = await fetch(apiUrl(`/stocks/${selectedStock}/info`), {
         headers: getSubscriptionHeaders(),
       });
       if (response.ok) {

@@ -1,5 +1,6 @@
 // Market Data API Service
 // Integrates with Twelve Data API and Alpha Vantage API for real-time market data
+import { apiUrl } from './apiConfig';
 
 export interface PriceData {
   symbol: string;
@@ -64,12 +65,11 @@ const ASSET_CONFIG = {
 // Fetch all market data
 export const fetchAllMarketData = async (): Promise<PriceData[]> => {
   const results: PriceData[] = [];
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
   
   // 1. Fetch metals data from our backend scraper
   try {
     console.log('Fetching metals data for GoldCryptoPage from backend');
-    const metalsResponse = await fetch(`${baseUrl}/api/metals?currency=USD`, {
+    const metalsResponse = await fetch(apiUrl('/api/metals?currency=USD'), {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(15000)
