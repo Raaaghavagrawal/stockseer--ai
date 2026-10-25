@@ -29,23 +29,11 @@ stockseer--ai-main/
 ├── start_stockseer.py         # Main launcher script
 ├── start_stockseer.bat        # Windows launcher
 └── README.md                  # This file
-```
-
-## 🚀 Quick Start
-
-### Option 1: Start Everything (Recommended)
-```bash
-# Windows
-start_stockseer.bat
-
-# Or using Python
-python start_stockseer.py
-```
 
 ### Option 2: Start Backend Only
 ```bash
 cd backend
-python start_backend.py
+python app.py
 ```
 
 ### Option 3: Start Frontend Only
