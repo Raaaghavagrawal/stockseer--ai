@@ -40,6 +40,82 @@ export interface MLPrediction {
   volatility: { sharpe: number; max_drawdown: number };
 }
 
+export interface RiskAnalysisResponse {
+  ticker: string;
+  period: string;
+  analysis_version: string;
+  score: number | null;
+  classification: string;
+  score_interpretation: string;
+  metrics: {
+    annualized_volatility: number | null;
+    short_term_volatility_20d: number | null;
+    long_term_volatility: number | null;
+    short_to_long_volatility_ratio: number | null;
+    max_drawdown: number | null;
+    downside_deviation: number | null;
+    historical_var_95: number | null;
+    historical_cvar_95: number | null;
+    sharpe_ratio: number | null;
+    sortino_ratio: number | null;
+    annualized_return: number | null;
+    beta: number | null;
+    benchmark_correlation: number | null;
+    relative_return: number | null;
+  };
+  components: Record<string, { current_63d_value: number | null; historical_percentile: number | null; weight: number }>;
+  indicators: Record<string, number | null>;
+  history: Array<{ date: string; close: number; drawdown: number; volatility_20d: number | null; sma_20: number | null; sma_50: number | null }>;
+  data_quality: {
+    source: string;
+    input_observations: number;
+    retrieved_at: string;
+    latest_observation: string;
+    age_days: number;
+    freshness: 'current' | 'stale';
+    validation_status: 'valid' | 'partial';
+    period_start: string;
+    period_end: string;
+    observations: number;
+    dropped_observations: number;
+    duplicate_timestamps_removed: number;
+    missing_data_count: number;
+    missing_data_ratio: number;
+    adjusted_close_missing: number | null;
+    uses_adjusted_close: boolean;
+  };
+  benchmark: { ticker: string | null; available: boolean };
+  forecast: {
+    status: 'validated' | 'experimental' | 'unavailable';
+    reason: string;
+    horizon_sessions: number;
+    model: string;
+    model_version?: string;
+    trained_at?: string | null;
+    training_period_start?: string;
+    training_period_end?: string;
+    features: string[];
+    reference_price?: number;
+    reference_timestamp?: string;
+    estimate_return: number | null;
+    estimate_price: number | null;
+    uncertainty?: string | null;
+    evaluation: null | {
+      method: string;
+      samples: number;
+      test_start: string;
+      test_end: string;
+      mae: number;
+      rmse: number;
+      baseline: string;
+      baseline_mae: number;
+      baseline_rmse: number;
+      directional_accuracy: number;
+      passed_criteria: boolean;
+    };
+  };
+}
+
 export interface MarketRestrictionDetails {
   isMarketRestricted: boolean;
   error?: unknown;
@@ -296,28 +372,8 @@ export const stockAPI = {
           throw error; // Re-throw to maintain error handling flow
         }
       }
-      
-      // For non-restriction errors, return mock data for testing
-      const currency = detectCurrencyFromSymbol(symbol);
-      return {
-        symbol: symbol,
-        name: `${symbol} Inc.`,
-        price: 150.25,
-        change: 2.15,
-        changePercent: 1.45,
-        volume: 45000000,
-        marketCap: 2500000000000,
-        pe: 25.5,
-        dividendYield: 0.5,
-        high52Week: 180.00,
-        low52Week: 120.00,
-        high: 152.30,
-        low: 148.20,
-        open: 148.50,
-        previousClose: 148.10,
-        currency: currency,
-        timestamp: new Date().toISOString()
-      } as StockData;
+
+      throw error;
     }
   },
 
@@ -341,23 +397,7 @@ export const stockAPI = {
       return data;
     } catch (error) {
       console.error('API Error in getStockChartData:', error);
-      // Return mock chart data for testing if API fails
-      const mockData: StockChartData[] = [];
-      const now = new Date();
-      for (let i = 30; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        mockData.push({
-          date: date.toISOString().split('T')[0],
-          open: 145 + Math.random() * 10,
-          high: 150 + Math.random() * 10,
-          low: 140 + Math.random() * 10,
-          close: 145 + Math.random() * 10,
-          volume: Math.floor(Math.random() * 10000000),
-          currency: detectCurrencyFromSymbol(symbol)
-        });
-      }
-      return mockData;
+      throw error;
     }
   },
 
@@ -542,6 +582,15 @@ export const subscriptionAPI = {
 
 // ML Prediction API
 export const mlAPI = {
+  getAnalysis: async (symbol: string, period: '1y' | '2y' | '5y', horizon: 1 | 5 | 20): Promise<RiskAnalysisResponse> => {
+    const sanitizedSymbol = sanitizeSymbol(symbol);
+    if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
+    const response = await api.get<RiskAnalysisResponse>(`/api/ml/analysis/${encodeURIComponent(sanitizedSymbol)}`, {
+      params: { period, horizon },
+    });
+    return response.data;
+  },
+
   getPrediction: async (symbol: string): Promise<MLPrediction> => {
     const sanitizedSymbol = sanitizeSymbol(symbol);
     if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
@@ -554,10 +603,14 @@ export const mlAPI = {
 export const handleAPIError = (error: unknown): string => {
   const err = error as AxiosLikeError;
   if (err?.response) {
-    if (err.response.status === 403 && err.response.data?.error === 'market_restricted') {
-      return `Market Access Restricted: ${err.response.data.message || ''}`;
+    const body = err.response.data;
+    const detail = body?.detail && typeof body.detail === 'object'
+      ? body.detail as NonNullable<AxiosLikeError['response']>['data']
+      : body;
+    if (err.response.status === 403 && detail?.error === 'market_restricted') {
+      return `Market Access Restricted: ${detail.message || ''}`;
     }
-    return err.response.data?.message || `Error ${err.response.status}: ${err.response.statusText || ''}`;
+    return detail?.message || body?.message || `Error ${err.response.status}: ${err.response.statusText || ''}`;
   } else if (err?.request) {
     return 'No response from server. Please check your connection.';
   } else if (err instanceof Error || typeof err?.message === 'string') {
@@ -569,17 +622,21 @@ export const handleAPIError = (error: unknown): string => {
 // Market restriction error handler
 export const handleMarketRestrictionError = (error: unknown): MarketRestrictionDetails => {
   const err = error as AxiosLikeError;
-  if (err?.response?.status === 403 && err.response.data?.error === 'market_restricted') {
+  const body = err?.response?.data;
+  const detail = body?.detail && typeof body.detail === 'object'
+    ? body.detail as NonNullable<AxiosLikeError['response']>['data']
+    : body;
+  if (err?.response?.status === 403 && detail?.error === 'market_restricted') {
     return {
       isMarketRestricted: true,
-      error: err.response.data,
-      message: err.response.data.message || '',
-      details: typeof err.response.data.details === 'string' ? err.response.data.details : JSON.stringify(err.response.data.details || ''),
-      requiredPlan: err.response.data.required_plan || '',
-      currentPlan: err.response.data.current_plan || '',
-      upgradeUrl: err.response.data.upgrade_url || '',
-      market: err.response.data.market || 'Unknown',
-      availableMarkets: err.response.data.available_markets || []
+      error: detail,
+      message: detail.message || '',
+      details: typeof detail.details === 'string' ? detail.details : JSON.stringify(detail.details || ''),
+      requiredPlan: detail.required_plan || '',
+      currentPlan: detail.current_plan || '',
+      upgradeUrl: detail.upgrade_url || '',
+      market: detail.market || 'Unknown',
+      availableMarkets: detail.available_markets || []
     };
   }
   return {

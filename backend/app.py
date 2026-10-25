@@ -946,160 +946,13 @@ async def live_generate_analysis(user_id: str, payload: dict):
     }
     _live_analysis_reports_store[user_id].append(report)
     return report
-# Mount ML router with fallback to avoid 404 on /ml/predict/{symbol}
-try:
-    from ml_pipeline.router import router as ml_router
-    app.include_router(ml_router)
-except Exception as _e:
-    print("[ML] Router not mounted, enabling fallback:", _e)
-    from fastapi import APIRouter
-    import numpy as _np
-    from typing import Any as _Any
+# Mount the validated risk analysis API. Fail startup if it cannot be imported.
+from ml_pipeline.router import router as ml_router
+app.include_router(ml_router)
 
-    ml_fallback = APIRouter(prefix="/ml", tags=["ml"])
-
-    @ml_fallback.get("/predict/{symbol}")
-    def _ml_predict_fallback(symbol: str):
-        try:
-            df = fetch_stock_data(symbol.upper(), period='6mo')
-            if df is None or df.empty:
-                raise HTTPException(status_code=404, detail=f"No data for {symbol}")
-
-            from stock_utils import add_technical_indicators as _add_ti
-            dfi = _add_ti(df)
-            latest = dfi.iloc[-1]
-
-            rsi = float(latest.get('RSI', 50.0))
-            macd_hist = float(latest.get('MACD_hist', 0.0))
-            close = float(latest.get('Close', 0.0))
-            sma20 = float(latest.get('SMA_20', close))
-
-            score = 0.5
-            if rsi < 30:
-                score += 0.1
-            elif rsi > 70:
-                score -= 0.1
-            if macd_hist > 0:
-                score += 0.1
-            else:
-                score -= 0.05
-            if close > sma20:
-                score += 0.05
-            else:
-                score -= 0.05
-
-            returns = dfi['Close'].pct_change().dropna()
-            sharpe = float((returns.mean() / (returns.std() + 1e-9)) * _np.sqrt(252)) if not returns.empty else 0.0
-            if returns.size > 0:
-                cummax = (1 + returns).cumprod().cummax()
-                equity = (1 + returns).cumprod()
-                max_dd = float((equity / cummax - 1).min())
-            else:
-                max_dd = 0.0
-
-            def _risk(s: float, dd: float) -> str:
-                if s >= 1.0 and dd > -0.2:
-                    return 'Low'
-                if s >= 0.5 and dd > -0.35:
-                    return 'Medium'
-                return 'High'
-
-            p_bull = float(_np.clip(score, 0.0, 1.0))
-            signal = 'Bullish' if p_bull >= 0.5 else 'Bearish'
-            confidence = float(abs(p_bull - 0.5) * 2.0)
-
-            return {
-                'signal': signal,
-                'confidence': round(confidence, 3),
-                'sentiment': 'Neutral',
-                'risk_level': _risk(sharpe, max_dd),
-                'p_bull': round(p_bull, 3),
-                'volatility': {'sharpe': round(sharpe, 3), 'max_drawdown': max_dd},
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    app.include_router(ml_fallback)
-    _ = _ml_predict_fallback  # noqa: F401 - referenced to satisfy linters
-
-# Ensure /ml/predict/{symbol} always exists by defining a direct alias as a last resort
 @app.get("/ml/predict/{symbol}")
-def ml_predict_alias(symbol: str, days: int = 5):
-    try:
-        # Try calling through existing fallback logic if available
-        try:
-            return _ml_predict_fallback(symbol)  # type: ignore[name-defined]
-        except Exception:
-            pass
-
-        # Local inline heuristic (mirrors fallback)
-        df = fetch_stock_data(symbol.upper(), period='6mo')
-        if df is None or df.empty:
-            return {"ticker": symbol.upper(), "error": f"No price data available for '{symbol}'."}
-
-        dfi = add_technical_indicators(df)
-        latest = dfi.iloc[-1]
-
-        rsi = float(latest.get('RSI', 50.0))
-        macd_hist = float(latest.get('MACD_hist', 0.0))
-        close = float(latest.get('Close', 0.0))
-        sma20 = float(latest.get('SMA_20', close))
-
-        score = 0.5
-        if rsi < 30:
-            score += 0.1
-        elif rsi > 70:
-            score -= 0.1
-        if macd_hist > 0:
-            score += 0.1
-        else:
-            score -= 0.05
-        if close > sma20:
-            score += 0.05
-        else:
-            score -= 0.05
-
-        returns = dfi['Close'].pct_change().dropna()
-        sharpe = float((returns.mean() / (returns.std() + 1e-9)) * np.sqrt(252)) if not returns.empty else 0.0
-        if returns.size > 0:
-            cummax = (1 + returns).cumprod().cummax()
-            equity = (1 + returns).cumprod()
-            max_dd = float((equity / cummax - 1).min())
-        else:
-            max_dd = 0.0
-
-        def _risk(s: float, dd: float) -> str:
-            if s >= 1.0 and dd > -0.2:
-                return 'Low'
-            if s >= 0.5 and dd > -0.35:
-                return 'Medium'
-            return 'High'
-
-        # Simple n-day drift projection
-        mu = float(returns.tail(60).mean()) if returns.size >= 5 else 0.0
-        n_days = max(int(days), 1)
-        predicted_price = float(close * ((1.0 + mu) ** n_days))
-
-        p_bull = float(np.clip(score, 0.0, 1.0))
-        signal = 'Bullish' if p_bull >= 0.5 else 'Bearish'
-        confidence = float(abs(p_bull - 0.5) * 2.0)
-
-        return {
-            'ticker': symbol.upper(),
-            'signal': signal,
-            'confidence': round(confidence, 3),
-            'sentiment': 'Neutral',
-            'risk_level': _risk(sharpe, max_dd),
-            'predicted_price': round(predicted_price, 4),
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+def ml_predict_alias(symbol: str):
+    raise HTTPException(status_code=410, detail={"code": "legacy_forecast_retired", "message": "Use /api/ml/analysis/{ticker}; legacy predictions were not validated."})
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
@@ -1700,7 +1553,7 @@ def get_source_currency(ticker_symbol):
 
 
 def get_stock_info(ticker_symbol, max_retries=2):
-    """Get stock information using optimized fast_info to avoid 60s timeouts."""
+    """Get a real Yahoo Finance quote, falling back to the latest daily history."""
     cache_key = f"info_{ticker_symbol}"
     if cache_key in stock_cache:
         cache_time, cache_data = stock_cache[cache_key]
@@ -1713,29 +1566,30 @@ def get_stock_info(ticker_symbol, max_retries=2):
             # Use the global session for connection pooling
             stock = yf.Ticker(ticker_symbol, session=YF_SESSION)
             
-            # Use a short timeout for the fast_info access if possible
+            # fast_info is often incomplete for international listings. History is
+            # the dependable source for an actual quote and previous close.
             fast = stock.fast_info
-
-            # Some yfinance versions return non-sized or non-dict-like fast_info objects.
-            # Guard against len() and .get() access before falling back to legacy info.
             if fast is None or not hasattr(fast, 'get'):
-                raise ValueError("fast_info unavailable")
-            if hasattr(fast, '__len__') and len(fast) == 0:
-                raise ValueError("Empty fast_info")
+                fast = {}
 
             # Real-time metrics from fast_info
             current_price = fast.get('lastPrice', fast.get('last_price', 0))
             if not current_price:
-                # Fallback to history for price if fast_info has no price
-                hist = stock.history(period="1d")
+                hist = stock.history(period="5d", interval="1d", auto_adjust=False)
                 if not hist.empty:
                     current_price = hist['Close'].iloc[-1]
-                    previous_close = hist['Open'].iloc[-1] if len(hist) > 1 else current_price
+                    previous_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
                 else:
-                    current_price = 0
-                    previous_close = 0
+                    raise ValueError(f"Yahoo Finance returned no recent price history for {ticker_symbol}")
             else:
                 previous_close = fast.get('previousClose', fast.get('previous_close', 0))
+
+            if not previous_close:
+                recent = stock.history(period="5d", interval="1d", auto_adjust=False)
+                if recent.empty:
+                    previous_close = current_price
+                else:
+                    previous_close = recent['Close'].iloc[-2] if len(recent) > 1 else recent['Close'].iloc[-1]
 
             market_cap = fast.get('marketCap', fast.get('market_cap', 0))
             day_high = fast.get('dayHigh', fast.get('day_high', 0))
@@ -1759,7 +1613,10 @@ def get_stock_info(ticker_symbol, max_retries=2):
             today_change = current_price - previous_close if current_price and previous_close else 0
             today_change_percent = (today_change / previous_close * 100) if previous_close else 0
             
-            legacy_info = getattr(stock, 'info', {}) or {}
+            try:
+                legacy_info = getattr(stock, 'info', {}) or {}
+            except Exception:
+                legacy_info = {}
             trailing_pe = fast.get('trailingPE', fast.get('trailing_pe', legacy_info.get('trailingPE', legacy_info.get('trailing_pe', 0))))
             dividend_yield = fast.get('dividendYield', fast.get('dividend_yield', legacy_info.get('dividendYield', legacy_info.get('dividend_yield', 0))))
 
@@ -1770,11 +1627,11 @@ def get_stock_info(ticker_symbol, max_retries=2):
                 'change': float(today_change),
                 'changePercent': float(today_change_percent),
                 'volume': int(fast.get('lastVolume', fast.get('last_volume', 0))),
-                'marketCap': float(market_cap),
+                'marketCap': float(market_cap or 0),
                 'pe': float(trailing_pe) if trailing_pe not in (None, '', 0) else None,
                 'dividend': float(dividend_yield) if dividend_yield not in (None, '', 0) else None,
-                'high': float(day_high),
-                'low': float(day_low),
+                'high': float(day_high or 0),
+                'low': float(day_low or 0),
                 'open': float(fast.get('open', 0) or 0) * price_scale,
                 'previousClose': float(previous_close),
                 'sector': None,
@@ -1789,8 +1646,8 @@ def get_stock_info(ticker_symbol, max_retries=2):
                         else get_currency_for_symbol(ticker_symbol)
                     )
                 ),
-                'high52Week': float(year_high),
-                'low52Week': float(year_low),
+                'high52Week': float(year_high or 0),
+                'low52Week': float(year_low or 0),
                 'timestamp': format_timestamp(datetime.now())
             }
             
@@ -1811,6 +1668,50 @@ def get_stock_info(ticker_symbol, max_retries=2):
                     continue
                 else:
                     raise HTTPException(status_code=429, detail=f"Rate limit exceeded for {ticker_symbol}")
+
+            # fast_info and quote metadata can fail even while Yahoo's chart
+            # endpoint is returning valid prices. Keep the dashboard on real
+            # market data by using the latest daily bars before giving up.
+            try:
+                history = stock.history(period="5d", interval="1d", auto_adjust=False)
+                if history is not None and not history.empty and 'Close' in history:
+                    closes = history['Close'].dropna()
+                    if not closes.empty and float(closes.iloc[-1]) > 0:
+                        latest = history.iloc[-1]
+                        current_price = float(closes.iloc[-1])
+                        previous_close = float(closes.iloc[-2]) if len(closes) > 1 else current_price
+                        source_currency = None
+                        try:
+                            source_currency = stock.fast_info.get('currency')
+                        except Exception:
+                            pass
+                        price_scale = 0.01 if source_currency == 'GBp' else 1
+                        result = {
+                            'symbol': ticker_symbol,
+                            'name': get_company_name(ticker_symbol),
+                            'price': current_price * price_scale,
+                            'change': (current_price - previous_close) * price_scale,
+                            'changePercent': ((current_price - previous_close) / previous_close * 100) if previous_close else 0,
+                            'volume': int(latest.get('Volume', 0) or 0),
+                            'marketCap': 0,
+                            'pe': None,
+                            'dividend': None,
+                            'high': float(latest.get('High', 0) or 0) * price_scale,
+                            'low': float(latest.get('Low', 0) or 0) * price_scale,
+                            'open': float(latest.get('Open', 0) or 0) * price_scale,
+                            'previousClose': previous_close * price_scale,
+                            'sector': None,
+                            'industry': None,
+                            'description': None,
+                            'currency': 'GBP' if source_currency == 'GBp' else (str(source_currency).upper() if source_currency else get_currency_for_symbol(ticker_symbol)),
+                            'high52Week': 0,
+                            'low52Week': 0,
+                            'timestamp': format_timestamp(datetime.now()),
+                        }
+                        stock_cache[cache_key] = (datetime.now(), result)
+                        return result
+            except Exception as history_error:
+                print(f"[HISTORY FALLBACK FAILED] {ticker_symbol}: {history_error}")
 
             # Try Legacy Fallback inside the exception block for standard errors
             try:
@@ -3053,7 +2954,10 @@ async def get_stock_data(symbol: str, user_subscription: dict = Depends(get_user
         raise
     except Exception as e:
         print(f"Internal Backend Error for {symbol}: {e}")
-        raise HTTPException(status_code=500, detail="Error retrieving stock data (Internal Timeout)")
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "market_data_unavailable", "symbol": symbol.upper(), "message": str(e)},
+        ) from e
 
 @app.get("/stocks/{symbol}/chart")
 async def get_stock_chart(symbol: str, period: str = "1y", interval: str = "1d", user_subscription: dict = Depends(get_user_subscription_from_headers)):
@@ -3890,47 +3794,17 @@ async def search_stocks_simple(q: str):
         print(f"Error in simple stock search for query '{q}': {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/predictions/{symbol}", response_model=StockPrediction)
+@app.get("/predictions/{symbol}")
 async def get_stock_prediction(symbol: str):
-    """Get prediction for a specific stock"""
-    try:
-        stock_data = fetch_stock_data(symbol, period='3mo', interval='1d')
-        
-        if stock_data.empty:
-            raise HTTPException(status_code=404, detail=f"Data for {symbol} not found")
-        
-        stock_data_with_indicators = add_technical_indicators(stock_data)
-        latest = stock_data_with_indicators.iloc[-1]
-        current_price = latest['Close']
-        
-        # Generate prediction using existing signal logic
-        signal, reason = generate_signal(stock_data_with_indicators)
-        
-        # Simple prediction logic
-        if latest['RSI'] < 30:
-            predicted_price = current_price * 1.05
-            confidence = 0.7
-            reasoning = "RSI indicates oversold conditions, potential bounce expected"
-        elif latest['RSI'] > 70:
-            predicted_price = current_price * 0.95
-            confidence = 0.6
-            reasoning = "RSI indicates overbought conditions, potential pullback expected"
-        else:
-            predicted_price = current_price * 1.02
-            confidence = 0.5
-            reasoning = "Neutral technical conditions, slight upward bias"
-        
-        return StockPrediction(
-            symbol=symbol.upper(),
-            predictedPrice=round(predicted_price, 2),
-            confidence=confidence,
-            timeframe="1 week",
-            reasoning=reasoning,
-            timestamp=datetime.now().isoformat(),
-            currency=get_currency_for_symbol(symbol)
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Retire the old RSI-based fixed-price forecast; use /api/ml/analysis/{ticker}."""
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "code": "legacy_forecast_retired",
+            "ticker": symbol.strip().upper(),
+            "message": "This endpoint returned heuristic prices and uncalibrated confidence. Use /api/ml/analysis/{ticker}.",
+        },
+    )
 
 @app.get("/portfolio")
 async def get_portfolio():

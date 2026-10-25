@@ -686,7 +686,7 @@ const GoldCryptoPage: React.FC = () => {
                       <div className="text-right">
                         <div className={`flex items-center ${aiPredictions['GC=F']?.signal === 'Bullish' ? 'text-green-500' : 'text-red-500'}`}>
                           {aiPredictions['GC=F']?.signal === 'Bullish' ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
-                          <span className="font-semibold text-sm">{aiPredictions['GC=F']?.signal || 'Loading...'}</span>
+                          <span className="font-semibold text-sm">{aiPredictions['GC=F']?.signal || (isLoadingPredictions ? 'Evaluating…' : 'Unavailable')}</span>
                         </div>
                       </div>
                     </div>
@@ -702,12 +702,12 @@ const GoldCryptoPage: React.FC = () => {
                           <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2 overflow-hidden">
                             <div className={`${aiPredictions['GC=F']?.signal === 'Bullish' ? 'bg-green-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${aiPredictions['GC=F']?.confidence || 0}%` }}></div>
                           </div>
-                          <span className="text-sm font-semibold">{aiPredictions['GC=F']?.confidence || 0}%</span>
+                          <span className="text-sm font-semibold">{aiPredictions['GC=F'] ? `${aiPredictions['GC=F'].confidence}%` : 'Unavailable'}</span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Timeframe</span>
-                        <span className="text-sm font-semibold">Gemini Live Analysis</span>
+                        <span className="text-sm font-semibold">Historical test unavailable</span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                         <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -732,7 +732,7 @@ const GoldCryptoPage: React.FC = () => {
                       <div className="text-right">
                         <div className={`flex items-center ${aiPredictions['BTC']?.signal === 'Bullish' ? 'text-green-500' : 'text-red-500'}`}>
                           {aiPredictions['BTC']?.signal === 'Bullish' ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
-                          <span className="font-semibold text-sm">{aiPredictions['BTC']?.signal || 'Loading...'}</span>
+                          <span className="font-semibold text-sm">{aiPredictions['BTC']?.signal || (isLoadingPredictions ? 'Evaluating…' : 'Unavailable')}</span>
                         </div>
                       </div>
                     </div>
@@ -748,12 +748,12 @@ const GoldCryptoPage: React.FC = () => {
                           <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2 overflow-hidden">
                             <div className={`${aiPredictions['BTC']?.signal === 'Bullish' ? 'bg-green-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${aiPredictions['BTC']?.confidence || 0}%` }}></div>
                           </div>
-                          <span className="text-sm font-semibold">{aiPredictions['BTC']?.confidence || 0}%</span>
+                          <span className="text-sm font-semibold">{aiPredictions['BTC'] ? `${aiPredictions['BTC'].confidence}%` : 'Unavailable'}</span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Timeframe</span>
-                        <span className="text-sm font-semibold">Gemini Live Analysis</span>
+                        <span className="text-sm font-semibold">Historical test unavailable</span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                         <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -778,7 +778,7 @@ const GoldCryptoPage: React.FC = () => {
                       <div className="text-right">
                         <div className={`flex items-center ${aiPredictions['ETH']?.signal === 'Bullish' ? 'text-green-500' : 'text-red-500'}`}>
                           {aiPredictions['ETH']?.signal === 'Bullish' ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
-                          <span className="font-semibold text-sm">{aiPredictions['ETH']?.signal || 'Loading...'}</span>
+                          <span className="font-semibold text-sm">{aiPredictions['ETH']?.signal || (isLoadingPredictions ? 'Evaluating…' : 'Unavailable')}</span>
                         </div>
                       </div>
                     </div>
@@ -794,12 +794,12 @@ const GoldCryptoPage: React.FC = () => {
                           <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2 overflow-hidden">
                             <div className={`${aiPredictions['ETH']?.signal === 'Bullish' ? 'bg-green-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${aiPredictions['ETH']?.confidence || 0}%` }}></div>
                           </div>
-                          <span className="text-sm font-semibold">{aiPredictions['ETH']?.confidence || 0}%</span>
+                          <span className="text-sm font-semibold">{aiPredictions['ETH'] ? `${aiPredictions['ETH'].confidence}%` : 'Unavailable'}</span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Timeframe</span>
-                        <span className="text-sm font-semibold">Gemini Live Analysis</span>
+                        <span className="text-sm font-semibold">Historical test unavailable</span>
                       </div>
                       <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                         <p className="text-xs text-gray-600 dark:text-gray-400">

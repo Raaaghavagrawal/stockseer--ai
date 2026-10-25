@@ -29,5 +29,6 @@ Thumbs.db
 # Backup files
 *.bak
 .venv/
+.venv-local/
 numpy-new-test/
 node_modules/
