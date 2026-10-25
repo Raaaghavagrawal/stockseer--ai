@@ -28,6 +28,12 @@ Thumbs.db
 
 # Backup files
 *.bak
+
+# Local test files and suites
+**/tests/
+**/__tests__/
+**/*.test.*
+**/*.spec.*
 .venv/
 .venv-local/
 numpy-new-test/

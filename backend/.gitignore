@@ -2,3 +2,10 @@ stockseer.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Local virtual environments and test files
+.venv-local/
+tests/
+__tests__/
+*.test.*
+*.spec.*

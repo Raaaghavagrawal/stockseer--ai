@@ -32,6 +32,8 @@ import uvicorn
 # Rate limiting for Yahoo Finance API
 import time
 from datetime import datetime, timedelta
+load_dotenv()
+
 DEFAULT_CORS_ORIGINS = [
     "https://stockseer-ai.vercel.app",
     "https://stockseer--ai.vercel.app",
@@ -674,9 +676,6 @@ rate_limiter = RateLimiter(max_requests=30, time_window=60)  # Increased limit
 # Simple cache for stock info to reduce API calls
 stock_cache = {}
 cache_ttl = 300  # 5 minutes cache TTL
-
-# Load environment variables
-load_dotenv()
 
 # --- LIFESPAN AND APP INIT ---
 @asynccontextmanager
@@ -5872,14 +5871,15 @@ if __name__ == "__main__":
     import os
     import uvicorn
 
-    port = int(os.environ.get("PORT", 5000))
+    is_deployed = "PORT" in os.environ
+    port = int(os.environ.get("PORT", 8000))
     print(f"--- STARTING FASTAPI SERVER ---")
     print(f"Target Port: {port}")
-    print(f"Mode: {'Production' if os.environ.get('PORT') else 'Local Development'}")
+    print(f"Mode: {'Production' if is_deployed else 'Local Development'}")
 
     uvicorn.run(
         "app:app",
-        host="0.0.0.0",
+        host=os.getenv("HOST", "0.0.0.0" if is_deployed else "127.0.0.1"),
         port=port,
-        reload=True if not os.environ.get("PORT") else False
+        reload=os.getenv("RELOAD", "false" if is_deployed else "true").lower() == "true",
     )

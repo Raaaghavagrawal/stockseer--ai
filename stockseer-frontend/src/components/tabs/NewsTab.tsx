@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Newspaper, ExternalLink, Search, Loader2 } from 'lucide-react';
-import { newsAPI } from '../../utils/api';
+import { API_BASE_URL, newsAPI } from '../../utils/api';
 
 interface NewsTabProps {
   selectedStock: string;
@@ -105,13 +105,13 @@ export default function NewsTab({ selectedStock }: NewsTabProps) {
       if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
         setError('Request timed out. The news service is taking longer than expected. Please try again.');
       } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-        setError('Cannot connect to the server. Please make sure the backend server is running on http://localhost:8000');
+        setError(`Cannot reach the StockSeer backend at ${API_BASE_URL}. Check that it is running and VITE_API_BASE_URL points to it.`);
       } else if (err.response?.status === 500) {
         setError('Server error occurred while fetching news. The API might be Rate Limited or unreachable.');
       } else if (err.response?.status === 404) {
         setError('No news found for this stock symbol.');
       } else if (err.response?.status === 0) {
-        setError('Backend server is not running on port 5000. Please start the backend server first.');
+        setError(`Cannot reach the StockSeer backend at ${API_BASE_URL}. Check that it is running and VITE_API_BASE_URL points to it.`);
       } else {
         setError(`Failed to fetch news: ${err.message || 'Unknown error'}. Please check your connection and try again.`);
       }
