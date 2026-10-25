@@ -1,4 +1,77 @@
 import axios from 'axios';
+import type {
+  StockData,
+  StockChartData,
+  StockChartResponse,
+  TechnicalIndicators,
+  StockPrediction,
+  PortfolioHolding,
+  NewsItem,
+  AdvancedMetrics,
+  LifePlannerGoal,
+  Note
+} from '../types/stock';
+
+export interface NotesResponse {
+  notes: Note[];
+  [key: string]: unknown;
+}
+
+export interface GoalsResponse {
+  goals: LifePlannerGoal[];
+  [key: string]: unknown;
+}
+
+export interface SubscriptionInfo {
+  plan: string;
+  status: string;
+  expiresAt?: string;
+  allowedMarkets?: string[];
+  [key: string]: unknown;
+}
+
+export interface MLPrediction {
+  signal: 'Bullish' | 'Bearish';
+  confidence: number;
+  sentiment: 'Positive' | 'Neutral' | 'Negative';
+  risk_level: 'High' | 'Medium' | 'Low';
+  p_bull: number;
+  volatility: { sharpe: number; max_drawdown: number };
+}
+
+export interface MarketRestrictionDetails {
+  isMarketRestricted: boolean;
+  error?: unknown;
+  market: string;
+  currentPlan: string;
+  requiredPlan: string;
+  message: string;
+  details: string;
+  availableMarkets: string[];
+  upgradeUrl: string;
+}
+
+export interface AxiosLikeError {
+  response?: {
+    status?: number;
+    statusText?: string;
+    data?: {
+      error?: string;
+      message?: string;
+      details?: unknown;
+      required_plan?: string;
+      current_plan?: string;
+      upgrade_url?: string;
+      market?: string;
+      available_markets?: string[];
+      [key: string]: unknown;
+    };
+    headers?: Record<string, string>;
+  };
+  request?: unknown;
+  code?: string;
+  message?: string;
+}
 
 /**
  * Sanitizes a stock symbol by trimming whitespace, converting to uppercase,
@@ -30,21 +103,22 @@ export function sanitizeSymbol(symbol: string): string {
 type CacheEntry<T> = { data: T; timestamp: number };
 const STOCK_TTL_MS = 60_000; // 1 minute
 const CHART_TTL_MS = 60_000; // 1 minute
-const stockDataCache: Map<string, CacheEntry<any>> = new Map();
-const chartDataCache: Map<string, CacheEntry<any>> = new Map();
+const stockDataCache: Map<string, CacheEntry<StockData>> = new Map();
+const chartDataCache: Map<string, CacheEntry<StockChartData[]>> = new Map();
 
 // Retry helper for transient errors (e.g., 429/503)
-async function requestWithRetry(fn: () => any, maxRetries = 3, baseDelayMs = 300): Promise<any> {
+async function requestWithRetry<T>(fn: () => PromiseLike<T> | T, maxRetries = 3, baseDelayMs = 300): Promise<T> {
   let attempt = 0;
-  let lastError: any;
+  let lastError: unknown;
   while (attempt <= maxRetries) {
     try {
       // Support both promise-returning and value-returning functions
       return await Promise.resolve(fn());
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
-      const status = error?.response?.status;
-      const isTimeout = error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout');
+      const axiosError = error as AxiosLikeError;
+      const status = axiosError?.response?.status;
+      const isTimeout = axiosError.code === 'ECONNABORTED' || (axiosError.message ? axiosError.message.toLowerCase().includes('timeout') : false);
       
       // Retry on Rate Limit (429), Service Unavailable (503), or Timeout
       if (status !== 429 && status !== 503 && !isTimeout) break;
@@ -52,10 +126,10 @@ async function requestWithRetry(fn: () => any, maxRetries = 3, baseDelayMs = 300
       console.warn(`API call failed (Attempt ${attempt + 1}/${maxRetries + 1}). Retrying...`, {
         status,
         isTimeout,
-        error: error.message
+        error: axiosError.message
       });
 
-      const retryAfterHeader = error?.response?.headers?.['retry-after'];
+      const retryAfterHeader = axiosError?.response?.headers?.['retry-after'];
       const retryAfter = retryAfterHeader ? Number(retryAfterHeader) * 1000 : null;
       const delayMs = retryAfter ?? baseDelayMs * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, delayMs));
@@ -72,7 +146,7 @@ function detectCurrencyFromSymbol(symbol: string): string {
   }
   
   // Japanese stocks (Tokyo Stock Exchange)
-  if (symbolUpper.endsWith('.T') || symbolUpper.endsWith('.TO')) {
+  if (symbolUpper.endsWith('.T')) {
     return 'JPY';
   }
   
@@ -147,7 +221,22 @@ function detectCurrencyFromSymbol(symbol: string): string {
   return 'USD';
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
+
+/**
+ * Pings backend /health on app mount to wake up dormant free Render instance
+ * without showing anything in the UI or blocking any user action.
+ */
+export const warmUpBackend = (): void => {
+  try {
+    fetch(`${API_BASE_URL}/health`, { method: 'GET', cache: 'no-store' }).catch(() => {
+      // Ignore background warmup errors
+    });
+  } catch {
+    // Ignore background warmup errors
+  }
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 60000,
@@ -172,24 +261,14 @@ const getSubscriptionHeaders = () => {
 // Add request interceptor to include subscription headers
 api.interceptors.request.use((config) => {
   const subscriptionHeaders = getSubscriptionHeaders();
-  config.headers = { ...config.headers, ...subscriptionHeaders };
+  config.headers = Object.assign(config.headers || {}, subscriptionHeaders);
   return config;
 });
-
-// Import types from the main types file
-import type { 
-  StockData, 
-  StockChartData, 
-  TechnicalIndicators, 
-  StockPrediction, 
-  PortfolioHolding, 
-  NewsItem 
-} from '@/types/stock';
 
 // Stock data API calls
 export const stockAPI = {
   // Get real-time stock data
-  getStockData: async (symbol: string, onMarketRestriction?: (details: any) => void): Promise<StockData> => {
+  getStockData: async (symbol: string, onMarketRestriction?: (details: MarketRestrictionDetails) => void): Promise<StockData> => {
     try {
       const sanitizedSymbol = sanitizeSymbol(symbol);
       if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
@@ -198,11 +277,11 @@ export const stockAPI = {
       const cached = stockDataCache.get(cacheKey);
       const now = Date.now();
       if (cached && now - cached.timestamp < STOCK_TTL_MS) {
-        return cached.data as StockData;
+        return cached.data;
       }
 
-      const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}`));
-      const data = response.data as StockData;
+      const response = await requestWithRetry(() => api.get<StockData>(`/stocks/${sanitizedSymbol}`));
+      const data = { ...response.data, currency: response.data.currency || detectCurrencyFromSymbol(sanitizedSymbol) };
       stockDataCache.set(cacheKey, { data, timestamp: now });
       return data;
     } catch (error) {
@@ -251,11 +330,12 @@ export const stockAPI = {
       const cached = chartDataCache.get(cacheKey);
       const now = Date.now();
       if (cached && now - cached.timestamp < CHART_TTL_MS) {
-        return cached.data as StockChartData[];
+        return cached.data;
       }
 
-      const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/chart`, { params: { period, interval } }));
-      const data = (response.data as { data: StockChartData[] }).data;
+      const response = await requestWithRetry(() => api.get<StockChartResponse>(`/stocks/${sanitizedSymbol}/chart`, { params: { period, interval } }));
+      const currency = response.data.currency || detectCurrencyFromSymbol(sanitizedSymbol);
+      const data = response.data.data.map((point: StockChartData) => ({ ...point, currency }));
       chartDataCache.set(cacheKey, { data, timestamp: now });
       return data;
     } catch (error) {
@@ -272,7 +352,8 @@ export const stockAPI = {
           high: 150 + Math.random() * 10,
           low: 140 + Math.random() * 10,
           close: 145 + Math.random() * 10,
-          volume: Math.floor(Math.random() * 10000000) + 1000000
+          volume: Math.floor(Math.random() * 10000000),
+          currency: detectCurrencyFromSymbol(symbol)
         });
       }
       return mockData;
@@ -283,29 +364,29 @@ export const stockAPI = {
   getTechnicalIndicators: async (symbol: string): Promise<TechnicalIndicators> => {
     const sanitizedSymbol = sanitizeSymbol(symbol);
     if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
-    const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/technical`));
-    return response.data as TechnicalIndicators;
+    const response = await requestWithRetry(() => api.get<TechnicalIndicators>(`/stocks/${sanitizedSymbol}/technical`));
+    return response.data;
   },
 
   // Search stocks
-  searchStocks: async (query: string): Promise<{ symbol: string; name: string }[]> => {
-    const response: any = await requestWithRetry(() => api.get('/stocks/search-simple', { params: { q: query } }));
-    return response.data as { symbol: string; name: string }[];
+  searchStocks: async (query: string): Promise<{ symbol: string; name: string; price?: number; change?: number; currency?: string }[]> => {
+    const response = await requestWithRetry(() => api.get<{ symbol: string; name: string; price?: number; change?: number; currency?: string }[]>('/stocks/search-simple', { params: { q: query } }));
+    return response.data;
   },
 
   // Get company info
-  getCompanyInfo: async (symbol: string): Promise<any> => {
+  getCompanyInfo: async (symbol: string): Promise<Record<string, unknown>> => {
     const sanitizedSymbol = sanitizeSymbol(symbol);
     if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
-    const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/info`));
+    const response = await requestWithRetry(() => api.get<Record<string, unknown>>(`/stocks/${sanitizedSymbol}/info`));
     return response.data;
   },
 
   // Get advanced metrics
-  getAdvancedMetrics: async (symbol: string, period: string = '1y', riskFreeRate: number = 0.03): Promise<any> => {
+  getAdvancedMetrics: async (symbol: string, period: string = '1y', riskFreeRate: number = 0.03): Promise<{ metrics: AdvancedMetrics; [key: string]: unknown }> => {
     const sanitizedSymbol = sanitizeSymbol(symbol);
     if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
-    const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/advanced-metrics`, { params: { period, risk_free_rate: riskFreeRate } }));
+    const response = await requestWithRetry(() => api.get<{ metrics: AdvancedMetrics; [key: string]: unknown }>(`/stocks/${sanitizedSymbol}/advanced-metrics`, { params: { period, risk_free_rate: riskFreeRate } }));
     return response.data;
   },
 };
@@ -313,26 +394,26 @@ export const stockAPI = {
 // Life Planner API calls
 export const lifePlannerAPI = {
   // Get all goals
-  getGoals: async (): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.get('/life-planner/goals'));
+  getGoals: async (): Promise<GoalsResponse> => {
+    const response = await requestWithRetry(() => api.get<GoalsResponse>('/life-planner/goals'));
     return response.data;
   },
 
   // Create a new goal
-  createGoal: async (goalData: any): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.post('/life-planner/goals', goalData));
+  createGoal: async (goalData: Partial<LifePlannerGoal> | Record<string, unknown>): Promise<LifePlannerGoal> => {
+    const response = await requestWithRetry(() => api.post<LifePlannerGoal>('/life-planner/goals', goalData));
     return response.data;
   },
 
   // Update an existing goal
-  updateGoal: async (goalId: string, goalData: any): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.put(`/life-planner/goals/${goalId}`, goalData));
+  updateGoal: async (goalId: string, goalData: Partial<LifePlannerGoal> | Record<string, unknown>): Promise<LifePlannerGoal> => {
+    const response = await requestWithRetry(() => api.put<LifePlannerGoal>(`/life-planner/goals/${goalId}`, goalData));
     return response.data;
   },
 
   // Delete a goal
-  deleteGoal: async (goalId: string): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.delete(`/life-planner/goals/${goalId}`));
+  deleteGoal: async (goalId: string): Promise<{ success?: boolean }> => {
+    const response = await requestWithRetry(() => api.delete<{ success?: boolean }>(`/life-planner/goals/${goalId}`));
     return response.data;
   },
 };
@@ -340,26 +421,26 @@ export const lifePlannerAPI = {
 // Notes API calls
 export const notesAPI = {
   // Get all notes
-  getNotes: async (): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.get('/notes'));
+  getNotes: async (): Promise<NotesResponse> => {
+    const response = await requestWithRetry(() => api.get<NotesResponse>('/notes'));
     return response.data;
   },
 
   // Create a new note
-  createNote: async (noteData: any): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.post('/notes', noteData));
+  createNote: async (noteData: Partial<Note> | Record<string, unknown>): Promise<Note> => {
+    const response = await requestWithRetry(() => api.post<Note>('/notes', noteData));
     return response.data;
   },
 
   // Update an existing note
-  updateNote: async (noteId: string, noteData: any): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.put(`/notes/${noteId}`, noteData));
+  updateNote: async (noteId: string, noteData: Partial<Note> | Record<string, unknown>): Promise<Note> => {
+    const response = await requestWithRetry(() => api.put<Note>(`/notes/${noteId}`, noteData));
     return response.data;
   },
 
   // Delete a note
-  deleteNote: async (noteId: string): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.delete(`/notes/${noteId}`));
+  deleteNote: async (noteId: string): Promise<{ success?: boolean }> => {
+    const response = await requestWithRetry(() => api.delete<{ success?: boolean }>(`/notes/${noteId}`));
     return response.data;
   },
 };
@@ -371,20 +452,20 @@ export const predictionsAPI = {
     const sanitizedSymbol = sanitizeSymbol(symbol);
     if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
     // Backend exposes /predictions/{symbol}
-    const response: any = await requestWithRetry(() => api.get(`/predictions/${sanitizedSymbol}`));
-    return response.data as StockPrediction;
+    const response = await requestWithRetry(() => api.get<StockPrediction>(`/predictions/${sanitizedSymbol}`));
+    return response.data;
   },
 
   // Get all predictions
   getAllPredictions: async (): Promise<StockPrediction[]> => {
-    const response: any = await requestWithRetry(() => api.get('/predictions'));
-    return response.data as StockPrediction[];
+    const response = await requestWithRetry(() => api.get<StockPrediction[]>('/predictions'));
+    return response.data;
   },
 
   // Get trending predictions
   getTrendingPredictions: async (): Promise<StockPrediction[]> => {
-    const response: any = await requestWithRetry(() => api.get('/predictions/trending'));
-    return response.data as StockPrediction[];
+    const response = await requestWithRetry(() => api.get<StockPrediction[]>('/predictions/trending'));
+    return response.data;
   },
 };
 
@@ -392,8 +473,11 @@ export const predictionsAPI = {
 export const portfolioAPI = {
   // Get portfolio holdings
   getPortfolio: async (): Promise<PortfolioHolding[]> => {
-    const response = await api.get('/portfolio');
-    return response.data as PortfolioHolding[];
+    const response = await api.get<{ holdings: PortfolioHolding[]; metrics?: unknown }>('/portfolio');
+    return response.data.holdings.map((holding) => ({
+      ...holding,
+      currency: holding.currency || detectCurrencyFromSymbol(holding.symbol)
+    }));
   },
 
   // Add stock to portfolio
@@ -415,106 +499,109 @@ export const portfolioAPI = {
 // News API calls
 export const newsAPI = {
   // Get stock-specific news
-  getStockNews: async (symbol: string): Promise<any> => {
+  getStockNews: async (symbol: string): Promise<NewsItem[]> => {
     const sanitizedSymbol = sanitizeSymbol(symbol);
     if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
-    const response: any = await requestWithRetry(() => api.get(`/stocks/${sanitizedSymbol}/news`));
+    const response = await requestWithRetry(() => api.get<NewsItem[]>(`/stocks/${sanitizedSymbol}/news`));
     return response.data;
   },
 
   // Get market news (using Google news scraping)
   getMarketNews: async (): Promise<NewsItem[]> => {
-    const response: any = await requestWithRetry(() => api.get('/news/scrape/google'));
-    return response.data as NewsItem[];
+    const response = await requestWithRetry(() => api.get<NewsItem[]>('/news/scrape/google'));
+    return response.data;
   },
 
   // Get trending news (using Yahoo Finance for a default stock)
   getTrendingNews: async (): Promise<NewsItem[]> => {
-    const response: any = await requestWithRetry(() => api.get('/news/scrape/yahoo/AAPL'));
-    return response.data as NewsItem[];
+    const response = await requestWithRetry(() => api.get<NewsItem[]>('/news/scrape/yahoo/AAPL'));
+    return response.data;
   },
 };
 
 // Subscription API calls
 export const subscriptionAPI = {
-  getSubscriptionInfo: async (): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.get('/subscription/info'));
+  getSubscriptionInfo: async (): Promise<SubscriptionInfo> => {
+    const response = await requestWithRetry(() => api.get<SubscriptionInfo>('/subscription/info'));
     return response.data;
   },
 
   // Get available markets for current subscription
-  getAvailableMarkets: async (): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.get('/subscription/markets'));
+  getAvailableMarkets: async (): Promise<string[]> => {
+    const response = await requestWithRetry(() => api.get<string[]>('/subscription/markets'));
     return response.data;
   },
 
   // Validate market access
-  validateMarketAccess: async (market: string): Promise<any> => {
-    const response: any = await requestWithRetry(() => api.post('/subscription/validate-market', { market }));
+  validateMarketAccess: async (market: string): Promise<{ allowed: boolean; message?: string }> => {
+    const response = await requestWithRetry(() => api.post<{ allowed: boolean; message?: string }>('/subscription/validate-market', { market }));
     return response.data;
   },
 };
 
 // ML Prediction API
 export const mlAPI = {
-  getPrediction: async (symbol: string): Promise<{
-    signal: 'Bullish' | 'Bearish';
-    confidence: number;
-    sentiment: 'Positive' | 'Neutral' | 'Negative';
-    risk_level: 'High' | 'Medium' | 'Low';
-    p_bull: number;
-    volatility: { sharpe: number; max_drawdown: number };
-  }> => {
+  getPrediction: async (symbol: string): Promise<MLPrediction> => {
     const sanitizedSymbol = sanitizeSymbol(symbol);
     if (!sanitizedSymbol) throw new Error('Invalid stock symbol');
-    const response: any = await requestWithRetry(() => api.get(`/ml/predict/${sanitizedSymbol}`));
-    return response.data as any;
+    const response = await requestWithRetry(() => api.get<MLPrediction>(`/ml/predict/${sanitizedSymbol}`));
+    return response.data;
   }
 };
 
 // Error handling utility
-export const handleAPIError = (error: any): string => {
-  if (error.response) {
-    if (error.response.status === 403 && error.response.data?.error === 'market_restricted') {
-      return `Market Access Restricted: ${error.response.data.message}`;
+export const handleAPIError = (error: unknown): string => {
+  const err = error as AxiosLikeError;
+  if (err?.response) {
+    if (err.response.status === 403 && err.response.data?.error === 'market_restricted') {
+      return `Market Access Restricted: ${err.response.data.message || ''}`;
     }
-    return error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
-  } else if (error.request) {
+    return err.response.data?.message || `Error ${err.response.status}: ${err.response.statusText || ''}`;
+  } else if (err?.request) {
     return 'No response from server. Please check your connection.';
-  } else {
-    return error.message || 'An unexpected error occurred.';
+  } else if (err instanceof Error || typeof err?.message === 'string') {
+    return err.message || 'An unexpected error occurred.';
   }
+  return 'An unexpected error occurred.';
 };
 
 // Market restriction error handler
-export const handleMarketRestrictionError = (error: any) => {
-  if (error.response?.status === 403 && error.response.data?.error === 'market_restricted') {
+export const handleMarketRestrictionError = (error: unknown): MarketRestrictionDetails => {
+  const err = error as AxiosLikeError;
+  if (err?.response?.status === 403 && err.response.data?.error === 'market_restricted') {
     return {
       isMarketRestricted: true,
-      error: error.response.data,
-      message: error.response.data.message,
-      details: error.response.data.details,
-      requiredPlan: error.response.data.required_plan,
-      currentPlan: error.response.data.current_plan,
-      upgradeUrl: error.response.data.upgrade_url,
-      market: error.response.data.market || 'Unknown',
-      availableMarkets: error.response.data.available_markets || []
+      error: err.response.data,
+      message: err.response.data.message || '',
+      details: typeof err.response.data.details === 'string' ? err.response.data.details : JSON.stringify(err.response.data.details || ''),
+      requiredPlan: err.response.data.required_plan || '',
+      currentPlan: err.response.data.current_plan || '',
+      upgradeUrl: err.response.data.upgrade_url || '',
+      market: err.response.data.market || 'Unknown',
+      availableMarkets: err.response.data.available_markets || []
     };
   }
   return {
     isMarketRestricted: false,
-    error: error
+    error: error,
+    market: 'Unknown',
+    currentPlan: '',
+    requiredPlan: '',
+    message: '',
+    details: '',
+    availableMarkets: [],
+    upgradeUrl: ''
   };
 };
 
 // Enhanced API call with market restriction handling
-export const apiCallWithMarketRestriction = async (
-  apiCall: () => Promise<any>,
-  onMarketRestriction: (restrictionDetails: any) => void
-) => {
+export const apiCallWithMarketRestriction = async <T>(
+  apiCall: () => Promise<T>,
+  onMarketRestriction: (restrictionDetails: MarketRestrictionDetails) => void
+): Promise<T> => {
   try {
     return await apiCall();
-  } catch (error: any) {
+  } catch (error: unknown) {
     const restrictionError = handleMarketRestrictionError(error);
     if (restrictionError.isMarketRestricted) {
       onMarketRestriction(restrictionError);

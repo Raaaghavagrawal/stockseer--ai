@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Brain, AlertTriangle, TrendingUp, TrendingDown, BarChart3, Activity, Target, Shield } from 'lucide-react';
 import type { StockData } from '../../types/stock';
 import { mlAPI } from '../../utils/api';
+import { formatPrice } from '../../utils/currency';
 
 interface AIRiskNewsTabProps {
   selectedStock: string;
@@ -103,7 +104,7 @@ export default function AIRiskNewsTab({ selectedStock, stockData }: AIRiskNewsTa
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-white mb-2">
-              {stockData?.price ? `$${stockData.price.toFixed(2)}` : 'N/A'}
+              {stockData?.price ? formatPrice(stockData.price, stockData.currency) : 'N/A'}
             </div>
             <div className="text-slate-400 text-sm">Current Price</div>
           </div>
@@ -169,7 +170,7 @@ export default function AIRiskNewsTab({ selectedStock, stockData }: AIRiskNewsTa
                     <p>• Sentiment: <span className="font-semibold">{mlResult.sentiment}</span></p>
                     <p>• Risk Level: <span className="font-semibold">{mlResult.risk_level}</span></p>
                     {typeof mlResult.predicted_price === 'number' && (
-                      <p className="text-slate-400">• Predicted Price: <span className="font-semibold text-white">{mlResult.predicted_price.toFixed(2)}</span></p>
+                      <p className="text-slate-400">• Predicted Price: <span className="font-semibold text-white">{formatPrice(mlResult.predicted_price, stockData?.currency || 'USD')}</span></p>
                     )}
                   </div>
                 ) : (

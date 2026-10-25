@@ -60,13 +60,34 @@ const METAL_CONFIG = {
 };
 
 // API Configuration
-const METALS_API_KEY = import.meta.env.VITE_METALS_API_KEY || '';
+const FX_RATE_CACHE_TTL_MS = 60 * 60 * 1000;
+const fxRateCache = new Map<string, { rate: number; expiresAt: number }>();
+
+const getUsdExchangeRate = async (currency: string): Promise<number> => {
+  if (currency === 'USD') return 1;
+
+  const cached = fxRateCache.get(currency);
+  if (cached && cached.expiresAt > Date.now()) return cached.rate;
+
+  const response = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${currency}`, {
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!response.ok) throw new Error(`FX rate request failed: ${response.status}`);
+  const data = await response.json() as { rates?: Record<string, number> };
+  const rate = data.rates?.[currency];
+  if (typeof rate !== 'number' || !Number.isFinite(rate)) {
+    throw new Error(`FX rate for ${currency} was not provided`);
+  }
+
+  fxRateCache.set(currency, { rate, expiresAt: Date.now() + FX_RATE_CACHE_TTL_MS });
+  return rate;
+};
 
 // Fetch real-time metals data from our Python backend (which scrapes Yahoo Finance)
-const fetchMetalsData = async (currency: string): Promise<MetalPrice[]> => {
+const fetchMetalsData = async (): Promise<MetalPrice[]> => {
   try {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
-    const url = `${baseUrl}/api/metals?currency=${currency}`;
+    const url = `${baseUrl}/api/metals?currency=USD`;
     
     console.log('Fetching real-time metals data from backend:', url);
     
@@ -109,10 +130,7 @@ const fetchMetalsData = async (currency: string): Promise<MetalPrice[]> => {
 };
 
 // Fallback metals data when API is not available
-const getFallbackMetalsData = (currency: string): MetalPrice[] => {
-  const country = COUNTRIES.find(c => c.currency === currency) || COUNTRIES[0];
-  const exchangeRate = country.exchangeRate;
-  
+const getFallbackMetalsData = (): MetalPrice[] => {
   // Base prices in USD
   const basePrices = {
     XAU: { price: 2000, change: 15, changePercent: 0.75 },
@@ -123,14 +141,12 @@ const getFallbackMetalsData = (currency: string): MetalPrice[] => {
   
   return Object.entries(METAL_CONFIG).map(([symbol, config]) => {
     const basePrice = basePrices[symbol as keyof typeof basePrices];
-    const convertedPrice = basePrice.price * exchangeRate;
-    
     return {
       symbol,
       name: config.name,
-      price: convertedPrice,
-      currency,
-      change24h: basePrice.change * exchangeRate,
+      price: basePrice.price,
+      currency: 'USD',
+      change24h: basePrice.change,
       changePercent24h: basePrice.changePercent,
       lastUpdated: new Date(),
       source: 'Fallback Data'
@@ -148,6 +164,7 @@ const LiveMetalPrices: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [usingRealData, setUsingRealData] = useState<boolean>(true);
+  const [fxRate, setFxRate] = useState(1);
 
   // Load metals data
   const loadMetalsData = async (country: Country = selectedCountry) => {
@@ -156,24 +173,35 @@ const LiveMetalPrices: React.FC = () => {
     setIsRefreshing(true);
 
     try {
-      console.log('Loading metals data for:', country.name, country.currency);
-      const metals = await fetchMetalsData(country.currency);
-      setMetalsData(metals);
-      setUsingRealData(true);
-      setLastUpdated(new Date());
-    } catch (err: any) {
-      console.error('Failed to fetch real-time metals data:', err);
-      
-      // Use fallback data instead of showing error
-      const fallbackData = getFallbackMetalsData(country.currency);
-      setMetalsData(fallbackData);
-      setError(null); // Clear error since we have fallback data
-      setUsingRealData(false);
-      setLastUpdated(new Date());
-    }
+      let metals: MetalPrice[];
+      let isLive = true;
+      try {
+        metals = await fetchMetalsData();
+      } catch (fetchError) {
+        console.error('Failed to fetch live metals data:', fetchError);
+        metals = getFallbackMetalsData();
+        isLive = false;
+      }
 
-    setLoading(false);
-    setIsRefreshing(false);
+      const rate = await getUsdExchangeRate(country.currency);
+      setFxRate(rate);
+      setMetalsData(metals.map((metal) => ({
+        ...metal,
+        price: metal.price * rate,
+        change24h: metal.change24h === undefined ? undefined : metal.change24h * rate,
+        currency: country.currency
+      })));
+      setUsingRealData(isLive);
+      setLastUpdated(new Date());
+    } catch (loadError) {
+      console.error('Failed to load metals or FX data:', loadError);
+      setMetalsData([]);
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load live exchange rates');
+      setUsingRealData(false);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
   };
 
   // Handle country selection
@@ -221,14 +249,14 @@ const LiveMetalPrices: React.FC = () => {
             {lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString()}` : 'Loading...'}
             {!usingRealData && (
               <span className="ml-2 text-xs text-red-500">
-                (API Error - Configure Metals-API key)
+                  (Showing fallback metals data)
               </span>
             )}
           </div>
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* Country Selector */}
+          {/* Display Currency Selector */}
           <div className="relative">
             <Button
               variant="outline"
@@ -236,8 +264,8 @@ const LiveMetalPrices: React.FC = () => {
               className="flex items-center space-x-2"
             >
               <Globe className="w-4 h-4" />
-              <span>{selectedCountry.flag}</span>
-              <span>{selectedCountry.name}</span>
+              <span>{selectedCountry.currency}</span>
+              <span>Display currency</span>
               <ChevronDown className="w-4 h-4" />
             </Button>
             
@@ -247,7 +275,7 @@ const LiveMetalPrices: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto"
               >
-                {COUNTRIES.map((country) => (
+                {COUNTRIES.filter((country) => ['USD', 'INR', 'EUR', 'GBP'].includes(country.currency)).map((country) => (
                   <button
                     key={country.code}
                     onClick={() => handleCountrySelect(country)}
@@ -285,7 +313,7 @@ const LiveMetalPrices: React.FC = () => {
           <div>
             <p className="font-medium">Failed to fetch real-time data</p>
             <p className="text-sm">{error}</p>
-            <p className="text-sm mt-1">Please configure your Metals-API key in .env.local file to see live data.</p>
+            <p className="text-sm mt-1">Try refreshing after the exchange-rate service is available.</p>
           </div>
         </div>
       )}
@@ -400,11 +428,16 @@ const LiveMetalPrices: React.FC = () => {
       {/* Status Footer */}
       <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
         <p>
-          Data provided by Metals-API • 
+          Metal prices are quoted per troy ounce •
           Auto-refreshes every 60 seconds • 
-          {usingRealData ? 'Live data from Metals-API' : 'API Error - configure API key for live data'} • 
+          {usingRealData ? 'Live metals data' : 'Fallback metals data'} •
           Showing prices in {selectedCountry.currency}
         </p>
+        {selectedCountry.currency !== 'USD' && metalsData.length > 0 && (
+          <p className="mt-1">
+            Converted from USD at 1 USD = {formatCurrency(fxRate, selectedCountry.currency)}
+          </p>
+        )}
       </div>
     </div>
   );

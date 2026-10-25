@@ -248,7 +248,7 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
                 <div className="text-center p-6 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30 hover-lift">
                   <div className="text-sm text-blue-200 mb-2">Market Cap</div>
                   <div className="text-2xl font-bold text-white">
-                    {formatCurrency(stockData.marketCap || 0)}
+                    {formatCurrencyUtil(stockData.marketCap || 0, stockData.currency || 'USD')}
                   </div>
                 </div>
                 <div className="text-center p-6 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl border border-green-500/30 hover-lift">
@@ -279,13 +279,13 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
                 <div className="text-center p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl border border-emerald-500/30 hover-lift">
                   <div className="text-sm text-emerald-200 mb-2">52W High</div>
                   <div className="text-lg font-bold text-white">
-                    {formatCurrency(stockData.high)}
+                    {formatCurrencyUtil(stockData.high, stockData.currency || 'USD')}
                   </div>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-xl border border-red-500/30 hover-lift">
                   <div className="text-sm text-red-200 mb-2">52W Low</div>
                   <div className="text-lg font-bold text-white">
-                    {formatCurrency(stockData.low)}
+                    {formatCurrencyUtil(stockData.low, stockData.currency || 'USD')}
                   </div>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-yellow-500/20 to-amber-500/20 rounded-xl border border-yellow-500/30 hover-lift">
@@ -297,7 +297,7 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
                 <div className="text-center p-4 bg-gradient-to-br from-indigo-500/20 to-blue-500/20 rounded-xl border border-indigo-500/30 hover-lift">
                   <div className="text-sm text-indigo-200 mb-2">Open</div>
                   <div className="text-lg font-bold text-white">
-                    {formatCurrency(stockData.open)}
+                    {formatCurrencyUtil(stockData.open, stockData.currency || 'USD')}
                   </div>
                 </div>
               </div>
@@ -537,7 +537,7 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
                     <div className="text-sm text-purple-200 mb-2">Dividend Rate</div>
                     <div className="text-2xl font-bold text-white">
                       {financialData && (financialData as any).info?.dividendRate ? 
-                        formatCurrency((financialData as any).info.dividendRate) : 'N/A'}
+                        formatCurrencyUtil((financialData as any).info.dividendRate, stockData.currency || 'USD') : 'N/A'}
                     </div>
                     <div className="text-xs text-purple-300 mt-2">Annual Dividend</div>
                   </div>
@@ -556,7 +556,7 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
                 <div className="text-center p-4 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl border border-blue-500/30 hover-lift">
                   <div className="text-sm text-blue-200 mb-2">Price Change</div>
                   <div className="text-lg font-bold text-white">
-                    {stockData.change ? `${stockData.change > 0 ? '+' : ''}${formatCurrency(stockData.change)}` : 'N/A'}
+                    {stockData.change ? `${stockData.change > 0 ? '+' : ''}${formatCurrencyUtil(stockData.change, stockData.currency || 'USD')}` : 'N/A'}
                   </div>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl border border-green-500/30 hover-lift">
@@ -568,7 +568,7 @@ export default function FinancialsTab({ stockData, selectedStock }: FinancialsTa
                 <div className="text-center p-4 bg-gradient-to-br from-red-500/20 to-pink-500/20 rounded-xl border border-red-500/30 hover-lift">
                   <div className="text-sm text-red-200 mb-2">52W Range</div>
                   <div className="text-lg font-bold text-white">
-                    {stockData.low && stockData.high ? `${formatCurrency(stockData.low)} - ${formatCurrency(stockData.high)}` : 'N/A'}
+                    {stockData.low && stockData.high ? `${formatCurrencyUtil(stockData.low, stockData.currency || 'USD')} - ${formatCurrencyUtil(stockData.high, stockData.currency || 'USD')}` : 'N/A'}
                   </div>
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl border border-yellow-500/30 hover-lift">

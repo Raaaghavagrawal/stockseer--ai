@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { TrendingUp, TrendingDown, Plus, Minus, BarChart3, LineChart, BarChart, DollarSign, Coins } from 'lucide-react';
 import type { StockData, StockChartData, StockPrediction } from '../../types/stock';
-import { formatPrice, formatChange, formatChangePercent, getCurrencyInfo } from '../../utils/currency';
+import { formatPrice, formatChange, formatChangePercent, formatCompactCurrency, getCurrencyInfo } from '../../utils/currency';
 import { useDummyAccount } from '../../contexts/DummyAccountContext';
 import InvestmentModal from '../InvestmentModal';
 import CandlestickChart from '../CandlestickChart';
@@ -127,7 +127,7 @@ export default function DummyOverviewTab({
     return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
   };
 
-  const getFilteredData = () => {
+  const getFilteredData = useCallback(() => {
     if (!activeChartData || activeChartData.length === 0) return [];
     if (zoomState.isZoomed && zoomState.originalData) {
       return zoomState.originalData.slice(zoomState.startIndex, zoomState.endIndex + 1);
@@ -149,7 +149,7 @@ export default function DummyOverviewTab({
     }
     
     return activeChartData.filter(item => new Date(item.date) >= cutoff);
-  };
+  }, [activeChartData, chartPeriod, zoomState]);
 
   // Process chart data for Chart.js
   const processedChartData = useMemo(() => {
@@ -170,26 +170,13 @@ export default function DummyOverviewTab({
         }
       ]
     };
-  }, [activeChartData, chartPeriod, zoomState]);
+  }, [getFilteredData, chartPeriod]);
 
   // Process candlestick data for custom rendering
   const candlestickData = useMemo(() => {
     const filteredData = getFilteredData();
     return filteredData.length > 0 ? filteredData : null;
-  }, [activeChartData, chartPeriod, zoomState]);
-
-  if (!stockData) {
-    return (
-      <div className="text-center py-12 text-slate-400">
-        <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-50" />
-        <p>Search for a stock to view overview</p>
-      </div>
-    );
-  }
-
-  const isInWatchlist = watchlist.includes(stockData.symbol);
-  const currentHolding = holdings.find(h => h.symbol === stockData.symbol);
-  const currencyValue = getZolosToCurrency(zolosBalance);
+  }, [getFilteredData]);
 
   // Fetch real AI prediction from backend to keep parity with live
   useEffect(() => {
@@ -204,6 +191,7 @@ export default function DummyOverviewTab({
         setPrediction(resp);
       } catch (e) {
         // Fallback to null prediction silently in dummy mode
+        console.warn('Prediction fetch error in dummy mode:', e);
         setPrediction(null);
       } finally {
         setLoadingPrediction(false);
@@ -229,6 +217,27 @@ export default function DummyOverviewTab({
     } as const;
   }, [prediction, stockData]);
 
+  if (!stockData) {
+    return (
+      <div className="text-center py-12 text-slate-400">
+        <BarChart3 className="w-16 h-16 mx-auto mb-4 opacity-50" />
+        <p>Search for a stock to view overview</p>
+      </div>
+    );
+  }
+
+  const isInWatchlist = watchlist.includes(stockData.symbol);
+  const currentHolding = holdings.find(h => h.symbol === stockData.symbol);
+  const currencyValue = getZolosToCurrency(zolosBalance);
+
+  const handleWatchlistToggle = () => {
+    if (isInWatchlist) {
+      onRemoveFromWatchlist(stockData.symbol);
+    } else {
+      onAddToWatchlist(stockData.symbol);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
       {/* Stock Header with Investment Button */}
@@ -242,6 +251,9 @@ export default function DummyOverviewTab({
             <div className="text-left sm:text-right">
               <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 {formatPrice(stockData.price || 0, stockData.currency)}
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">
+                  {getCurrencyInfo(stockData.currency || 'USD').name}
+                </span>
               </div>
               <div className={`flex items-center text-sm sm:text-base ${stockData.change && stockData.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {stockData.change && stockData.change >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
@@ -249,6 +261,19 @@ export default function DummyOverviewTab({
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Watchlist Toggle Button */}
+              <button
+                onClick={handleWatchlistToggle}
+                className={`p-2 sm:p-3 rounded-lg transition-all duration-200 transform hover:scale-105 ${
+                  isInWatchlist
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+                title={isInWatchlist ? 'Remove from Watchlist' : 'Add to Watchlist'}
+              >
+                {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
+              </button>
+
               {/* Investment Button */}
               <button
                 onClick={() => setShowInvestmentModal(true)}
@@ -344,7 +369,7 @@ export default function DummyOverviewTab({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Market Cap</div>
-          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.marketCap ? `${getCurrencyInfo(stockData.currency || 'USD').symbol}${(stockData.marketCap / 1e9).toFixed(2)}B` : 'N/A'}</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.marketCap ? formatCompactCurrency(stockData.marketCap, stockData.currency || 'USD') : 'N/A'}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Volume</div>
@@ -428,6 +453,14 @@ export default function DummyOverviewTab({
 
         {/* Chart Display */}
         <div className="h-80 sm:h-96 bg-gray-50 dark:bg-gray-700 rounded-lg p-3 sm:p-4 relative w-full overflow-hidden">
+          {isLoadingChart && (
+            <div className="absolute inset-0 z-20 bg-gray-50/50 dark:bg-gray-700/50 backdrop-blur-[1px] flex items-center justify-center">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="mt-2 text-sm text-gray-700 dark:text-gray-300 font-medium tracking-wide animate-pulse">Loading intraday data...</span>
+              </div>
+            </div>
+          )}
           {chartData && chartData.length > 10 && (
             <div className="absolute top-2 left-2 bg-blue-600/80 text-white text-xs px-2 py-1 rounded z-10">
               {zoomState.isZoomed ? 'Double-click to zoom out' : 'Click to zoom'}
@@ -486,7 +519,7 @@ export default function DummyOverviewTab({
                         ticks: {
                           color: 'rgba(255, 255, 255, 0.7)',
                           callback: function(value) {
-                            return '$' + Number(value).toFixed(2);
+                            return formatCompactCurrency(Number(value), stockData?.currency || 'USD');
                           },
                         },
                       },

@@ -13,10 +13,10 @@ export interface StockData {
   low: number;
   open: number;
   previousClose: number;
+  currency: string;
   sector?: string;
   industry?: string;
   description?: string;
-  currency?: string;
 }
 
 export interface StockChartData {
@@ -26,6 +26,15 @@ export interface StockChartData {
   low: number;
   close: number;
   volume: number;
+  currency?: string;
+}
+
+export interface StockChartResponse {
+  symbol: string;
+  period: string;
+  interval: string;
+  currency: string;
+  data: StockChartData[];
 }
 
 export interface TechnicalIndicators {
@@ -65,6 +74,7 @@ export interface EnhancedTechnicalAnalysis {
 export interface StockPrediction {
   symbol: string;
   predictedPrice: number;
+  currency?: string;
   confidence: number;
   timeframe: string;
   reasoning: string;
@@ -79,6 +89,7 @@ export interface PortfolioHolding {
   totalValue: number;
   gainLoss: number;
   gainLossPercent: number;
+  currency: string;
 }
 
 export interface PortfolioMetrics {
@@ -108,6 +119,7 @@ export interface NewsItem {
 export interface StockSearchResult {
   symbol: string;
   name: string;
+  currency?: string;
   price?: number;
   change?: number;
   sector?: string;
@@ -224,6 +236,7 @@ export interface ScreenedStock {
   symbol: string;
   name: string;
   price: number;
+  currency?: string;
   changePercent?: number;
   marketCap: number;
   pe: number;
@@ -246,6 +259,7 @@ export interface ChatMessage {
 export interface WatchlistItem {
   symbol: string;
   name: string;
+  currency: string;
   price?: number;
   change?: number;
   changePercent?: number;

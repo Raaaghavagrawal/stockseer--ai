@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/stock';
 import { stockAPI } from '../../utils/api';
+import { formatChange, formatPrice } from '../../utils/currency';
 
 interface WatchlistTabProps {
   watchlist: string[];
@@ -56,7 +57,8 @@ export default function WatchlistTab({ watchlist, onRemoveFromWatchlist }: Watch
         change: stock.change,
         changePercent: stock.changePercent,
         volume: stock.volume,
-        marketCap: stock.marketCap || 0
+        marketCap: stock.marketCap || 0,
+        currency: stock.currency || 'USD'
       }));
       
       setWatchlistData(transformedData);
@@ -123,14 +125,6 @@ export default function WatchlistTab({ watchlist, onRemoveFromWatchlist }: Watch
   const getSortIcon = (field: typeof sortBy) => {
     if (sortBy !== field) return null;
     return sortOrder === 'asc' ? '↑' : '↓';
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(value);
   };
 
   const formatNumber = (value: number) => {
@@ -348,7 +342,7 @@ export default function WatchlistTab({ watchlist, onRemoveFromWatchlist }: Watch
                       </td>
                       <td className="py-3 px-2 text-right">
                         <div className="font-semibold text-white">
-                          {item.price ? formatCurrency(item.price) : 'N/A'}
+                          {item.price !== undefined ? formatPrice(item.price, item.currency) : 'N/A'}
                         </div>
                       </td>
                       <td className="py-3 px-2 text-right">
@@ -356,7 +350,7 @@ export default function WatchlistTab({ watchlist, onRemoveFromWatchlist }: Watch
                           item.change && item.change > 0 ? 'text-green-400' : 
                           item.change && item.change < 0 ? 'text-red-400' : 'text-slate-300'
                         }`}>
-                          {item.change ? formatCurrency(item.change) : 'N/A'}
+                          {item.change !== undefined ? formatChange(item.change, item.currency) : 'N/A'}
                         </div>
                       </td>
                       <td className="py-3 px-2 text-right">

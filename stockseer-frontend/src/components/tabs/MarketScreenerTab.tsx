@@ -26,6 +26,7 @@ import {
   X
 } from 'lucide-react';
 import type { StockScreenerCriteria, ScreenedStock } from '@/types/stock';
+import { formatPrice } from '../../utils/currency';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
 
@@ -183,14 +184,6 @@ export default function MarketScreenerTab() {
   const getSortIcon = (field: typeof sortBy) => {
     if (sortBy !== field) return null;
     return sortOrder === 'asc' ? '↑' : '↓';
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(value);
   };
 
   const formatNumber = (value: number) => {
@@ -634,7 +627,7 @@ export default function MarketScreenerTab() {
                       </td>
                       <td className="py-3 px-2 text-right">
                         <div className="font-semibold text-white">
-                          {stock.price ? formatCurrency(stock.price) : 'N/A'}
+                          {stock.price ? formatPrice(stock.price, stock.currency || 'USD') : 'N/A'}
                         </div>
                       </td>
                       <td className="py-3 px-2 text-right">

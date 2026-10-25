@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { TrendingUp, TrendingDown, Plus, Minus, Download, BarChart3, LineChart, BarChart, FileText, BookOpen } from 'lucide-react';
 import type { StockData, StockChartData } from '../../types/stock';
-import { formatPrice, formatChange, formatChangePercent, getCurrencyInfo } from '../../utils/currency';
-import { useLiveAccount } from '../../contexts/LiveAccountContext';
+import { formatPrice, formatChange, formatChangePercent, formatCompactCurrency, getCurrencyInfo } from '../../utils/currency';
+import { useLiveAccount, type AnalysisReport } from '../../contexts/LiveAccountContext';
 import CandlestickChart from '../CandlestickChart';
 import { stockAPI } from '../../utils/api';
 import {
@@ -53,7 +53,7 @@ export default function LiveOverviewTab({
   const [showHistoricalData, setShowHistoricalData] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [generatedReport, setGeneratedReport] = useState<any | null>(null);
+  const [generatedReport, setGeneratedReport] = useState<AnalysisReport | null>(null);
 
   const [activeChartData, setActiveChartData] = useState<StockChartData[]>(chartData);
   const [isLoadingChart, setIsLoadingChart] = useState(false);
@@ -119,12 +119,12 @@ export default function LiveOverviewTab({
 
   const formatChartLabel = (dateStr: string, period: string) => {
     const d = new Date(dateStr);
-    if (period === '1D') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (period === '1W' || period === '1M') return d.toLocaleDateString([], { day: '2-digit', month: 'short' });
-    return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
+    if (period === '1D') return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (period === '1W' || period === '1M') return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+    return `${d.toLocaleDateString('en-US', { month: 'short' })} '${String(d.getFullYear()).slice(-2)}`;
   };
 
-  const getFilteredData = () => {
+  const getFilteredData = useCallback(() => {
     if (!activeChartData || activeChartData.length === 0) return [];
     if (zoomState.isZoomed && zoomState.originalData) {
       return zoomState.originalData.slice(zoomState.startIndex, zoomState.endIndex + 1);
@@ -146,7 +146,7 @@ export default function LiveOverviewTab({
     }
     
     return activeChartData.filter(item => new Date(item.date) >= cutoff);
-  };
+  }, [activeChartData, chartPeriod, zoomState]);
 
   // Process chart data for Chart.js
   const processedChartData = useMemo(() => {
@@ -167,13 +167,13 @@ export default function LiveOverviewTab({
         }
       ]
     };
-  }, [activeChartData, chartPeriod, zoomState]);
+  }, [getFilteredData, chartPeriod]);
 
   // Process candlestick data for custom rendering
   const candlestickData = useMemo(() => {
     const filteredData = getFilteredData();
     return filteredData.length > 0 ? filteredData : null;
-  }, [activeChartData, chartPeriod, zoomState]);
+  }, [getFilteredData]);
 
   if (!stockData) {
     return (
@@ -208,7 +208,7 @@ export default function LiveOverviewTab({
         setReportModalOpen(true);
       }
     } catch (error) {
-      // Optionally surface a toast in future; avoid noisy console
+      console.warn('Failed to generate analysis report:', error);
     } finally {
       setIsGeneratingReport(false);
     }
@@ -217,6 +217,12 @@ export default function LiveOverviewTab({
   const handleDownloadReportPDF = () => {
     if (!generatedReport || !stockData) return;
     const title = `${stockData.symbol} ${generatedReport.reportType?.toUpperCase?.() || 'ANALYSIS'} Report`;
+    const reportContent = typeof generatedReport.content === 'object' && generatedReport.content !== null
+      ? generatedReport.content
+      : { summary: String(generatedReport.content || '') };
+    const summaryText = reportContent.summary || 'No summary available.';
+    const highlightsList = Array.isArray(reportContent.highlights) ? reportContent.highlights : [];
+
     const reportHtml = `
       <html>
         <head>
@@ -245,22 +251,22 @@ export default function LiveOverviewTab({
                 <tr><th>Name</th><td>${stockData.name || ''}</td></tr>
                 <tr><th>Price</th><td>${formatPrice(stockData.price || 0, stockData.currency)}</td></tr>
                 <tr><th>Change</th><td>${formatChange(stockData.change || 0, stockData.currency)} (${formatChangePercent(stockData.changePercent || 0)}%)</td></tr>
-                ${stockData.marketCap ? `<tr><th>Market Cap</th><td>$${(stockData.marketCap/1e9).toFixed(2)}B</td></tr>` : ''}
+                ${stockData.marketCap ? `<tr><th>Market Cap</th><td>${formatCompactCurrency(stockData.marketCap, stockData.currency || 'USD')}</td></tr>` : ''}
                 ${stockData.volume ? `<tr><th>Volume</th><td>${(stockData.volume/1e6).toFixed(1)}M</td></tr>` : ''}
                 ${typeof stockData.pe === 'number' ? `<tr><th>P/E Ratio</th><td>${stockData.pe.toFixed(2)}</td></tr>` : ''}
-                ${typeof stockData.high === 'number' ? `<tr><th>52W High</th><td>$${stockData.high.toFixed(2)}</td></tr>` : ''}
+                ${typeof stockData.high === 'number' ? `<tr><th>52W High</th><td>${formatPrice(stockData.high, stockData.currency || 'USD')}</td></tr>` : ''}
               </tbody>
             </table>
           </div>
           <div class="section">
             <h2>Summary</h2>
-            <p>${generatedReport?.content?.summary || 'No summary available.'}</p>
+            <p>${summaryText}</p>
           </div>
-          ${Array.isArray(generatedReport?.content?.highlights) ? `
+          ${highlightsList.length > 0 ? `
             <div class="section">
               <h2>Highlights</h2>
               <ul>
-                ${generatedReport.content.highlights.map((h: string) => `<li>${h}</li>`).join('')}
+                ${highlightsList.map((h: string) => `<li>${h}</li>`).join('')}
               </ul>
             </div>
           ` : ''}
@@ -318,6 +324,9 @@ export default function LiveOverviewTab({
             <div className="text-left sm:text-right">
               <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 {formatPrice(stockData.price || 0, stockData.currency)}
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">
+                  {getCurrencyInfo(stockData.currency || 'USD').name}
+                </span>
               </div>
               <div className={`flex items-center text-sm sm:text-base ${stockData.change && stockData.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {stockData.change && stockData.change >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
@@ -325,6 +334,19 @@ export default function LiveOverviewTab({
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Watchlist Toggle Button */}
+              <button
+                onClick={handleWatchlistToggle}
+                className={`p-2 sm:p-3 rounded-lg transition-all duration-200 transform hover:scale-105 ${
+                  isInWatchlist
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+                title={isInWatchlist ? 'Remove from Watchlist' : 'Add to Watchlist'}
+              >
+                {isInWatchlist ? <Minus className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
+              </button>
+
               {/* Generate Report Button */}
               <button
                 onClick={() => handleGenerateReport()}
@@ -390,7 +412,7 @@ export default function LiveOverviewTab({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Market Cap</div>
-          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.marketCap ? `${getCurrencyInfo(stockData.currency || 'USD').symbol}${(stockData.marketCap / 1e9).toFixed(2)}B` : 'N/A'}</div>
+          <div className="text-gray-900 dark:text-white font-semibold text-sm sm:text-base">{stockData.marketCap ? formatCompactCurrency(stockData.marketCap, stockData.currency || 'USD') : 'N/A'}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
           <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">Volume</div>
@@ -497,7 +519,7 @@ export default function LiveOverviewTab({
             </div>
           ) : (
             <div 
-              className={`h-full w-full ${activeChartData && activeChartData.length > 10 ? 'cursor-pointer' : ''}`}
+              className={`h-full w-full pt-7 ${activeChartData && activeChartData.length > 10 ? 'cursor-pointer' : ''}`}
               onDoubleClick={() => {
                 if (zoomState.isZoomed) {
                   resetZoom();
@@ -522,7 +544,13 @@ export default function LiveOverviewTab({
                         bodyColor: 'white',
                         borderColor: 'rgba(59, 130, 246, 0.5)',
                         borderWidth: 1,
+                        callbacks: {
+                          label: (context) => `${context.dataset.label || 'Price'}: ${formatPrice(Number(context.parsed.y), stockData.currency || 'USD')}`,
+                        },
                       },
+                    },
+                    layout: {
+                      padding: { top: 24 },
                     },
                     scales: {
                       x: {
@@ -531,6 +559,11 @@ export default function LiveOverviewTab({
                     },
                     ticks: {
                           color: 'rgba(255, 255, 255, 0.7)',
+                          autoSkip: true,
+                          maxTicksLimit: 8,
+                          maxRotation: 0,
+                          minRotation: 0,
+                          autoSkipPadding: 12,
                     },
                   },
                       y: {
@@ -540,7 +573,7 @@ export default function LiveOverviewTab({
                     ticks: {
                           color: 'rgba(255, 255, 255, 0.7)',
                           callback: function(value) {
-                            return '$' + Number(value).toFixed(2);
+                            return formatCompactCurrency(Number(value), stockData?.currency || 'USD');
                           },
                     },
                   },
@@ -691,7 +724,7 @@ export default function LiveOverviewTab({
                   <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Price</span><span className="text-gray-900 dark:text-white font-medium">{formatPrice(stockData.price || 0, stockData.currency)}</span></div>
                   <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Change</span><span className={`font-medium ${stockData.changePercent && stockData.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatChange(stockData.change || 0, stockData.currency)} ({formatChangePercent(stockData.changePercent || 0)}%)</span></div>
                   {stockData.marketCap ? (
-                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Market Cap</span><span className="text-gray-900 dark:text-white font-medium">${(stockData.marketCap/1e9).toFixed(2)}B</span></div>
+                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Market Cap</span><span className="text-gray-900 dark:text-white font-medium">{formatCompactCurrency(stockData.marketCap, stockData.currency || 'USD')}</span></div>
                   ) : null}
                   {stockData.volume ? (
                     <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">Volume</span><span className="text-gray-900 dark:text-white font-medium">{(stockData.volume/1e6).toFixed(1)}M</span></div>
@@ -700,26 +733,38 @@ export default function LiveOverviewTab({
                     <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">P/E Ratio</span><span className="text-gray-900 dark:text-white font-medium">{stockData.pe.toFixed(2)}</span></div>
                   ) : null}
                   {typeof stockData.high === 'number' ? (
-                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">52W High</span><span className="text-gray-900 dark:text-white font-medium">${stockData.high.toFixed(2)}</span></div>
+                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2"><span className="text-gray-600 dark:text-gray-400">52W High</span><span className="text-gray-900 dark:text-white font-medium">{formatPrice(stockData.high, stockData.currency || 'USD')}</span></div>
                   ) : null}
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Summary</h4>
-                <p className="text-sm text-gray-700 dark:text-gray-300">{generatedReport?.content?.summary || 'No summary available.'}</p>
-              </div>
+              {(() => {
+                const reportContent = typeof generatedReport?.content === 'object' && generatedReport?.content !== null
+                  ? generatedReport.content
+                  : { summary: String(generatedReport?.content || '') };
+                const summaryText = reportContent.summary || 'No summary available.';
+                const highlightsList = Array.isArray(reportContent.highlights) ? reportContent.highlights : [];
 
-              {Array.isArray(generatedReport?.content?.highlights) && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Highlights</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {generatedReport.content.highlights.map((h: string, idx: number) => (
-                      <li key={idx} className="text-sm text-gray-700 dark:text-gray-300">{h}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                return (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Summary</h4>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{summaryText}</p>
+                    </div>
+
+                    {highlightsList.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Highlights</h4>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {highlightsList.map((h: string, idx: number) => (
+                            <li key={idx} className="text-sm text-gray-700 dark:text-gray-300">{h}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {generatedReport?.metrics && (
                 <div>

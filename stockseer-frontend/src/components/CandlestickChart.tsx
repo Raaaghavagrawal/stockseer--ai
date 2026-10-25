@@ -1,12 +1,12 @@
 import React from 'react';
 import type { StockChartData } from '../types/stock';
-import { formatPrice } from '../utils/currency';
+import { formatPrice, formatCompactCurrency } from '../utils/currency';
 
 const formatChartLabel = (dateStr: string, period: string) => {
   const d = new Date(dateStr);
-  if (period === '1D') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (period === '1W' || period === '1M') return d.toLocaleDateString([], { day: '2-digit', month: 'short' });
-  return d.toLocaleDateString([], { month: 'short', year: 'numeric' });
+  if (period === '1D') return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (period === '1W' || period === '1M') return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+  return `${d.toLocaleDateString('en-US', { month: 'short' })} '${String(d.getFullYear()).slice(-2)}`;
 };
 
 interface CandlestickChartProps {
@@ -38,6 +38,7 @@ export default function CandlestickChart({
     );
   }
 
+  const currency = stockData?.currency || 'USD';
   const minPrice = Math.min(...data.map(d => d.low));
   const maxPrice = Math.max(...data.map(d => d.high));
   const priceRange = maxPrice - minPrice;
@@ -96,7 +97,7 @@ export default function CandlestickChart({
                 textAnchor="start"
                 className="font-mono"
               >
-                {formatPrice(price, stockData?.currency)}
+                {formatCompactCurrency(price, currency)}
               </text>
             </g>
           );
@@ -105,9 +106,14 @@ export default function CandlestickChart({
         {/* X-axis labels */}
         {(() => {
           const labelInterval = Math.max(1, Math.floor(data.length / 10));
+          // De-duplicate: track seen labels to avoid repeats
+          const seenLabels = new Set<string>();
           return data.map((item, index) => {
             if (index % labelInterval === 0) {
               const x = index * xStep;
+              const label = formatChartLabel(item.date, chartPeriod);
+              if (seenLabels.has(label)) return null;
+              seenLabels.add(label);
               return (
                 <g key={index}>
                   <line x1={x} y1="0" x2={x} y2="600" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
@@ -118,7 +124,7 @@ export default function CandlestickChart({
                     textAnchor="middle"
                     className="font-mono"
                   >
-                    {formatChartLabel(item.date, chartPeriod)}
+                    {label}
                   </text>
                 </g>
               );
@@ -197,44 +203,34 @@ export default function CandlestickChart({
                    const change = item.close - item.open;
                    const changePercent = ((change / item.open) * 100);
                    const isPositive = change >= 0;
+
+                   // Build tooltip HTML with correct currency formatting
+                   const openFmt = formatPrice(item.open, currency);
+                   const highFmt = formatPrice(item.high, currency);
+                   const lowFmt = formatPrice(item.low, currency);
+                   const closeFmt = formatPrice(item.close, currency);
+                   const changeFmt = formatPrice(Math.abs(change), currency);
+                   const changeSign = isPositive ? '+' : '-';
+                   const changeColorClass = isPositive ? 'color:#22c55e' : 'color:#ef4444';
+
+                   tooltip.innerHTML = [
+                     '<div class="bg-slate-800 border border-slate-600 text-white p-4 rounded-lg shadow-xl" style="min-width:200px">',
+                       '<div class="font-bold text-lg mb-2 text-white">' + formatChartLabel(item.date, chartPeriod) + '</div>',
+                       '<div class="space-y-2">',
+                         '<div class="flex justify-between"><span class="text-slate-300">Open:</span><span class="text-blue-400 font-mono">' + openFmt + '</span></div>',
+                         '<div class="flex justify-between"><span class="text-slate-300">High:</span><span class="text-green-400 font-mono">' + highFmt + '</span></div>',
+                         '<div class="flex justify-between"><span class="text-slate-300">Low:</span><span class="text-red-400 font-mono">' + lowFmt + '</span></div>',
+                         '<div class="flex justify-between"><span class="text-slate-300">Close:</span><span class="text-yellow-400 font-mono">' + closeFmt + '</span></div>',
+                         '<div class="flex justify-between"><span class="text-slate-300">Change:</span>',
+                           '<span class="font-mono" style="' + changeColorClass + '">' + changeSign + changeFmt + ' (' + changeSign + changePercent.toFixed(2) + '%)</span></div>',
+                         '<div class="border-t border-slate-600 pt-2 mt-2">',
+                           '<div class="flex justify-between"><span class="text-slate-300">Volume:</span>',
+                             '<span class="text-purple-400 font-mono">' + (item.volume / 1e6).toFixed(1) + 'M</span></div>',
+                         '</div>',
+                       '</div>',
+                     '</div>',
+                   ].join('');
                    
-                   tooltip.innerHTML = `
-                     <div class="bg-slate-800 border border-slate-600 text-white p-4 rounded-lg shadow-xl min-w-[200px]">
-                       <div class="font-bold text-lg mb-2 text-white">
-                         ${formatChartLabel(item.date, chartPeriod)}
-                       </div>
-                       <div class="space-y-2">
-                         <div class="flex justify-between">
-                           <span class="text-slate-300">Open:</span>
-                           <span class="text-blue-400 font-mono">$${item.open.toFixed(2)}</span>
-                         </div>
-                         <div class="flex justify-between">
-                           <span class="text-slate-300">High:</span>
-                           <span class="text-green-400 font-mono">$${item.high.toFixed(2)}</span>
-                         </div>
-                         <div class="flex justify-between">
-                           <span class="text-slate-300">Low:</span>
-                           <span class="text-red-400 font-mono">$${item.low.toFixed(2)}</span>
-                         </div>
-                         <div class="flex justify-between">
-                           <span class="text-slate-300">Close:</span>
-                           <span class="text-yellow-400 font-mono">$${item.close.toFixed(2)}</span>
-                         </div>
-                         <div class="flex justify-between">
-                           <span class="text-slate-300">Change:</span>
-                           <span class="font-mono ${isPositive ? 'text-green-400' : 'text-red-400'}">
-                             ${isPositive ? '+' : ''}${change.toFixed(2)} (${isPositive ? '+' : ''}${changePercent.toFixed(2)}%)
-                           </span>
-                         </div>
-                         <div class="border-t border-slate-600 pt-2 mt-2">
-                           <div class="flex justify-between">
-                             <span class="text-slate-300">Volume:</span>
-                             <span class="text-purple-400 font-mono">${(item.volume / 1e6).toFixed(1)}M</span>
-                           </div>
-                         </div>
-                       </div>
-                     </div>
-                   `;
                    tooltip.style.display = 'block';
                    tooltip.style.left = e.clientX + 15 + 'px';
                    tooltip.style.top = e.clientY - 15 + 'px';
@@ -272,7 +268,7 @@ export default function CandlestickChart({
      <div className="absolute top-4 right-4 text-slate-400 text-sm font-mono">
        {data.length > 0 && (
          <>
-           <div>Range: ${Math.min(...data.map(d => d.low)).toFixed(2)} - ${Math.max(...data.map(d => d.high)).toFixed(2)}</div>
+           <div>Range: {formatCompactCurrency(Math.min(...data.map(d => d.low)), currency)} – {formatCompactCurrency(Math.max(...data.map(d => d.high)), currency)}</div>
            <div>Points: {data.length}</div>
            {zoomState?.isZoomed && (
              <div className="text-orange-400">Zoomed: {zoomState.startIndex + 1}-{zoomState.endIndex + 1}</div>

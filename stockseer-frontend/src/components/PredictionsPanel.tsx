@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { Brain, TrendingUp, TrendingDown, Target, Clock } from 'lucide-react';
 import { predictionsAPI } from '../utils/api';
 import type { StockPrediction } from '../types/stock';
-import { formatCurrency, getConfidenceLevel } from '../utils/helpers';
+import { getConfidenceLevel } from '../utils/helpers';
+import { formatCurrency } from '../utils/currency';
 
 const PredictionsPanel: React.FC = () => {
   const [predictions, setPredictions] = useState<StockPrediction[]>([]);
@@ -73,7 +74,7 @@ const PredictionsPanel: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-primary-600">
-                    {formatCurrency(prediction.predictedPrice)}
+                    {formatCurrency(prediction.predictedPrice, prediction.currency || 'USD')}
                   </div>
                   <div className={`text-sm font-medium ${confidence.color}`}>
                     {confidence.text} Confidence
