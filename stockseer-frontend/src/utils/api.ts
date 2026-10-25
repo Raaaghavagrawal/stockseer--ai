@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { API_BASE_URL } from './apiConfig';
 import type {
   StockData,
   StockChartData,
@@ -221,7 +222,7 @@ function detectCurrencyFromSymbol(symbol: string): string {
   return 'USD';
 }
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
+export { API_BASE_URL } from './apiConfig';
 
 /**
  * Pings backend /health on app mount to wake up dormant free Render instance

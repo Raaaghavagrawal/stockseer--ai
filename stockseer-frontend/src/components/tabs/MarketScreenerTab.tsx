@@ -27,8 +27,8 @@ import {
 } from 'lucide-react';
 import type { StockScreenerCriteria, ScreenedStock } from '@/types/stock';
 import { formatPrice } from '../../utils/currency';
+import { apiUrl } from '../../utils/apiConfig';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
 
 export default function MarketScreenerTab() {
   const { canAccessPremium } = useFeatureAccess();
@@ -78,7 +78,7 @@ export default function MarketScreenerTab() {
     setLoading(true);
     try {
       // Call the backend screener API
-      const response = await fetch(`${API_BASE_URL}/screener/run`, {
+      const response = await fetch(apiUrl('/screener/run'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

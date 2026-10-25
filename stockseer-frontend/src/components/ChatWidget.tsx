@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://stockseer-ai-1.onrender.com';
+import { apiUrl } from '../utils/apiConfig';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -40,7 +39,7 @@ const ChatWidget: React.FC = () => {
     setLoading(true);
 
     try {
-      const resp = await fetch(`${API_BASE_URL}/chat`, {
+      const resp = await fetch(apiUrl('/chat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
