@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from 'vite';
 
-export const DEVELOPMENT_API_BASE_URL = 'https://stockseer--ai-dev.onrender.com';
+export const DEVELOPMENT_API_BASE_URL = 'https://stockseer-ai-dev.onrender.com';
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export function assertDevelopmentApiTarget(branch, apiBaseUrl, isVercelBuild = false) {

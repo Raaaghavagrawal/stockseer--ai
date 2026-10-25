@@ -1,248 +1,224 @@
-# StockSeer.AI - AI-Powered Stock Analysis Platform
+# StockSeer.AI
 
-A comprehensive stock analysis platform with AI-powered insights, technical indicators, and real-time market data.
+StockSeer.AI is a stock research application with a React and TypeScript web frontend, a FastAPI backend, and a legacy Streamlit interface. It provides market data, charts, technical indicators, company and news research, watchlists, portfolio tools, alerts, financial planning, and data-backed risk analytics.
 
-## 🏗️ Project Structure
+## Project layout
 
-```
-stockseer--ai-main/
-├── backend/                    # FastAPI Backend Server
-│   ├── app.py                 # Main FastAPI application
-│   ├── stock_utils.py         # Stock data utilities
-│   ├── news_utils.py          # News scraping utilities
-│   ├── signal_utils.py        # Trading signal generation
-│   ├── logo_utils.py          # Company logo utilities
-│   ├── utils.py               # General utilities
-│   ├── ui_utils.py            # UI helper functions
-│   ├── about_tab.py           # About page content
-│   ├── requirements.txt       # Python dependencies
-│   ├── start_backend.py       # Backend startup script
-│   ├── start_backend.bat      # Windows batch file
-│   └── start_backend.sh       # Unix shell script
-├── stockseer-frontend/        # React Frontend Application
-│   ├── src/                   # React source code
-│   ├── public/                # Static assets
-│   ├── package.json           # Node.js dependencies
-│   └── vite.config.ts         # Vite configuration
-├── app.py                     # Original Streamlit application
-├── requirements.txt           # Streamlit dependencies
-├── start_stockseer.py         # Main launcher script
-├── start_stockseer.bat        # Windows launcher
-└── README.md                  # This file
+```text
+.
+├── backend/                 FastAPI API, market-data helpers, database and ML analytics
+│   ├── app.py               API application and routes
+│   ├── start_backend.py     Local and Render startup entry point
+│   ├── requirements.txt     Python dependencies
+│   └── ml_pipeline/         Risk analytics and forecast evaluation
+├── stockseer-frontend/      React, TypeScript and Vite application
+│   ├── src/                 Pages, components, services and API configuration
+│   ├── scripts/             Full-stack launcher and deployment API guard
+│   ├── .env.development     Local frontend API setting
+│   └── package.json         Frontend commands and dependencies
+├── app.py                   Legacy Streamlit application
+└── docker-compose.yml       Legacy Compose configuration (see note below)
 ```
 
-## 🚀 Quick Start
+## Requirements
 
-### Option 1: Start Everything (Recommended)
-```bash
-# Windows
-start_stockseer.bat
+- Python 3.11 is recommended for the backend. Set the development Render service to Python 3.11.9 if you want to pin its runtime.
+- Node.js compatible with Vite 7 (Node.js 20.19+ or 22.12+) and npm.
+- Git for cloning and branch-based development.
 
-# Or using Python
-python start_stockseer.py
-```
+## Run locally
 
-### Option 2: Start Backend Only
-```bash
+The React frontend and FastAPI backend run as separate processes. The checked-in `stockseer-frontend/.env.development` points the frontend to `http://127.0.0.1:8000`.
+
+### 1. Install backend dependencies
+
+From the repository root, on Windows PowerShell:
+
+```powershell
 cd backend
+py -3.11 -m venv .venv-local
+.\.venv-local\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+On macOS or Linux, create and activate a virtual environment with `python3 -m venv .venv-local` and `source .venv-local/bin/activate`, then install `backend/requirements.txt`.
+
+Start the API from the `backend` directory:
+
+```powershell
 python start_backend.py
 ```
 
-### Option 3: Start Frontend Only
-```bash
+The server listens on `http://127.0.0.1:8000` locally. The root and `/health` endpoints are lightweight health checks; interactive API documentation is at `/docs` and `/redoc`.
+
+### 2. Install and start the frontend
+
+Open a second terminal in the repository root:
+
+```powershell
 cd stockseer-frontend
-npm install
+npm ci
 npm run dev
 ```
 
-## 🔧 Backend Setup
+Vite serves the application at `http://localhost:3000`. Use `npm install` instead of `npm ci` if you are intentionally updating the lockfile.
 
-The backend is a FastAPI application that provides REST APIs for stock data, news, and analysis.
+### Optional launchers
 
-### Prerequisites
-- Python 3.8+
-- pip
+- `npm run dev:full` starts the FastAPI backend, the legacy Streamlit app, and the Vite frontend from the frontend directory. It may install missing Python packages into the selected Python environment; using an activated virtual environment is recommended.
+- `npm run backend` starts the FastAPI backend from the frontend directory.
+- `npm run streamlit` starts the legacy Streamlit app at port 8501.
+- `python app.py` runs the FastAPI entry point when executed from `backend`; the repository-root `app.py` is the Streamlit application.
 
-### Installation
-```bash
-cd backend
-pip install -r requirements.txt
-```
+The legacy Streamlit app has no separate root `requirements.txt` in this repository. Its dependencies are not fully described by `backend/requirements.txt`. The normal supported setup in this guide is the React frontend plus FastAPI backend.
 
-### Running the Backend
-```bash
-cd backend
-python start_backend.py
-```
+`docker-compose.yml` references `backend/Dockerfile`, which is not present in the repository, so that legacy Compose configuration cannot currently build the API service as written. Use the local Python and npm setup above.
 
-The backend will be available at:
-- **API**: http://localhost:8000
-- **Documentation**: http://localhost:8000/docs
-- **Alternative Docs**: http://localhost:8000/redoc
+## Frontend commands
 
-## 🎨 Frontend Setup
+Run from `stockseer-frontend`:
 
-The frontend is a React application built with Vite, TypeScript, and Tailwind CSS.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite development server on port 3000 |
+| `npm run dev:full` | Start the backend, Streamlit, and frontend together |
+| `npm run backend` | Start only the FastAPI backend |
+| `npm run streamlit` | Start only the legacy Streamlit app |
+| `npm run build` | Run TypeScript project checks, validate the deployment API target, and create the production bundle in `dist/` |
+| `npm run preview` | Preview the Vite production bundle locally |
+| `npm start` | Serve the existing `dist/` directory with the small Express static server |
+| `npm run serve` | Build and then serve the bundle |
+| `npm run lint` | Run ESLint |
 
-### Prerequisites
-- Node.js 16+
-- npm or yarn
+The build includes a deployment guard. On Vercel, it requires `VERCEL_GIT_COMMIT_REF` to be available and rejects a `master` build unless its API URL is the development backend. Other branches are not remapped automatically.
 
-### Installation
-```bash
-cd stockseer-frontend
-npm install
-```
+## API URL and environment configuration
 
-### Running the Frontend
-```bash
-cd stockseer-frontend
-npm run dev
-```
+All frontend calls to the FastAPI backend use the shared configuration in `src/utils/apiConfig.ts` and `VITE_API_BASE_URL`. Keep this variable name consistent; production builds require it, and there is no fallback from development to production or vice versa. API paths are joined to the configured backend root by the shared API helpers.
 
-The frontend will be available at: http://localhost:3000
+For local development, `stockseer-frontend/.env.development` sets:
 
-## 📊 Features
-
-### Backend Features
-- **Stock Data API**: Real-time stock prices and historical data
-- **Technical Analysis**: RSI, MACD, SMA, and other indicators
-- **News Aggregation**: Multiple news sources (Yahoo Finance, Google News, NewsAPI)
-- **Company Information**: Detailed company profiles and financials
-- **Trading Signals**: AI-powered buy/sell recommendations
-- **Portfolio Management**: Track and manage investments
-- **Life Planner**: Financial goal tracking
-- **Notes System**: Personal investment notes
-
-### Frontend Features
-- **Interactive Charts**: Candlestick and line charts with zoom functionality
-- **Real-time Updates**: Live stock prices and market data
-- **Responsive Design**: Works on desktop and mobile
-- **Dark Theme**: Modern dark UI design
-- **Tab Navigation**: Organized feature access
-- **Search Functionality**: Find stocks quickly
-- **Portfolio Tracking**: Visual portfolio management
-
-## 🔌 API Endpoints
-
-### Stock Data
-- `GET /stocks/{symbol}` - Get stock information
-- `GET /stocks/{symbol}/chart` - Get historical chart data
-- `GET /stocks/{symbol}/technical` - Get technical indicators
-- `GET /stocks/{symbol}/info` - Get company information
-- `GET /stocks/search-simple` - Search for stocks
-
-### News
-- `GET /stocks/{symbol}/news` - Get stock-specific news
-- `GET /news/scrape/google` - Get Google News
-- `GET /news/scrape/yahoo/{symbol}` - Get Yahoo Finance news
-
-### Portfolio
-- `GET /portfolio` - Get portfolio holdings
-- `POST /portfolio` - Add stock to portfolio
-- `PUT /portfolio/{symbol}` - Update holding
-- `DELETE /portfolio/{symbol}` - Remove from portfolio
-
-### Life Planner
-- `GET /life-planner/goals` - Get financial goals
-- `POST /life-planner/goals` - Create new goal
-- `PUT /life-planner/goals/{goal_id}` - Update goal
-- `DELETE /life-planner/goals/{goal_id}` - Delete goal
-
-### Notes
-- `GET /notes` - Get all notes
-- `POST /notes` - Create new note
-- `PUT /notes/{note_id}` - Update note
-- `DELETE /notes/{note_id}` - Delete note
-
-## 🛠️ Development
-
-### Backend Development
-```bash
-cd backend
-# Install dependencies
-pip install -r requirements.txt
-
-# Run with auto-reload
-python start_backend.py
-```
-
-### Frontend Development
-```bash
-cd stockseer-frontend
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-```
-
-## 📝 Configuration
-
-### Environment Variables
-Create a `.env` file in the backend directory:
 ```env
-NEWS_API_KEY=your_newsapi_key_here
+VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-### API Configuration
-The frontend uses a centralized API URL from `VITE_API_BASE_URL`. Local development uses `http://127.0.0.1:8000` (the FastAPI startup script's default). Production builds require `VITE_API_BASE_URL` and never fall back to a local address.
+`stockseer-frontend/.env.example` is a reference for this local setting. Vite loads `.env.development` while running `npm run dev`; restart Vite after changing environment files.
 
-### Separate development and production deployments
+The frontend reads these Firebase client settings from Vite environment variables when configuring authentication and Firestore. Supply the values from the Firebase project used by the deployment:
 
-The Vite frontend reads `VITE_API_BASE_URL` from the Vercel project environment. Keep this existing variable name; the source does not read `VITE_API_URL`. Set it independently in each Vercel project (Production environment scope):
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_MEASUREMENT_ID=
+```
 
-- Development Vercel project (`master`, `https://stockseerai-dev.vercel.app`): `VITE_API_BASE_URL=https://stockseer--ai-dev.onrender.com`.
-- Production Vercel project (`main`, `https://stockseer-ai.vercel.app`): keep `VITE_API_BASE_URL=https://stockseer-ai-1.onrender.com`.
+Use the appropriate Firebase project values for each frontend deployment. These are public client configuration embedded in the frontend bundle; never put server credentials or private keys in `VITE_` variables.
 
-For each Render service, set the root directory to `backend`, install with `pip install -r requirements.txt`, and start with `python start_backend.py`; the startup script binds to `0.0.0.0` and uses the platform-provided `PORT` in deployed environments. Set `CORS_ALLOWED_ORIGINS` independently on each Render service as a comma-separated exact origin list. The development service must include `https://stockseerai-dev.vercel.app`; the production service must continue including `https://stockseer-ai.vercel.app`. Local origins may also be included as needed. The FastAPI middleware preserves credentials and handles preflight requests with the configured methods and headers. No wildcard or Vercel-wide origin pattern is used. The API URL is public frontend configuration; never put backend credentials there.
+The backend loads environment variables with `python-dotenv`. `GEMINI_API_KEY` is used by the chat endpoint. `CORS_ALLOWED_ORIGINS` optionally configures the exact browser origins allowed by that backend service; when omitted, the backend uses its built-in defaults. Values are comma-separated origins, for example:
 
-Changing either Vercel environment variable requires a new deployment because Vite embeds it into the frontend build. Keep the development and production Vercel projects and Render services mapped to their matching branches and URLs.
+```env
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
 
-Set `PYTHON_VERSION=3.11.9` on the development Render service to pin its runtime without changing production. The repo has no Python runtime pin file; do not add a root `.python-version` unless both services should use that same version.
+The backend validates configured origins as HTTP(S) origins without paths or credentials. CORS allows credentials and the configured methods and headers. Do not use a wildcard origin with credentialed requests.
 
-Local Vite development reads `stockseer-frontend/.env.development`, which should set `VITE_API_BASE_URL=http://127.0.0.1:8000`. Start the backend in one terminal with `cd backend` then `python start_backend.py` (Windows users may use `py start_backend.py`); in another, run `cd stockseer-frontend`, `npm install`, and `npm run dev`. The backend health check is `GET http://127.0.0.1:8000/health`. Copy `.env.example` as a reference for other environments. Frontend build command: `npm run build` from `stockseer-frontend`.
+## Dev and production deployments
 
-### AI & Risk analysis methodology
+Keep the Vercel frontend projects and Render backend services mapped independently. Vite embeds `VITE_API_BASE_URL` into each frontend build, so changing a Vercel value requires a new deployment.
 
-`GET /api/ml/analysis/{ticker}?period=2y&horizon=5` returns ticker-keyed daily analytics based on Yahoo Finance history. Allowed periods are `1y`, `2y`, and `5y`; forecast horizons are 1, 5, and 20 trading sessions. The analysis drops invalid OHLC observations, deduplicates timestamps, uses adjusted close when complete, and returns a structured 503 when data cannot support analysis. A 15-minute in-process cache is keyed by ticker, period, horizon, and analysis version; cache entries are not persisted across service restarts.
+| Environment | Frontend | Branch | Backend | Vercel `VITE_API_BASE_URL` |
+| --- | --- | --- | --- | --- |
+| Development | `https://stockseerai-dev.vercel.app` | `master` | `https://stockseer-ai-dev.onrender.com` | `https://stockseer-ai-dev.onrender.com` |
+| Production | `https://stockseer-ai.vercel.app` | `main` | `https://stockseer-ai-1.onrender.com` | `https://stockseer-ai-1.onrender.com` |
 
-The risk score averages three equally weighted trailing-history percentiles: 63-session annualized volatility, 63-session maximum drawdown, and 63-session historical 95% VaR. Equal weights are explicit because the inputs share one percentile scale and this repository has no outcome-calibrated weighting study; the score does not claim learned weights. It requires all three percentile histories (at least 60 rolling observations) and is a relative historical rank, not a probability. Classification bands are quintiles of that 0–100 rank: Low (0–20), Moderate (20–40), Elevated (40–60), High (60–80), and Very High (80–100). Annualized statistics use 252 trading sessions; Sharpe assumes a zero risk-free rate. Historical VaR/CVaR use the empirical daily-return tail.
+Configure the `VITE_API_BASE_URL` value in the **Production** environment scope of each separate Vercel project, and ensure each project deploys its listed branch. Enable Vercel system environment variables so the build can check its branch. The deployment guard specifically protects `master` from accidentally building with a production or missing API URL.
 
-Forecasts use standardized ridge regression (alpha 1) with lagged returns, SMA gap, RSI, and rolling volatility. The model is evaluated on expanding-window, chronological, non-overlapping forecast origins; training labels are purged until their horizon outcome is known. The zero-return forecast is the baseline. A point estimate is shown only with at least 60 test origins, lower MAE than the baseline, and directional accuracy above 50%; otherwise the estimate is withheld. The fit and evaluation are cached in process for 15 minutes. No probability or prediction interval is claimed. The previous TSLA-model fallback and unvalidated `/ml/predict` and `/predictions/{ticker}` endpoints now return HTTP 410. Forecast-versus-actual history is not charted because forecasts are not persisted before outcomes occur.
+Configure each Render service independently:
 
-Run the same offline evaluation from the backend with `python -m ml_pipeline.train --ticker TCS.NS --period 5y --horizon 5` after installing `backend/requirements.txt`. It requires provider history and exits with status 2 when data cannot support an evaluation; it does not write a model artifact.
+- Root directory: `backend`
+- Build/install command: `pip install -r requirements.txt`
+- Start command: `python start_backend.py`
+- Development service: set `CORS_ALLOWED_ORIGINS` to include `https://stockseerai-dev.vercel.app`.
+- Production service: preserve the existing production CORS configuration and ensure it continues to allow `https://stockseer-ai.vercel.app`.
+- Development service runtime: `PYTHON_VERSION=3.11.9`.
 
-## 🐛 Troubleshooting
+The start script binds to `127.0.0.1:8000` in local development. When Render provides `PORT`, it binds to `0.0.0.0` on that port and disables reload by default. The backend does not add the development Vercel origin to shared CORS defaults; set it only on the development Render service. After changing a Render environment value, redeploy or restart that service.
 
-### Backend Issues
-1. **Import Errors**: Make sure all dependencies are installed
-2. **Port Already in Use**: Change the port in `start_backend.py`
-3. **API Key Issues**: Check your NewsAPI key in environment variables
+## API overview
 
-### Frontend Issues
-1. **Build Errors**: Clear node_modules and reinstall
-2. **API Connection**: Ensure backend is running on port 8000
-3. **CORS Issues**: Backend has CORS enabled for localhost:3000
+The FastAPI app documents its complete, current route schema at `/openapi.json`; use `/docs` for the interactive view. Main route groups include:
 
-## 📄 License
+- Health: `GET /`, `GET /health`, and `GET /health/deep`
+- Stock data: `/stocks/{symbol}`, chart, technical indicators, financials, company information, and search endpoints
+- News: stock news, market news, and provider-backed news scraping endpoints
+- Market data and analysis: `/api/metals`, `/market/simulation`, `/screener/run`, and `/api/ml/analysis/{symbol}`
+- User features: watchlists, portfolios, alerts, notes, life-planner goals, subscription access, and dummy-account routes
+- Research features: live research notes and analysis reports
+- Chat: `/chat` and `/chatbot/query` (the Gemini-backed chat endpoint requires `GEMINI_API_KEY`)
 
-This project is licensed under the MIT License.
+For the validated risk analysis endpoint, an example request is:
 
-## 🤝 Contributing
+```text
+GET /api/ml/analysis/TCS.NS?period=2y&horizon=5
+```
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+Allowed periods are `1y`, `2y`, and `5y`; forecast horizons are 1, 5, and 20 trading sessions. This analysis uses Yahoo Finance history, validates and cleans observations, and returns structured data quality and risk metrics. Results are cached in process for 15 minutes; the cache is not shared across workers or persisted across restarts. Insufficient or unavailable history returns an error rather than silently substituting a different ticker or model.
 
-## 📞 Support
+Risk score details:
 
-For support and questions:
-- Create an issue on GitHub
-- Check the API documentation at http://localhost:8000/docs
-- Review the troubleshooting section above
+- The score combines equal weighted trailing-history percentiles for 63-session annualized volatility, maximum drawdown, and historical 95% VaR. Equal weights are transparent defaults, not learned or outcome-calibrated weights.
+- The score is a relative historical rank, not a probability. It requires enough history for all three components. Classification bands divide the 0-100 scale into Low, Moderate, Elevated, High, and Very High quintiles.
+- Annualized statistics use 252 trading sessions. Sharpe uses a zero risk-free rate. VaR and CVaR use the empirical daily-return tail.
+- Forecasts use standardized ridge regression with lagged returns, SMA gap, RSI, and rolling volatility. Evaluation uses expanding chronological windows, non-overlapping forecast origins, and purges training labels until their horizon outcome is known. A zero-return forecast is the baseline.
+- A point estimate is shown only when there are at least 60 test origins, the model has lower MAE than the baseline, and directional accuracy exceeds 50%. Otherwise the forecast estimate is withheld. No probability or prediction interval is claimed.
+- Legacy heuristic prediction endpoints return HTTP 410 and direct clients to `/api/ml/analysis/{symbol}`. Forecast-versus-actual history is not charted because forecasts are not persisted before outcomes occur.
+
+To run the same offline evaluation after installing backend requirements:
+
+```powershell
+cd backend
+python -m ml_pipeline.train --ticker TCS.NS --period 5y --horizon 5
+```
+
+It retrieves provider history, prints the evaluation as JSON, writes no model artifact, and exits with status 2 when it cannot evaluate the data.
+
+## Troubleshooting
+
+### Frontend reports a connection error
+
+1. Confirm the backend is running and `http://127.0.0.1:8000/health` returns JSON with `"status": "ok"`.
+2. Confirm `stockseer-frontend/.env.development` points to `http://127.0.0.1:8000` for local Vite development.
+3. Restart Vite after editing `.env.development`; Vite reads environment values at startup and embeds build values into bundles.
+4. For a deployed frontend, check that its Vercel `VITE_API_BASE_URL` matches the backend in the deployment table, then redeploy.
+5. If the browser console reports CORS, check the matching Render service's `CORS_ALLOWED_ORIGINS` for the exact frontend origin, including scheme and hostname.
+
+### Backend does not start
+
+1. Activate the intended Python environment and install `backend/requirements.txt`.
+2. Run `python start_backend.py` from the `backend` directory so local imports resolve correctly.
+3. Check whether another process is using port 8000. Set `PORT` to another port for local use and set the same value in `VITE_API_BASE_URL` if you change it.
+4. Inspect the first Python traceback for the missing module or configuration error.
+
+### Vercel build rejects the API target
+
+Check the project's Git branch, `VITE_API_BASE_URL`, and availability of Vercel system environment variables. The `master` development build must use `https://stockseer-ai-dev.onrender.com`. The production project's `main` build should retain `https://stockseer-ai-1.onrender.com`.
+
+## Data and operational notes
+
+- Market history and related information are fetched from external providers such as Yahoo Finance; availability, freshness, and rate limits depend on those providers.
+- Database and background scheduler initialization run as a background startup task. The deep health route checks database connectivity; `/health` is intended as a lightweight process health check.
+- The backend includes local SQLite support and optional database connection behavior in `database.py`. Do not assume local files on a hosted service provide durable storage.
+- API URL values in frontend bundles are public. Keep secrets such as `GEMINI_API_KEY` and database credentials in backend-only environment settings.
+
+## Contributing
+
+1. Create a branch from the intended base (`master` for development or `main` for production).
+2. Install backend and frontend dependencies using the steps above.
+3. Keep local settings in ignored environment files and never commit secrets.
+4. Run relevant checks before opening a pull request. For frontend changes, `npm run build` runs TypeScript checks and the deployment API guard; `npm run lint` runs ESLint.
+5. Confirm deployment environment values remain scoped to the correct Vercel project and Render service.
